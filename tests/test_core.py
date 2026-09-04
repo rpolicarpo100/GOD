@@ -88,6 +88,38 @@ class Providers(unittest.TestCase):
             "",
         )
 
+    def test_llm_prompt_is_constitution_not_essay(self):
+        from superai.runtime import _llm_prompt
+
+        p = _llm_prompt("oi", [])
+        self.assertIn("GOD", p)
+        self.assertIn("SearXNG", p)
+        self.assertIn("USER: oi", p)
+        self.assertLess(len(p), 1200)
+
+    def test_quem_es_goes_to_llm_path(self):
+        from superai.providers import any_llm
+        from superai.runtime import handle
+
+        r = handle("quem és")
+        if any_llm():
+            self.assertIn(r.get("via"), ("queue", "llm", "llm_fail", "os_admit", "cache"))
+            self.assertNotEqual(r.get("via"), "roadmap")
+        else:
+            self.assertIn(r.get("via"), ("blocked", "llm_fail", "no_provider"))
+
+    def test_roadmap_stays_shortcut(self):
+        from superai.runtime import handle
+
+        r = handle("roadmap")
+        self.assertEqual(r.get("via"), "roadmap")
+
+    def test_web_search_refused(self):
+        from superai.runtime import handle
+
+        r = handle("pesquisa na web alternativas ao n8n")
+        self.assertEqual(r.get("via"), "no_web")
+
     def test_format_leads_with_speech(self):
         from superai.runtime import _format_result
 
@@ -226,7 +258,7 @@ class NoFakeCompute(unittest.TestCase):
 
         r = handle("explica o conceito QW-LLM-7a1 em duas frases")
         if any_llm():
-            self.assertIn(r.get("via"), ("queue", "llm", "llm_fail", "os_admit"))
+            self.assertIn(r.get("via"), ("queue", "llm", "llm_fail", "os_admit", "cache"))
         else:
             self.assertEqual(r.get("via"), "blocked")
 

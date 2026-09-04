@@ -83,7 +83,7 @@ flowchart TB
 
 ## Handoff (próximo trabalhador)
 
-- **Feito:** F0–F7. Chat-model filter. `_format_result` lidera com texto do LLM.
-- **A fazer:** F8 Plane só depois de workspace; cost UNKNOWN.
+- **Feito:** F0–F7. Chat-model filter. Constituição curta. «quem és» → LLM. Pesquisa web recusada sem SearXNG.
+- **A fazer:** F8 Plane só depois de workspace; cost UNKNOWN. Sem agentes/nós extra.
 - **Deploy GitHub:** **SIM** `origin/main` https://github.com/rpolicarpo100/GOD
 - **Não reescrever** Brain / Router / Governor / Memory / Evolution.

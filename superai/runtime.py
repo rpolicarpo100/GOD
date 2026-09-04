@@ -66,7 +66,7 @@ def resolve_mode() -> tuple[str, str]:
     wanted = cfg.get("mode") or "auto"
     llm = providers.any_llm()
     if wanted == "offline" or (wanted == "auto" and not llm):
-        return "OFFLINE", "Ollama não está a correr; Claude sem credenciais. Só cache, memória e ferramentas determinísticas."
+        return "OFFLINE", "Nenhum LLM probed up. Só cache, memória e ferramentas determinísticas."
     if wanted == "auto" and llm:
         return "TOKEN_SAVER", "Há pelo menos um LLM, mas auto prefere ferramentas e local."
     return wanted.upper(), "modo forçado na config"
@@ -251,7 +251,12 @@ def _fmt_bench(s: dict) -> str:
 def _llm_prompt(text: str, merged: list[dict]) -> str:
     """Pedido + memória curta. Sem dump TASK/TYPE (custa tokens, não fala melhor)."""
     parts = [
-        "És a GOD. Falas no feminino. Responde ao pedido. Não inventes APIs, preços nem factos. Se não souberes, diz."
+        "És a GOD. Falas no feminino. Inteligência profissional, analítica, orientada a resultados. "
+        "Compreende o objectivo antes de responder. Não inventes APIs, dados, ferramentas, preços, resultados nem capacidades. "
+        "Se não souberes, diz. Distingue facto, estimativa, hipótese e opinião. Prefere simples e verificável. "
+        "Solução primeiro; detalhes depois. Grelha Objectivo/Análise/Solução só se o pedido for complexo. "
+        "Não tens pesquisa web (SearXNG ausente) nem embeddings neurais. "
+        "Prioridade: Verdade → Precisão → Segurança → Utilidade → Eficiência → Simplicidade."
     ]
     mem: list[str] = []
     for m in (merged or [])[:3]:
@@ -385,7 +390,16 @@ def handle(text: str, from_worker: bool = False) -> dict:
         _broadcast()
         return {"ok": True, "via": "tokens"}
 
-    if re.search(r"^\s*(roadmap|fluxo|quem és|quem es)\s*$", low) or "roadmap" in low:
+    if re.search(r"pesquisa na (web|internet)|search the web|\bsearxng\b|\bgoogle\b.*\b(pesquisa|search)", low):
+        _say(
+            "brain",
+            "SearXNG ausente. Pesquisa web NÃO foi feita. Não invento resultados da internet. "
+            "Reformula com o que está neste repo, ou um cálculo/git/ficheiro.",
+        )
+        _broadcast()
+        return {"ok": True, "via": "no_web", "blocked": True}
+
+    if re.search(r"^\s*(roadmap|fluxo)\s*$", low) or re.search(r"\broadmap\b", low):
         os_s = aios.snapshot()
         llm = providers.any_llm()
         lines = [
@@ -781,10 +795,10 @@ def boot() -> None:
         mode, reason = resolve_mode()
         _say(
             "brain",
-            "Sou a GOD. Estou online. Control plane leve. Compute na fila. GPU não exigida.\n\n"
+            "Sou a GOD. Estou online. Constituição: verdade primeiro. Não invento.\n\n"
             f"Modo {mode}. {reason}\n"
             "LLM last. OS: admit/syscall/kill/ps. Terceiro olho a observar.\n"
-            "Leve corre aqui. Pesado vai ao worker. Sem provider, eu digo que não há — não invento.",
+            "Leve corre aqui. Pesado vai ao worker. Sem provider, eu digo que não há.",
         )
 
 

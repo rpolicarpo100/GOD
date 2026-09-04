@@ -1,5 +1,5 @@
-# SUPER AI — configuração verificada neste host (2026-09-04)
-# O que NÃO está disponível não é inventado: fica marked unavailable.
+# GOD — config verificada neste host (2026-09-04)
+# Ausente = unavailable. Não se inventa.
 
 mode: auto  # auto | token_saver | conservative | offline | normal
 
@@ -26,13 +26,15 @@ thresholds:
   max_retries: 3
 
 unverified_or_absent:
-  - PostgreSQL (usar SQLite)
-  - Redis/Valkey (usar cache em SQLite)
-  - Qdrant
-  - Ollama (porta 11434 fechada)
-  - Claude API (sem credenciais)
-  - OmniRoute
+  - PostgreSQL (SQLite em uso)
+  - Redis/Valkey (cache SQLite)
+  - Qdrant server :6333 (embedded local sim)
+  - embeddings neurais (HashingVectorizer 384)
+  - Ollama :11434 fechado
+  - OmniRoute :20128 fechado
   - SearXNG
   - Docker
-  - OpenTelemetry exporter
-  - model quality benchmarks (n=0)
+  - Plane no produto (sem workspace_slug)
+  - preços de modelos (cost=UNKNOWN)
+  - Langfuse / LiteLLM
+  - voz / imagem / nós laptop-mobile
