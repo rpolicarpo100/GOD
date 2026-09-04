@@ -20,7 +20,12 @@ class Analyzer(unittest.TestCase):
     def test_math(self):
         t = analyze("calcula 2+2*3")
         self.assertEqual(t["type"], "math")
+        self.assertEqual(t["exec_mode"], "FAST")
         self.assertIn("calculator", t["tool_requirement"])
+
+    def test_coding_is_deep(self):
+        t = analyze("implementa um refactor da arquitectura deste sistema crítico")
+        self.assertEqual(t["exec_mode"], "DEEP")
 
     def test_git(self):
         t = analyze("git status")
@@ -333,6 +338,7 @@ class TokenIntel(unittest.TestCase):
         h = host()
         self.assertEqual(n["kind"], "USER_DECLARED")
         self.assertEqual(n["ram_gb"], 24)
+        self.assertEqual(n["disk_gb"], 2048)
         self.assertEqual(n["cores"], 4)
         self.assertFalse(n["gpu_required"])
         self.assertEqual(n["caps"]["ram_gb_max"], 12.0)
@@ -722,6 +728,33 @@ class RepairMemBudget(unittest.TestCase):
         texts = " ".join(str(x.get("text") or "") for x in mini)
         self.assertIn("mini-xyz", texts)
         self.assertNotIn("master-abc", texts)
+
+
+class God20Sprint1(unittest.TestCase):
+    def test_fast_math_skips_vector_and_records_latency(self):
+        from superai.runtime import handle, snapshot
+
+        r = handle("calcula 41*3")
+        self.assertIn(r.get("via"), ("tools", "cache"))
+        p = snapshot().get("last_pipeline") or {}
+        if r.get("via") == "tools":
+            self.assertTrue(p.get("fast"))
+            self.assertEqual((p.get("task") or {}).get("exec_mode"), "FAST")
+            self.assertIn("vector", p.get("skipped_heavy") or [])
+            self.assertNotIn("vector_cache", p)
+            self.assertEqual(p.get("latency_kind"), "MEASURED")
+            self.assertIsInstance(p.get("latency_ms"), (int, float))
+
+    def test_plane_probe_no_fake_board(self):
+        from superai.plane import probe
+
+        p = probe()
+        self.assertEqual(p["kind"], "MEASURED")
+        self.assertFalse(p["in_product"])
+        self.assertIsNone(p.get("issues"))
+        if p.get("has_key"):
+            self.assertIn(p.get("workspace_found"), (True, False))
+            self.assertEqual(p.get("workspace_slug"), "GODSX")
 
 
 if __name__ == "__main__":

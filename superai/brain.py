@@ -52,6 +52,13 @@ def analyze(text: str) -> dict:
     # estimated total if we were to call an LLM with a short system prompt
     estimated = tok["tokens"] + 48
 
+    if ttype in ("math", "status", "git", "files", "parse") and complexity <= 3:
+        exec_mode = "FAST"
+    elif ttype in ("coding", "research") or complexity >= 7:
+        exec_mode = "DEEP"
+    else:
+        exec_mode = "NORMAL"
+
     tools_needed = []
     if ttype == "math":
         tools_needed = ["calculator"]
@@ -83,6 +90,7 @@ def analyze(text: str) -> dict:
         "historical_success_rate": None,
         "acceptable_failure_rate": 0.1,
         "reasoning_budget": "low" if complexity <= 3 else "medium" if complexity <= 6 else "high" if complexity <= 8 else "maximum",
+        "exec_mode": exec_mode,
         "ts": now_iso(),
         "status": "analyzed",
         "text": t,

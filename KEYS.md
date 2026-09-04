@@ -26,7 +26,7 @@ Probe HTTP 200 neste host: Groq, Cerebras, Gemini, OpenRouter, Inference.net, Z.
 | HuggingFace token | [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) | whoami only — sem adapter de completions |
 | Cloudflare R2 | [developers.cloudflare.com/r2](https://developers.cloudflare.com/r2/) | S3 storage |
 | OmniRoute npm `:20128` | [npmjs.com/package/omniroute](https://www.npmjs.com/package/omniroute) | **down** neste host (EACCES no install global) |
-| Plane | [developers.plane.so](https://developers.plane.so/) · API `https://api.plane.so/` header `X-API-Key` | project id `GODSX` USER_DECLARED. Sem `PLANE_API_KEY` neste host. **Sem adapter.** |
+| Plane | [developers.plane.so](https://developers.plane.so/) · API `https://api.plane.so/` header `X-API-Key` | chave no `.env`. `users/me` 200. Workspace `GODSX` **404**. Sem board. Sem issues. |
 | Langfuse / LiteLLM | — | ausentes; **não** obrigatórios |
 | Preços | — | `cost=UNKNOWN` até haver `source` verificável |
 
@@ -34,7 +34,7 @@ Probe HTTP 200 neste host: Groq, Cerebras, Gemini, OpenRouter, Inference.net, Z.
 
 - Ollama local (RAM ~2 GB — modelos grandes **não cabem**).
 - OmniRoute processo.
-- Plane `PLANE_API_KEY` + `PLANE_WORKSPACE_SLUG` (GODSX sozinho não abre a API).
+- Plane: workspace slug **real** da URL `app.plane.so/{slug}` — `GODSX` deu 404. Project UUID se for diferente do nome.
 - Tabela de preços com source.
 
 Rodar as keys que foram coladas no chat.

@@ -69,6 +69,7 @@ def declared_node() -> dict:
         "board": n.get("board"),
         "nic": n.get("nic"),
         "disk": n.get("disk"),
+        "disk_gb": n.get("disk_gb"),
         "caps": {
             "ram_gb_max": round(ram_gb * rf, 1) if ram_gb else None,
             "cores_max": max(1, int(cores * cf)) if cores else None,

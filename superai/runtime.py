@@ -7,7 +7,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-from . import aios, benchmark, evolution, observer, providers, queue as tq, resources, routing, tokens as ti
+from . import aios, benchmark, evolution, observer, plane, providers, queue as tq, resources, routing, tokens as ti
 from .brain import analyze, cache_lookup, cache_store, context_pack, evaluate
 from .config import ROOT, cfg
 from .events import bus
@@ -40,6 +40,16 @@ def _say(role: str, text: str, replace_prefix: str | None = None) -> dict:
     bus.emit("CHAT", "INFO", f"{role}: {text[:80]}")
     _broadcast()
     return msg
+
+
+def _set_pipe(p: dict) -> None:
+    global _last_pipeline
+    t0 = p.pop("t0", None)
+    if t0 is not None:
+        p["latency_ms"] = round((time.perf_counter() - float(t0)) * 1000, 1)
+        p["latency_kind"] = "MEASURED"
+    with _lock:
+        _last_pipeline = p
 
 
 def _broadcast() -> None:
@@ -110,6 +120,7 @@ def snapshot() -> dict:
         "pc_node": resources.declared_node(),
         "layout": resources.layout(),
         "inflight": resources.inflight_cap(),
+        "plane": plane.status(),
         "queue": tq.stats(),
         "workers": tq.list_workers(),
         "jobs": tq.jobs(12),
@@ -650,18 +661,22 @@ def handle(text: str, from_worker: bool = False) -> dict:
     bus.emit("TASK_CREATED", "INFO", f"{task['task_id']} · {task['type']} · est {task['estimated_tokens']} tok")
 
     pipeline = {
-        "task": {k: task[k] for k in ("task_id", "type", "complexity", "reasoning_required", "estimated_tokens", "reasoning_budget", "privacy", "tool_requirement")},
+        "task": {k: task[k] for k in ("task_id", "type", "complexity", "exec_mode", "reasoning_required", "estimated_tokens", "reasoning_budget", "privacy", "tool_requirement")},
         "cache": "miss",
         "memory_hits": 0,
         "firewall": None,
         "route": [],
         "providers": providers.health_all(),
+        "t0": time.perf_counter(),
     }
+    fast = (task.get("exec_mode") or "") == "FAST"
+    pipeline["fast"] = fast
+    pipeline["skipped_heavy"] = ["vector", "memory"] if fast else []
 
-    # 2 cache (hash then semantic / Qdrant)
+    # 2 cache (hash then semantic / Qdrant). FAST: só hash.
     gid = gods.active_id()
     hit = cache_lookup(text, gid)
-    if not hit and cfg.get("evolution_policy", "semantic_cache", default=True) is not False and vectors.available():
+    if not hit and not fast and cfg.get("evolution_policy", "semantic_cache", default=True) is not False and vectors.available():
         sem = vectors.search("cache", text, k=1, min_score=0.88, god_id=gid)
         pipeline["vector_cache"] = sem[:1]
         if sem and sem[0].get("key"):
@@ -685,7 +700,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
             via="cache",
         )
         with _lock:
-            _last_pipeline = pipeline
+            _set_pipe(pipeline)
         summ = hit["result"].get("summary") if isinstance(hit.get("result"), dict) else hit.get("result")
         if isinstance(summ, str) and summ.strip():
             _say("brain", summ)
@@ -703,9 +718,9 @@ def handle(text: str, from_worker: bool = False) -> dict:
     store.incr("cache_misses")
     bus.emit("CACHE_MISS", "INFO", task["task_id"])
 
-    # 3 memory
+    # 3 memory — FAST não pesquisa vector/SQL (spec 2.0 quick path)
     gact = gods.active()
-    if gact.get("memory", True) is False:
+    if fast or gact.get("memory", True) is False:
         mem, vec_mem = [], []
     else:
         gid = gods.active_id()
@@ -744,7 +759,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
         task["status"] = "rejected"
         store.save_task(task)
         with _lock:
-            _last_pipeline = pipeline
+            _set_pipe(pipeline)
         _say("brain", _format_result(task, pipeline, [], None, "Firewall rejeitou a chamada. Comprime, reduz âmbito, ou sobe o budget."))
         _broadcast()
         return {"ok": True, "via": "firewall"}
@@ -762,7 +777,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
             task["via"] = "queue"
             store.save_task(task)
             with _lock:
-                _last_pipeline = pipeline
+                _set_pipe(pipeline)
             return q
 
     if plan["steps"] and not (len(plan["steps"]) == 1 and plan["steps"][0].get("kind") == "status"):
@@ -798,7 +813,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
         bus.emit("TASK_COMPLETED", "INFO", f"{task['task_id']} overall {scores['OVERALL']} via tools")
         pipeline["scores"] = scores
         with _lock:
-            _last_pipeline = pipeline
+            _set_pipe(pipeline)
         _say("brain", _format_result(task, pipeline, tool_results, scores, None))
         _broadcast()
         return {"ok": True, "via": "tools"}
@@ -821,7 +836,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
         task["via"] = "state"
         store.save_task(task)
         with _lock:
-            _last_pipeline = pipeline
+            _set_pipe(pipeline)
         _say("brain", _format_result(task, pipeline, tool_results, scores, None))
         _broadcast()
         return {"ok": True, "via": "state"}
@@ -853,7 +868,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
         task["via"] = "no_provider"
         store.save_task(task)
         with _lock:
-            _last_pipeline = pipeline
+            _set_pipe(pipeline)
         _say("brain", _format_result(task, pipeline, [], scores, blocked))
         _broadcast()
         return {"ok": True, "via": "blocked"}
@@ -881,7 +896,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
         task["via"] = "llm_fail"
         store.save_task(task)
         with _lock:
-            _last_pipeline = pipeline
+            _set_pipe(pipeline)
         _say("brain", _format_result(task, pipeline, [], scores, f"Gateway {gw['active']} falhou: {res.get('error')}"))
         _broadcast()
         return {"ok": True, "via": "llm_fail"}
@@ -921,7 +936,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
     task["via"] = "llm"
     store.save_task(task)
     with _lock:
-        _last_pipeline = pipeline
+        _set_pipe(pipeline)
     _say("brain", speech, replace_prefix="Um momento")
     _broadcast()
     return {"ok": True, "via": "llm"}

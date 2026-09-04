@@ -3,7 +3,7 @@
 Ela chama-se **GOD**. Fonte: código em `/home/user/super-ai` + sondas neste host. Sem marketing.
 
 **GitHub:** [rpolicarpo100/GOD](https://github.com/rpolicarpo100/GOD) — `origin/main` em `bb9ffec`. Local **à frente** (`7b8902f`+). Push desta sessão: SSH **Permission denied**.  
-**Plane:** API `users/me` 200. **Não há adapter no produto.** Sem `workspace_slug`.  
+**Plane:** `users/me` 200. Workspace `GODSX` **404 MEASURED**. Sem board. Sem issues.  
 **LLM:** Ollama :11434 fechado · OmniRoute :20128 fechado · APIs probed. Modo **TOKEN_SAVER**.  
 **GPU:** ausente, `required=false`.
 
@@ -47,6 +47,7 @@ flowchart LR
 | F13 | Repair MEASURED + memória por perfil + rollback | **FEITO** | `superai/repair.py` · `kinds=` · `history/` |
 | F14 | Isolamento cache/Qdrant por `god_id` | **FEITO** | post-filter payload |
 | F15 | Custo 3 baldes + PC i5-4590 caps 50% | **FEITO** | 22€ IVA incluído USER_STATED ≠ API UNKNOWN. layout `applied_here=false` |
+| F16 | GOD 2.0 audit + FAST path | **FEITO** | `GOD20.md`. FAST skip vector/mem. Plane probe MEASURED. AUTONOMOUS/DAG **não**. Disco 2TB USER_DECLARED |
 
 ## Não adicionar agora
 

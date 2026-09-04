@@ -302,7 +302,7 @@ function paint(s){
   const p=s.last_pipeline;
   if(p){
     $('pipe').textContent =
-      `rota ${(p.route||[]).join(' → ') || '—'}\ncache ${p.cache} · mem ${p.memory_hits} · fw ${(p.firewall&&p.firewall.action)||'n/a'}`;
+      `rota ${(p.route||[]).join(' → ') || '—'}\nmode ${(p.task&&p.task.exec_mode)||''} fast=${p.fast||false} ${p.latency_ms!=null?p.latency_ms+'ms MEASURED':''}\ncache ${p.cache} · mem ${p.memory_hits} · fw ${(p.firewall&&p.firewall.action)||'n/a'}`;
   }
 
   $('tool-list').innerHTML = (s.tools||[]).map(t=>`
@@ -339,7 +339,9 @@ function paint(s){
     ${(() => { const n=s.pc_node||{}; const cap=n.caps||{}; return `
     <div class="d">PC NODE ${esc(n.kind||'UNKNOWN')} ${esc(n.cpu||'')} · ${n.cores??'—'}c · ${n.ram_gb??'—'}GB · GPU ${esc(n.gpu||'')} required=false</div>
     <div class="d">caps GOD ≤${cap.ram_gb_max??'—'}GB RAM · ≤${cap.cores_max??'—'} cores · gpu_for_llm=${cap.gpu_for_llm} · ${esc(cap.note||'nunca totalidade')}</div>
-    <div class="d">este processo ≠ esse PC: ${n.this_process_is_not_that_pc}</div>`; })()}
+    <div class="d">este processo ≠ esse PC: ${n.this_process_is_not_that_pc} · disco ${esc(n.disk||'')} ${n.disk_gb??''}GB</div>`; })()}
+    ${(() => { const pl=s.plane||{}; return `
+    <div class="d">PLANE ${esc(pl.kind||'UNKNOWN')} me=${pl.me_http??'—'} ws=${esc(pl.workspace_slug||'')} found=${pl.workspace_found} ${esc(pl.workspace_error||pl.error||'')} · in_product=${pl.in_product} · issues=${pl.issues==null?'null':'probed'}</div>`; })()}
     <div class="d">FORECAST ${esc(f.status||f.kind||'UNKNOWN')} ${esc(f.reason||'')}</div>
     <div class="d">budget daily ${b.daily ? b.daily.used_measured+'/'+b.daily.limit : '—'} hard=${b.daily && b.daily.hard}</div>`; })()}
     ${pend? `<div class="d">PENDENTE ${esc(pend.id)} ${esc(pend.title)}</div>

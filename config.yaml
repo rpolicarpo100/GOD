@@ -43,13 +43,13 @@ cost:
   infrastructure:
     kind: UNKNOWN
 
-# Plane: project id dito pelo utilizador. Sem chave neste .env → sem adapter.
+# Plane: slug/project ditos pelo utilizador. Probe em superai/plane.py. Sem issues inventadas.
 plane:
   kind: USER_DECLARED
   project_id: GODSX
-  workspace_slug: null
+  workspace_slug: GODSX
   in_product: false
-  reason: "GODSX USER_DECLARED. Sem PLANE_API_KEY sondada. Sem issues da API. Não fingir board."
+  reason: "users/me MEASURED. Workspace GODSX 404 nesta sonda — sem board no produto."
 
 # Máquina do utilizador (foto 2026-09-04). NÃO é este sandbox.
 pc_node:
@@ -61,7 +61,8 @@ pc_node:
   gpu_required: false
   board: ASUS PRIME Z270-P
   nic: Intel I217-LM
-  disk: muito — GB exactos não na foto
+  disk: 2TB USER_DECLARED
+  disk_gb: 2048
   caps:
     ram_fraction_max: 0.5
     cpu_fraction_max: 0.5
@@ -77,7 +78,7 @@ unverified_or_absent:
   - OmniRoute :20128 fechado
   - SearXNG
   - Docker
-  - Plane no produto (sem workspace_slug)
+  - Plane workspace GODSX 404 MEASURED (users/me 200; sem board)
   - API €/1M (cost=UNKNOWN — tabela Claude não se aplica a Groq)
   - Langfuse / LiteLLM
   - voz / imagem / nós laptop-mobile
