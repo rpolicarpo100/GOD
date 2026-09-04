@@ -241,8 +241,9 @@ def _index_task(task: dict, text: str, scores: dict) -> None:
     try:
         from .util import normalize_query, sha
 
-        vectors.upsert("memory", task["task_id"], text, {"type": task.get("type"), "overall": scores.get("OVERALL")})
-        vectors.upsert("cache", sha(normalize_query(text)), text, {"task_id": task["task_id"]})
+        gid = gods.active_id()
+        vectors.upsert("memory", task["task_id"], text, {"type": task.get("type"), "overall": scores.get("OVERALL"), "god_id": gid})
+        vectors.upsert("cache", sha(normalize_query(text) + f"\n{gid}"), text, {"task_id": task["task_id"], "god_id": gid})
     except Exception:
         pass
 
@@ -652,9 +653,10 @@ def handle(text: str, from_worker: bool = False) -> dict:
     }
 
     # 2 cache (hash then semantic / Qdrant)
-    hit = cache_lookup(text)
+    gid = gods.active_id()
+    hit = cache_lookup(text, gid)
     if not hit and cfg.get("evolution_policy", "semantic_cache", default=True) is not False and vectors.available():
-        sem = vectors.search("cache", text, k=1, min_score=0.88)
+        sem = vectors.search("cache", text, k=1, min_score=0.88, god_id=gid)
         pipeline["vector_cache"] = sem[:1]
         if sem and sem[0].get("key"):
             hit = store.cache_get(sem[0]["key"])
@@ -703,7 +705,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
         gid = gods.active_id()
         kinds = ["episode", "episode:master"] if gid == "master" else [f"episode:{gid}"]
         mem = store.mem_search(text, kinds=kinds)
-        vec_mem = vectors.search("memory", text, k=5, min_score=0.35) if vectors.available() else []
+        vec_mem = vectors.search("memory", text, k=5, min_score=0.35, god_id=gid) if vectors.available() else []
     pipeline["memory_hits"] = len(mem)
     pipeline["vector_hits"] = vec_mem
     merged = list(mem)
@@ -781,7 +783,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
             route_advice=pipeline.get("route_token"),
         )
         store.mem_put(f"episode:{gods.active_id()}", task["title"], {"task_id": task["task_id"], "type": task["type"], "overall": scores["OVERALL"]})
-        cache_store(text, {"summary": tool_results, "scores": scores}, scores["OVERALL"])
+        cache_store(text, {"summary": tool_results, "scores": scores}, scores["OVERALL"], ns=gods.active_id())
         _index_task(task, text, scores)
         task["status"] = "done"
         task["via"] = "tools"
@@ -906,7 +908,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
             speech += f"\n\nSite gravado em data/projects/{pub['slug']}/ · abre {pub['preview']}"
         if pub.get("errors"):
             speech += "\nWrite: " + "; ".join(pub["errors"][:4])
-    cache_store(text, {"summary": speech, "scores": scores}, scores["OVERALL"])
+    cache_store(text, {"summary": speech, "scores": scores}, scores["OVERALL"], ns=gods.active_id())
     store.mem_put("episode", task["task_id"], f"{text[:120]} → {str(res.get('text') or '')[:240]}")
     _index_task(task, text, scores)
     task["status"] = "done"

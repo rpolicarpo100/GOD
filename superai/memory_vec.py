@@ -8,7 +8,7 @@ from typing import Any
 
 from qdrant_client import QdrantClient
 from qdrant_client.http.exceptions import UnexpectedResponse
-from qdrant_client.models import Distance, PointStruct, VectorParams
+from qdrant_client.models import Distance, FieldCondition, Filter, IsEmptyCondition, MatchValue, PayloadField, PointStruct, VectorParams
 
 from .config import DATA
 from .embed import DIM, embed, info as embed_info
@@ -80,12 +80,30 @@ class VectorMemory:
             )
         return pid
 
-    def search(self, collection: str, text: str, k: int = 5, min_score: float = 0.35) -> list[dict]:
+    def _god_filter(self, god_id: str | None) -> Filter | None:
+        if not god_id:
+            return None
+        if god_id == "master":
+            return Filter(
+                should=[
+                    FieldCondition(key="god_id", match=MatchValue(value="master")),
+                    IsEmptyCondition(is_empty=PayloadField(key="god_id")),
+                ]
+            )
+        return Filter(must=[FieldCondition(key="god_id", match=MatchValue(value=god_id))])
+
+    def search(self, collection: str, text: str, k: int = 5, min_score: float = 0.35, god_id: str | None = None) -> list[dict]:
         if not self.available():
             return []
+        qf = self._god_filter(god_id)
         try:
             with self._lock:
-                res = self.c.query_points(collection, query=embed(text), limit=k, with_payload=True)
+                try:
+                    res = self.c.query_points(collection, query=embed(text), limit=k, with_payload=True, query_filter=qf)
+                except Exception:
+                    if god_id and god_id != "master":
+                        return []
+                    res = self.c.query_points(collection, query=embed(text), limit=k, with_payload=True)
                 points = res.points
         except UnexpectedResponse:
             return []
@@ -97,6 +115,13 @@ class VectorMemory:
             if score < min_score:
                 continue
             pl = p.payload or {}
+            if god_id:
+                gid = pl.get("god_id")
+                if god_id == "master":
+                    if gid not in (None, "", "master"):
+                        continue
+                elif gid != god_id:
+                    continue
             out.append({"id": str(p.id), "score": round(score, 4), **pl})
         return out
 

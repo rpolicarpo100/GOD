@@ -640,6 +640,25 @@ class RepairMemBudget(unittest.TestCase):
         self.assertIn("hard", d)
         self.assertEqual(d["soft"], d["warn90"])
 
+    def test_cache_namespaced_by_god(self):
+        from superai.brain import cache_lookup, cache_store
+
+        cache_store("hello-ns-iso", {"summary": "mini-only"}, 1, ns="mini")
+        self.assertIsNone(cache_lookup("hello-ns-iso", ns="master"))
+        self.assertIsNotNone(cache_lookup("hello-ns-iso", ns="mini"))
+
+    def test_vector_god_filter(self):
+        from superai.memory_vec import vectors
+
+        if not vectors.available():
+            self.skipTest(vectors.error or "qdrant down")
+        vectors.upsert("memory", "iso-mini-pt", "banana-mini-xyz", {"god_id": "mini"})
+        vectors.upsert("memory", "iso-master-pt", "banana-master-abc", {"god_id": "master"})
+        mini = vectors.search("memory", "banana", k=8, min_score=0.01, god_id="mini")
+        texts = " ".join(str(x.get("text") or "") for x in mini)
+        self.assertIn("mini-xyz", texts)
+        self.assertNotIn("master-abc", texts)
+
 
 if __name__ == "__main__":
     unittest.main()

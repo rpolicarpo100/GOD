@@ -143,11 +143,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
     <input type="text" id="god-name" placeholder="nome" maxlength="80"/>
     <textarea id="god-purpose" placeholder="propósito" maxlength="400"></textarea>
     <textarea id="god-person" placeholder="personalidade" maxlength="400"></textarea>
+    <textarea id="god-rules" placeholder="regras extra (não desligam o Governor)" maxlength="800"></textarea>
+    <div class="toggle" id="t-mem"><span>Memória deste perfil</span><div class="knob" id="k-mem"></div></div>
     <div class="caps" id="god-caps"></div>
+    <select id="god-ver"></select>
     <div class="row">
       <button class="seg" id="god-save" type="button">Guardar</button>
       <button class="seg" id="god-new" type="button">+ Novo</button>
       <button class="seg" id="god-go" type="button">Activar</button>
+      <button class="seg" id="god-rb" type="button">Rollback</button>
       <button class="seg" id="god-repair" type="button">Repara</button>
     </div>
     <p class="note">Um handle. O perfil muda prompt e ferramentas reais. Sem swarm, sem Desktop, cost UNKNOWN.</p>
@@ -447,41 +451,39 @@ function patch(obj){
 document.querySelectorAll('#modes .seg').forEach(b=>b.onclick=()=>patch({mode:b.dataset.v}));
 $('t-gov').onclick=()=>patch({governor:{strict: !(S&&S.governor.strict)}});
 
-function send(text){
-  text=(text||'').trim();
-  if(!text) return;
-  fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
-  $('inp').value='';
+let godEditing=null;
+function paintGods(s){
+  const g=s.god||{};
+  const list=g.profiles||[];
+  const act=g.active||{};
+  const tools=s.tools||[];
+  const sel=$('god-sel');
+  if(!sel) return;
+  const focus=document.activeElement && ['god-name','god-purpose','god-person','god-rules'].includes(document.activeElement.id);
+  if(!focus){
+    sel.innerHTML = list.map(x=>`<option value="${esc(x.id)}" ${x.id===(godEditing||act.id)?'selected':''}>${esc(x.name)} v${esc(x.version)}${x.active?' ●':''}</option>`).join('');
+  }
+  if(!focus && !godEditing){
+    $('god-name').value = act.name||'';
+    $('god-purpose').value = act.purpose||'';
+    $('god-person').value = act.personality||'';
+    $('god-rules').value = act.rules||'';
+    $('k-mem').classList.toggle('on', act.memory!==false);
+    const caps=new Set(act.capabilities||[]);
+    $('god-caps').innerHTML = tools.map(t=>`<label><input type="checkbox" value="${esc(t.name)}" ${caps.has(t.name)?'checked':''}/>${esc(t.name)}</label>`).join('');
+    const vers=g.versions||[];
+    $('god-ver').innerHTML = vers.map(v=>`<option value="${esc(v.version)}" ${v.current?'selected':''}>v${esc(v.version)}${v.current?' actual':''} ${esc(v.purpose||'')}</option>`).join('');
+  }
 }
-$('form').onsubmit=ev=>{ev.preventDefault(); send($('inp').value)};
-document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>send(b.dataset.q));
-
-function connect(){
-  const es=new EventSource('/api/stream');
-  es.addEventListener('snapshot', e=>paint(JSON.parse(e.data)));
-  es.addEventListener('event', ()=>{});
-  es.onerror=()=>{ es.close(); setTimeout(connect,1500); fetch('/api/state').then(r=>r.json()).then(paint).catch(()=>{}); };
-}
-connect();
-$('inp').focus();
-</script>
-</body>
-</html>
-ot', e=>paint(JSON.parse(e.data)));
-  es.addEventListener('event', ()=>{});
-  es.onerror=()=>{ es.close(); setTimeout(connect,1500); fetch('/api/state').then(r=>r.json()).then(paint).catch(()=>{}); };
-}
-connect();
-$('inp').focus();
-</script>
-</body>
-</html>
->i.value);
+function godPayload(){
+  const caps=[...document.querySelectorAll('#god-caps input:checked')].map(i=>i.value);
   return {
     id: $('god-sel').value || undefined,
     name: $('god-name').value.trim(),
     purpose: $('god-purpose').value.trim(),
     personality: $('god-person').value.trim(),
+    rules: $('god-rules').value.trim(),
+    memory: $('k-mem').classList.contains('on'),
     capabilities: caps,
     models: 'auto'
   };
@@ -493,6 +495,8 @@ $('god-sel').onchange=()=>{
     $('god-name').value=g.name||'';
     $('god-purpose').value=g.purpose||'';
     $('god-person').value=g.personality||'';
+    $('god-rules').value=g.rules||'';
+    $('k-mem').classList.toggle('on', g.memory!==false);
     const caps=new Set(g.capabilities||[]);
     document.querySelectorAll('#god-caps input').forEach(i=>{ i.checked = caps.has(i.value); });
   });
@@ -509,6 +513,8 @@ $('god-new').onclick=()=>{
   $('god-name').value='';
   $('god-purpose').value='';
   $('god-person').value='';
+  $('god-rules').value='';
+  $('k-mem').classList.add('on');
   document.querySelectorAll('#god-caps input').forEach(i=>i.checked=true);
   $('god-name').focus();
 };
@@ -518,6 +524,12 @@ $('god-go').onclick=()=>{
   fetch('/api/gods/'+encodeURIComponent(id)+'/activate',{method:'POST'}).then(()=>{ godEditing=null; });
 };
 $('god-repair').onclick=()=>fetch('/api/repair',{method:'POST'});
+$('t-mem').onclick=()=>$('k-mem').classList.toggle('on');
+$('god-rb').onclick=()=>{
+  const id=$('god-sel').value, v=$('god-ver').value;
+  if(!id || !v) return;
+  fetch('/api/gods/'+encodeURIComponent(id)+'/rollback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:Number(v)})});
+};
 
 function send(text){
   text=(text||'').trim();
@@ -531,15 +543,6 @@ document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>send(b.dataset.q));
 function connect(){
   const es=new EventSource('/api/stream');
   es.addEventListener('snapshot', e=>paint(JSON.parse(e.data)));
-  es.addEventListener('event', ()=>{});
-  es.onerror=()=>{ es.close(); setTimeout(connect,1500); fetch('/api/state').then(r=>r.json()).then(paint).catch(()=>{}); };
-}
-connect();
-$('inp').focus();
-</script>
-</body>
-</html>
-ot', e=>paint(JSON.parse(e.data)));
   es.addEventListener('event', ()=>{});
   es.onerror=()=>{ es.close(); setTimeout(connect,1500); fetch('/api/state').then(r=>r.json()).then(paint).catch(()=>{}); };
 }

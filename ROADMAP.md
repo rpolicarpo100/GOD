@@ -58,4 +58,4 @@ flowchart LR
 1. Push GitHub com deploy key nesta sessão.
 2. Plane só com `workspace_slug` + issues criadas.
 3. Preços só com `source` verificável.
-4. Isolamento vectorial Qdrant por `god_id` (SQL já filtra `episode:{id}`).
+4. Isolamento vectorial Qdrant por `god_id` + cache namespaced — **FEITO** nesta fatia.

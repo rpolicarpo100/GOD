@@ -145,14 +145,14 @@ def context_pack(task: dict, memory_hits: list[dict], limit: int = 5) -> dict:
     return {"text": final, "tokens": tok["tokens"], "method": tok["method"], "verified": True}
 
 
-def cache_lookup(text: str) -> dict | None:
-    key = sha(normalize_query(text))
+def cache_lookup(text: str, ns: str = "") -> dict | None:
+    key = sha(normalize_query(text) + (f"\n{ns}" if ns else ""))
     hit = store.cache_get(key)
     return hit
 
 
-def cache_store(text: str, result: dict, quality: float) -> None:
-    store.cache_put(sha(normalize_query(text)), normalize_query(text), result, quality)
+def cache_store(text: str, result: dict, quality: float, ns: str = "") -> None:
+    store.cache_put(sha(normalize_query(text) + (f"\n{ns}" if ns else "")), normalize_query(text), result, quality)
 
 
 def evaluate(task: dict, tool_results: list[dict], llm_used: bool, tokens_actual: int) -> dict:
