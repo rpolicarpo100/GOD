@@ -382,7 +382,9 @@ function phases(s){
   const p=s.last_pipeline||{};
   return [
     {id:'P0', t:'Fast Path', st:'done'},
+    {id:'P0', t:'Latency', st:'done'},
     {id:'P0', t:'Direct LLM', st:'done'},
+    {id:'P0', t:'Smart mem', st:'done'},
     {id:'P1', t:'Executive', st:'done'},
     {id:'P1', t:'Missão', st: mis.kind==='MEASURED' ? 'done' : 'blocked'},
     {id:'P1', t:'Graph', st: (g.kind==='MEASURED') ? 'partial' : 'blocked'},

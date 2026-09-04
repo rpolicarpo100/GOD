@@ -2,7 +2,7 @@
 
 Inteligência viva neste host. Feminino. **Não** é uma demo de agentes fictícios.
 
-GitHub: [rpolicarpo100/GOD](https://github.com/rpolicarpo100/GOD)
+GitHub: [rpolicarpo100/GOD](https://github.com/rpolicarpo100/GOD) · roadmap: [ROADMAP.md](ROADMAP.md) (P0–P4)
 
 ## O que é real (2026-09-04)
 
