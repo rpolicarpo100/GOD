@@ -1,8 +1,10 @@
 # GOD — roadmap (2026-09-04)
 
-Fonte: código em `/home/user/super-ai`. GitHub: [rpolicarpo100/GOD](https://github.com/rpolicarpo100/GOD) `main`. Plane: slug `godsx` MEASURED, não é o núcleo.
+Fonte: código em `/home/user/super-ai`.  
+GitHub: [rpolicarpo100/GOD](https://github.com/rpolicarpo100/GOD) `main`.  
+Plane: slug `godsx` MEASURED — **não** é o núcleo.
 
-Este é o roadmap **correcto** (prioridade do utilizador). Não é marketing.
+Este é o roadmap **correcto**. Não é marketing. Fluxo = código actual.
 
 ```mermaid
 flowchart LR
@@ -40,12 +42,32 @@ flowchart LR
 | 🟡 P2 | Third Eye 2.0 | criticar decisões | PARTIAL | observer métricas host. Sem crítica de planos |
 | 🟢 P3 | GOD Factory | criar GODs especializadas | **NOT IMPLEMENTED** | perfis no mesmo handle |
 | 🟢 P3 | Compute Mesh | PC + portátil + telemóvel | **NOT IMPLEMENTED** | `pc_node` USER_DECLARED only |
-| 🟢 P4 | UI Command Center | visualizar toda a operação | PARTIAL | dashboard: missão + graph edges + decision.path |
+| 🟢 P4 | UI Command Center | visualizar toda a operação | PARTIAL | dashboard: missão + graph + decision.path · chips P0–P4 |
+
+## Feito
+
+- P0 completo (Fast Path, latency MEASURED, Direct LLM, smart memory).
+- P1 Executive + Mission no código e no dashboard.
+- GitHub público + push por deploy key SSH.
+- Plane `godsx` / GODSX work-items MEASURED (`in_product=false`).
+- Caps PC i5-4590 50%. 22€ IVA USER_STATED ≠ API UNKNOWN.
+
+## A fazer (ordem)
+
+1. **P2 Validator** — provas da tarefa, não só `evaluate()` heurístico. Sem agente QA fictício.
+2. **P2 Third Eye 2.0** — criticar decisões/planos com factos MEASURED. Sem LLM de crítica inventado.
+3. **P1 graph** — fica PARTIAL de propósito: inflight=1 neste host; paralelo só no PC com cap de cores, nunca 4/4.
+4. **P1 router €** — só com `source` verificada em `model_pricing`. Até lá cost=UNKNOWN.
+5. **P4 UI** — mission/graph/decision já visíveis; falta command center de missão/grafo interactivo.
+6. **Não** P2 Agent Factory, P3 GOD Factory, P3/P4 mesh, Desktop, swarm, Redis/K8s por aparência.
+
+## GitHub deploy
+
+- Repo: https://github.com/rpolicarpo100/GOD
+- Branch: `main`
+- Push: SSH deploy key (nunca HTTPS PAT, nunca commitar `.env` / chave privada)
+- Testes no último P1: 89 OK
 
 ## Não agora
 
-Desktop, swarm, marketplace, Redis/Postgres/Kafka por aparência, segundo `handle`, preços inventados, Plane como núcleo, classe ExecutiveBrain, motor DAG.
-
-## Feito à volta (não é P0–P4)
-
-GitHub público + deploy key SSH. Plane `godsx` / GODSX work-items MEASURED. Caps PC i5-4590 50%. 22€ IVA ≠ API UNKNOWN.
+Desktop, swarm, marketplace, Redis/Postgres/Kafka por aparência, segundo `handle`, preços inventados, Plane como núcleo, classe ExecutiveBrain, motor DAG, Agent Factory.

@@ -377,30 +377,32 @@ function paint(s){
 }
 
 function phases(s){
-  const llm=(s.providers||[]).some(p=>p.available);
-  const os=s.os||{};
-  const god=s.god||{};
-  const gw=s.gateway && s.gateway.omniroute && s.gateway.omniroute.available;
+  const mis=s.mission||{};
+  const g=s.graph||{};
+  const p=s.last_pipeline||{};
   return [
-    {id:'F0', t:'Infra', st:'done'},
-    {id:'F1', t:'LLM-last', st:'done'},
-    {id:'F2', t:'Memória', st:'done'},
-    {id:'F3', t:'Fila', st:'done'},
-    {id:'F4', t:'Tokens', st:'done'},
-    {id:'F5', t:'OS', st: os.booted ? 'done' : 'partial'},
-    {id:'F6', t:'LLM vivo', st: llm ? 'done' : 'blocked'},
-    {id:'F7', t:'GitHub', st: god.github_deployed ? 'done' : 'blocked'},
-    {id:'F8', t:'Plane', st: god.plane_in_product ? 'done' : 'blocked'},
-    {id:'F9', t:'OmniRoute', st: gw ? 'done' : 'blocked'}
+    {id:'P0', t:'Fast Path', st:'done'},
+    {id:'P0', t:'Direct LLM', st:'done'},
+    {id:'P1', t:'Executive', st:'done'},
+    {id:'P1', t:'Missão', st: mis.kind==='MEASURED' ? 'done' : 'blocked'},
+    {id:'P1', t:'Graph', st: (g.kind==='MEASURED') ? 'partial' : 'blocked'},
+    {id:'P1', t:'Router', st:'partial'},
+    {id:'P2', t:'Validator', st:'partial'},
+    {id:'P2', t:'Third Eye', st:'partial'},
+    {id:'P2', t:'Factory', st:'blocked'},
+    {id:'P3', t:'Mesh', st:'blocked'},
+    {id:'P4', t:'UI', st: (p.decision || mis.active || (g.edges||[]).length) ? 'partial' : 'partial'}
   ];
 }
 function paintRoad(s){
   const ph=phases(s);
   $('road-ph').innerHTML = ph.map(x=>`<b class="${x.st}" title="${x.st}">${esc(x.id)} ${esc(x.t)}</b>`).join('');
   const nDone=ph.filter(x=>x.st==='done').length;
+  const nPart=ph.filter(x=>x.st==='partial').length;
   const nBlk=ph.filter(x=>x.st==='blocked').length;
-  const gh=s.god && s.god.github_deployed ? 'GitHub main publicado' : 'GitHub não no deploy';
-  $('road-note').textContent = `GOD · ela · ${nDone} feito · ${nBlk} bloqueado · ${gh} · Plane não no produto · LLM last.`;
+  const gh=s.god && s.god.github_deployed ? 'GitHub main' : 'GitHub não no deploy';
+  const a=(s.mission&&s.mission.active);
+  $('road-note').textContent = `P0–P4 · ${nDone} feito · ${nPart} parcial · ${nBlk} não · ${gh} · Plane fora do núcleo · missão ${a?a.id:'nenhuma'}.`;
 }
 function paintFlow(s){
   const route=((s.last_pipeline&&s.last_pipeline.route)||[]).join(' ').toUpperCase();

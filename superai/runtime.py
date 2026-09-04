@@ -556,9 +556,11 @@ def handle(text: str, from_worker: bool = False) -> dict:
         lines = [
             "Sou a GOD. Falo no feminino. Não sou um tab de documentação.",
             f"Modo {resolve_mode()[0]}. GPU required=false. OS booted={os_s.get('booted')} syscalls={os_s.get('syscalls')}.",
-            "P0 Fast Path FEITO. P1 Executive decide + missão SQLite + parent_id na fila + router MEASURED n≥3.",
-            f"F6 LLM vivo: {'sim' if llm else 'não'} — up={[h['id'] for h in providers.health_all() if h.get('available')]} · Ollama local={'up' if any(h['id']=='ollama' and h.get('available') for h in providers.health_all()) else 'down'}. F7 GitHub publicado. F8 Plane não no produto.",
-            "Não adiciono camadas nem resultados de pesquisa fictícios. Sem provider, recuso.",
+            "P0 FEITO: Fast Path, latency MEASURED, Direct LLM, smart memory.",
+            "P1 FEITO: decide() + missão SQLite. PARTIAL: graph parent_id inflight=1, router n≥3, cost UNKNOWN.",
+            "P2 a fazer: Validator + Third Eye. Factory NÃO. P3 mesh NÃO. P4 UI PARTIAL.",
+            f"LLM vivo: {'sim' if llm else 'não'} — up={[h['id'] for h in providers.health_all() if h.get('available')]} · Ollama={'up' if any(h['id']=='ollama' and h.get('available') for h in providers.health_all()) else 'down'}. GitHub main. Plane godsx MEASURED, não no produto.",
+            "Não adiciono camadas nem resultados fictícios. Sem provider, recuso.",
         ]
         _say("brain", "\n".join(lines))
         _broadcast()
