@@ -74,6 +74,32 @@ class Providers(unittest.TestCase):
             pick_chat_model(["whisper-large-v3", "llama-3.1-8b-instruct", "gpt-oss-safeguard-20b"]),
             "llama-3.1-8b-instruct",
         )
+        self.assertEqual(
+            pick_chat_model(["openai/gpt-oss-120b", "qwen/qwen3.8-27b", "google/gemini-3.8-flash:batch"]),
+            "qwen/qwen3.8-27b",
+        )
+
+    def test_openai_message_ignores_reasoning(self):
+        from superai.providers import openai_message_text
+
+        self.assertEqual(openai_message_text({"choices": [{"message": {"content": "OI"}}]}), "OI")
+        self.assertEqual(
+            openai_message_text({"choices": [{"message": {"content": "", "reasoning": "think"}}]}),
+            "",
+        )
+
+    def test_format_leads_with_speech(self):
+        from superai.runtime import _format_result
+
+        out = _format_result(
+            {"task_id": "T-x", "type": "general", "complexity": 2, "reasoning_budget": "low", "estimated_tokens": 10, "via": "llm"},
+            {"firewall": {"action": "approve"}, "cache": "miss", "route": ["DIRECT"]},
+            [{"tool": "llm:groq", "status": "success", "findings": [{"text": "Olá."}], "evidence": ["adapter=groq model=qwen"]}],
+            {"tokens_actual": 19, "QUALITY": 1, "CORRECTNESS": 1, "TOKEN_EFFICIENCY": 1, "OVERALL": 1, "llm_used": True},
+            None,
+        )
+        self.assertTrue(out.startswith("Olá."))
+        self.assertNotIn("Tarefa T-x", out)
 
 
 class CacheNorm(unittest.TestCase):

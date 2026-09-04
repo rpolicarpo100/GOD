@@ -18,6 +18,7 @@ _thread: threading.Thread | None = None
 
 def start_local_worker() -> None:
     global _thread
+    tq.recover_local(LOCAL_ID)
     tq.register_worker(
         LOCAL_ID,
         "control in-process worker",

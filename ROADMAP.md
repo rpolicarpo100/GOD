@@ -65,7 +65,7 @@ flowchart TB
 | F3 | Fila + worker in-process | **FEITO** | GPU não exigida |
 | F4 | Token Intelligence | **FEITO** | cost **UNKNOWN**; 9240 actual = poluição de testes, não Claude |
 | F5 | OS kernel admit/syscall/kill/ps | **FEITO** | sem preempção running |
-| F6 | LLM vivo | **FEITO** | adapters probed; `pick_chat_model`; GOD fala o texto do LLM |
+| F6 | LLM vivo | **FEITO** | skip gpt-oss/guard; empty content = fail-over; fala o texto |
 | F7 | Deploy GitHub público | **FEITO** | `git push` origin/main https://github.com/rpolicarpo100/GOD |
 | F8 | Plane no produto | **NÃO** | chave existe fora do git; código sem adapter |
 | F9 | Embeddings neurais / SearXNG / Postgres | **NÃO** | ausentes |

@@ -17,7 +17,7 @@ Probe HTTP 200 neste host: Groq, Cerebras, Gemini, OpenRouter, Inference.net, Z.
 | Z.ai | `ZAI_API_KEY` | no `.env` · probed 200 | [z.ai](https://z.ai) |
 | Claude | `ANTHROPIC_API_KEY` / `CLAUDE_API_KEY` | no `.env` · probed 200 | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
 
-`available=True` só depois de GET `/models` 200 **e** pelo menos um id de **chat** (skip whisper/guard/embed/tts). Completions usam `pick_chat_model`, não `models[0]` cru.
+`available=True` só depois de GET `/models` 200 **e** pelo menos um id de **chat** (skip whisper/guard/embed/tts/compound/gpt-oss/:batch). Completions usam `pick_chat_model`. Resposta `content` vazio = erro (não fala CoT, não dump de pipeline).
 
 ## Não são LLM — não ligar como chat
 

@@ -71,7 +71,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
 .tag.off{color:var(--crit)}
 .tag.on{color:var(--ok)}
 .note{font-size:11px;color:var(--muted);line-height:1.5;margin-top:8px}
-.brain{flex-shrink:0;height:min(32vh,280px);border-top:1px solid var(--line);display:grid;grid-template-rows:36px 1fr 52px;background:#0a0c11}
+.brain{flex-shrink:0;height:min(38vh,340px);border-top:1px solid var(--line);display:grid;grid-template-rows:36px 1fr 52px;background:#0a0c11}
 .bh{display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid var(--line)}
 .bh .k{margin:0;color:var(--brain)}
 .chips{display:flex;gap:6px;overflow:auto}
@@ -143,7 +143,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
   <section class="vitals">
     <div class="v"><div class="k">Modo efectivo</div><div class="n" id="h-mode">—</div><div class="s" id="h-mode-s">—</div></div>
     <div class="v"><div class="k">Cache hit</div><div class="n" id="h-cache">—</div><div class="s" id="h-cache-s">hits / misses</div></div>
-    <div class="v"><div class="k">Claude dep.</div><div class="n" id="h-dep">n/a</div><div class="s">claude_tasks / llm_tasks</div></div>
+    <div class="v"><div class="k">Último LLM</div><div class="n" id="h-dep">n/a</div><div class="s" id="h-dep-s">n=0 → n/a · MEASURED</div></div>
     <div class="v"><div class="k">Último overall</div><div class="n" id="h-ov">—</div><div class="s" id="h-ov-s">sem execuções</div></div>
   </section>
 
@@ -200,7 +200,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
   </div>
   <div class="msgs" id="msgs"></div>
   <form class="composer" id="form">
-    <input id="inp" autocomplete="off" placeholder="Objectivo. Ferramenta se chegar. Senão, digo que não há provider."/>
+    <input id="inp" autocomplete="off" placeholder="Fala comigo. Cálculo e git vão às ferramentas. LLM só se fizer falta."/>
     <button class="send" type="submit">Enviar</button>
   </form>
 </footer>
@@ -246,8 +246,11 @@ function paint(s){
   $('h-mode-s').textContent = s.mode_reason||'';
   $('h-cache').textContent = hr==null ? 'n/a' : Math.round(hr*100)+'%';
   $('h-cache-s').textContent = `${s.cache.hits||0} hits · ${s.cache.misses||0} misses · ${s.cache.entries||0} entries`;
-  const dep=s.claude_dependency||{};
-  $('h-dep').textContent = dep.ratio==null ? 'n/a' : dep.ratio.toFixed(2);
+  const md=(s.token&&s.token.models)||{};
+  const mrows=md.models||[];
+  const top=mrows[0];
+  $('h-dep').textContent = top && top.model ? String(top.model).split('/').slice(-1)[0] : 'n/a';
+  $('h-dep-s').textContent = top ? `n=${top.n} · ${top.tokens} tok MEASURED` : ((md.kind||'UNKNOWN')+' · sem amostras');
   const r=s.last_rating;
   $('h-ov').textContent = r ? r.OVERALL+'/100' : '—';
   $('h-ov-s').textContent = r ? `tok ${r.tokens_actual} · llm ${r.llm_used}` : 'sem execuções medidas';
@@ -263,7 +266,10 @@ function paint(s){
 
   $('prov-list').innerHTML = (s.providers||[]).map(p=>`
     <div class="mc">
-      <div><b>${esc(p.name)}</b><div class="d">${esc(p.error||p.endpoint||'')}</div></div>
+      <div><b>${esc(p.name)}</b>
+        <div class="d">${esc(p.error||p.endpoint||'')}</div>
+        <div class="d">${esc(((p.models||[]).slice(0,2).join(' · '))||'')}</div>
+      </div>
       <span class="tag ${p.available?'on':'off'}">${p.available?'up':'down'}</span>
     </div>`).join('');
 

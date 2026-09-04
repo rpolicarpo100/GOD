@@ -28,6 +28,8 @@ _SKIP_CHAT = (
     "orpheus",
     "prompt-guard",
     "compound",
+    "gpt-oss",
+    ":batch",
 )
 _PREFER_CHAT = (
     "instruct",
@@ -43,7 +45,6 @@ _PREFER_CHAT = (
     "haiku",
     "opus",
     "fable",
-    "gpt-oss-120",
 )
 
 
@@ -53,7 +54,7 @@ def is_chat_model(mid: str) -> bool:
 
 
 def pick_chat_model(models: list[str]) -> str | None:
-    """Skip STT/TTS/guard/embed. Prefer instruct/chat. Never invent an id."""
+    """Skip STT/TTS/guard/embed/reasoning-oss. Prefer instruct/chat. Never invent an id."""
     clean = [m for m in models if is_chat_model(m)]
     if not clean:
         return None
@@ -62,6 +63,18 @@ def pick_chat_model(models: list[str]) -> str | None:
         if any(p in low for p in _PREFER_CHAT):
             return m
     return clean[0]
+
+
+def openai_message_text(data: dict) -> str:
+    """Visible chat text only. Reasoning/CoT is not GOD speech."""
+    ch = (data.get("choices") or [{}])[0] if isinstance(data, dict) else {}
+    msg = ch.get("message") or {}
+    raw = msg.get("content")
+    if isinstance(raw, list):
+        raw = "".join((p.get("text") or "") if isinstance(p, dict) else str(p) for p in raw)
+    if not (raw or "").strip():
+        raw = ch.get("text") or ""
+    return (raw or "").strip()
 
 
 def _port_open(host: str, port: int, timeout: float = 0.25) -> bool:
@@ -247,17 +260,28 @@ class OpenAICompatAdapter(Provider):
                     "messages": [{"role": "user", "content": prompt}],
                     "max_tokens": int(kw.get("max_tokens") or 256),
                 },
-                timeout=45.0,
+                timeout=12.0,
             )
             r.raise_for_status()
             data = r.json()
-            text = data["choices"][0]["message"]["content"]
+            text = openai_message_text(data)
             usage = data.get("usage") or {}
             total = usage.get("total_tokens")
             if total is None:
                 it, ot = usage.get("prompt_tokens"), usage.get("completion_tokens")
                 if it is not None and ot is not None:
                     total = int(it) + int(ot)
+            if not text:
+                return {
+                    "status": "error",
+                    "provider": self.id,
+                    "adapter": self.id,
+                    "model": model,
+                    "text": "",
+                    "tokens": total,
+                    "raw_usage": usage if usage else None,
+                    "error": "resposta vazia — content null (reasoning comeu o budget)",
+                }
             return {
                 "status": "success",
                 "provider": self.id,
@@ -350,16 +374,26 @@ class ClaudeAdapter(Provider):
                     "max_tokens": int(kw.get("max_tokens") or 256),
                     "messages": [{"role": "user", "content": prompt}],
                 },
-                timeout=45.0,
+                timeout=12.0,
             )
             r.raise_for_status()
             data = r.json()
             parts = data.get("content") or []
-            text = "".join(p.get("text") or "" for p in parts if isinstance(p, dict))
+            text = "".join(p.get("text") or "" for p in parts if isinstance(p, dict)).strip()
             usage = data.get("usage") or {}
             total = None
             if usage.get("input_tokens") is not None and usage.get("output_tokens") is not None:
                 total = int(usage["input_tokens"]) + int(usage["output_tokens"])
+            if not text:
+                return {
+                    "status": "error",
+                    "provider": self.id,
+                    "adapter": self.id,
+                    "model": data.get("model") or model,
+                    "text": "",
+                    "tokens": total,
+                    "error": "resposta vazia claude",
+                }
             return {
                 "status": "success",
                 "provider": self.id,
@@ -446,7 +480,7 @@ class GeminiAdapter(Provider):
                 f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
                 params={"key": key},
                 json={"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"maxOutputTokens": int(kw.get("max_tokens") or 256)}},
-                timeout=45.0,
+                timeout=12.0,
             )
             r.raise_for_status()
             data = r.json()
@@ -457,6 +491,16 @@ class GeminiAdapter(Provider):
                 text = "".join(p.get("text") or "" for p in parts)
             usage = data.get("usageMetadata") or {}
             total = usage.get("totalTokenCount")
+            if not (text or "").strip():
+                return {
+                    "status": "error",
+                    "provider": self.id,
+                    "adapter": self.id,
+                    "model": model,
+                    "text": "",
+                    "tokens": int(total) if total is not None else None,
+                    "error": "resposta vazia gemini",
+                }
             return {
                 "status": "success",
                 "provider": self.id,

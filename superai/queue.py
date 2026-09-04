@@ -351,6 +351,25 @@ def expire_stale(assigned_s: float = 45.0) -> int:
     return n
 
 
+def recover_local(wid: str) -> int:
+    """Boot: jobs left running/assigned on this worker id were the previous process."""
+    n = 0
+    with store._lock, store._conn() as c:
+        rows = c.execute(
+            "SELECT id FROM jobs WHERE worker_id=? AND status IN ('assigned','running')",
+            (wid,),
+        ).fetchall()
+        for r in rows:
+            c.execute(
+                "UPDATE jobs SET status='queued', worker_id=NULL, updated=? WHERE id=?",
+                (now_iso(), r["id"]),
+            )
+            n += 1
+    if n:
+        bus.emit("NOTICE", "WARNING", f"recover {n} job(s) do worker {wid} (processo anterior)")
+    return n
+
+
 def requeue_orphans() -> int:
     alive = {w["id"] for w in list_workers() if w.get("alive")}
     n = 0

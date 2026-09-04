@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import threading
 import uuid
 from typing import Any
 
@@ -29,6 +30,7 @@ class VectorMemory:
     def __init__(self) -> None:
         self.backend = "qdrant-local"
         self.error: str | None = None
+        self._lock = threading.RLock()
         try:
             self.c = _client()
             self._ensure(MEM)
@@ -38,10 +40,11 @@ class VectorMemory:
             self.error = str(e)
 
     def _ensure(self, name: str) -> None:
-        try:
-            self.c.get_collection(name)
-        except Exception:
-            self.c.create_collection(name, vectors_config=VectorParams(size=DIM, distance=Distance.COSINE))
+        with self._lock:
+            try:
+                self.c.get_collection(name)
+            except Exception:
+                self.c.create_collection(name, vectors_config=VectorParams(size=DIM, distance=Distance.COSINE))
 
     def available(self) -> bool:
         return self.c is not None and self.error is None
@@ -49,11 +52,12 @@ class VectorMemory:
     def health(self) -> dict:
         counts = {}
         if self.available():
-            for n in (MEM, CACHE):
-                try:
-                    counts[n] = int(self.c.get_collection(n).points_count or 0)
-                except Exception as e:
-                    counts[n] = f"err {e}"
+            with self._lock:
+                for n in (MEM, CACHE):
+                    try:
+                        counts[n] = int(self.c.get_collection(n).points_count or 0)
+                    except Exception as e:
+                        counts[n] = f"err {e}"
         return {
             "backend": self.backend,
             "available": self.available(),
@@ -69,18 +73,20 @@ class VectorMemory:
             raise RuntimeError(self.error or "qdrant down")
         pid = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{collection}:{key}"))
         pl = {"key": key, "text": text[:2000], **(payload or {})}
-        self.c.upsert(
-            collection,
-            points=[PointStruct(id=pid, vector=embed(text), payload=pl)],
-        )
+        with self._lock:
+            self.c.upsert(
+                collection,
+                points=[PointStruct(id=pid, vector=embed(text), payload=pl)],
+            )
         return pid
 
     def search(self, collection: str, text: str, k: int = 5, min_score: float = 0.35) -> list[dict]:
         if not self.available():
             return []
         try:
-            res = self.c.query_points(collection, query=embed(text), limit=k, with_payload=True)
-            points = res.points
+            with self._lock:
+                res = self.c.query_points(collection, query=embed(text), limit=k, with_payload=True)
+                points = res.points
         except UnexpectedResponse:
             return []
         except Exception:

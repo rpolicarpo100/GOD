@@ -123,15 +123,19 @@ class DirectAdapter(RoutingAdapter):
         if prefer:
             order = sorted(order, key=lambda a: 0 if a.id == prefer else 1)
         last = None
+        tries = 0
         for a in order:
             h = a.health()
             if not h["available"]:
                 last = {"adapter": a.id, "error": h.get("error")}
                 continue
             res = a.complete(prompt, **kw)
-            if res.get("status") == "success":
+            if res.get("status") == "success" and str(res.get("text") or "").strip():
                 return res
             last = res
+            tries += 1
+            if tries >= 3:
+                break
         return {"status": "unavailable", "adapter": self.id, "error": "todos os upstreams falharam", "last": last}
 
 

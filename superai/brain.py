@@ -50,7 +50,7 @@ def analyze(text: str) -> dict:
 
     tok = count_tokens(t)
     # estimated total if we were to call an LLM with a short system prompt
-    estimated = tok["tokens"] + 180
+    estimated = tok["tokens"] + 48
 
     tools_needed = []
     if ttype == "math":
@@ -156,7 +156,19 @@ def cache_store(text: str, result: dict, quality: float) -> None:
 
 
 def evaluate(task: dict, tool_results: list[dict], llm_used: bool, tokens_actual: int) -> dict:
+    speech = ""
+    for r in tool_results or []:
+        if not str(r.get("tool") or "").startswith("llm:"):
+            continue
+        f0 = (r.get("findings") or [None])[0]
+        if isinstance(f0, dict):
+            speech = str(f0.get("text") or "")
+        elif isinstance(f0, str):
+            speech = f0
+    empty_llm = llm_used and not speech.strip()
     ok = all(r.get("status") == "success" for r in tool_results) if tool_results else not llm_used
+    if empty_llm:
+        ok = False
     if not tool_results and not llm_used:
         # blocked / unanswered
         correctness = 0

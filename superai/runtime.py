@@ -23,11 +23,19 @@ _last_pipeline: dict | None = None
 _bcast_timer: threading.Timer | None = None
 
 
-def _say(role: str, text: str) -> dict:
+def _say(role: str, text: str, replace_prefix: str | None = None) -> dict:
     msg = {"id": uid("m"), "role": role, "ts": now_iso(), "text": text}
     with _lock:
-        _chat.append(msg)
-        del _chat[:-80]
+        if (
+            replace_prefix
+            and _chat
+            and _chat[-1].get("role") == role
+            and str(_chat[-1].get("text") or "").startswith(replace_prefix)
+        ):
+            _chat[-1] = msg
+        else:
+            _chat.append(msg)
+            del _chat[:-80]
     bus.emit("CHAT", "INFO", f"{role}: {text[:80]}")
     _broadcast()
     return msg
@@ -238,6 +246,22 @@ def _fmt_bench(s: dict) -> str:
         st = "SKIP" if r.get("skipped") else ("PASS" if r.get("passed") else "FAIL")
         lines.append(f"  {st} {r['case_id']}  score={r.get('score')}  {r.get('provider')}  {r.get('skip_reason') or ''}  {r.get('latency_ms')}ms")
     return "\n".join(lines)
+
+
+def _llm_prompt(text: str, merged: list[dict]) -> str:
+    """Pedido + memória curta. Sem dump TASK/TYPE (custa tokens, não fala melhor)."""
+    parts = [
+        "És a GOD. Falas no feminino. Responde ao pedido. Não inventes APIs, preços nem factos. Se não souberes, diz."
+    ]
+    mem: list[str] = []
+    for m in (merged or [])[:3]:
+        v = str(m.get("value") or m.get("text") or "").strip()
+        if v:
+            mem.append(v[:240])
+    if mem:
+        parts.append("Memória:\n" + "\n".join(f"- {x}" for x in mem))
+    parts.append("USER: " + text)
+    return "\n\n".join(parts)
 
 
 def _llm_text(tool_results: list[dict]) -> str | None:
@@ -518,7 +542,17 @@ def handle(text: str, from_worker: bool = False) -> dict:
         )
         with _lock:
             _last_pipeline = pipeline
-        _say("brain", "CACHE HIT.\n\n" + _format_result(task, pipeline, [], None, None) + "\n\n" + str(hit["result"].get("summary") or hit["result"])[:2500])
+        summ = hit["result"].get("summary") if isinstance(hit.get("result"), dict) else hit.get("result")
+        if isinstance(summ, str) and summ.strip():
+            _say("brain", summ)
+        else:
+            _say(
+                "brain",
+                "CACHE HIT.\n\n"
+                + _format_result(task, pipeline, [], None, None)
+                + "\n\n"
+                + str(summ)[:2500],
+            )
         _broadcast()
         return {"ok": True, "via": "cache"}
 
@@ -676,13 +710,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
 
     pipeline["route"].append(gw["active"].upper())
     bus.emit("MODEL_STARTED", "INFO", gw["active"])
-    res = routing.complete(
-        "És a GOD. Falas no feminino. Responde ao pedido. Não inventes APIs, preços nem factos. Se não souberes, diz.\n\n"
-        + ctx["text"]
-        + "\n\nUSER: "
-        + text,
-        max_tokens=256,
-    )
+    res = routing.complete(_llm_prompt(text, merged), max_tokens=256)
     if res.get("status") != "success":
         bus.emit("MODEL_FAILED", "WARNING", str(res.get("error")))
         scores = evaluate(task, [], False, 0)
@@ -727,13 +755,15 @@ def handle(text: str, from_worker: bool = False) -> dict:
     )
     tool_results = [{"tool": f"llm:{res.get('adapter')}", "status": "success", "confidence": 0.5, "findings": [{"text": res.get("text")}], "errors": [], "evidence": [f"adapter={res.get('adapter')} model={res.get('model')}"]}]
     scores = evaluate(task, tool_results, True, toks)
+    speech = _format_result(task, pipeline, tool_results, scores, None)
+    cache_store(text, {"summary": speech, "scores": scores}, scores["OVERALL"])
     _index_task(task, text, scores)
     task["status"] = "done"
     task["via"] = "llm"
     store.save_task(task)
     with _lock:
         _last_pipeline = pipeline
-    _say("brain", _format_result(task, pipeline, tool_results, scores, None))
+    _say("brain", speech, replace_prefix="Um momento")
     _broadcast()
     return {"ok": True, "via": "llm"}
 
