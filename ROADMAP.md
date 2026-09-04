@@ -77,7 +77,7 @@ flowchart TB
 - **Não** prompts de “pesquisa” que finjam resultados. Sem SearXNG/LLM = recusar.
 - **Não** preços hard-coded. cost continua UNKNOWN.
 - **Não** Plane no dashboard até haver `workspace_slug` + issues **criadas pela API** (senão é teatro).
-- **Não** GitHub com secrets. PAT e `plane_api_*` **nunca** no repo.
+- **Não** voltar a meter PAT/`plane_api_*` no repo. Deploy key já chega para push.
 - **Não** tratar `QUALITY_DROP` como falha da GOD: é rating de tarefas `blocked` sem LLM.
 - **Próximo código que vale:** (1) provider LLM real ou Ollama local; (2) `git init` + push **sem** `.env`/`data/`; (3) personalidade/UX. O resto é ruído.
 

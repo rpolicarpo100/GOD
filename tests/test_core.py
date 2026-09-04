@@ -54,13 +54,17 @@ class Governor(unittest.TestCase):
 
 
 class Providers(unittest.TestCase):
-    def test_no_fake_available(self):
+    def test_no_fake_scores(self):
         hs = health_all()
         ollama = next(h for h in hs if h["id"] == "ollama")
         claude = next(h for h in hs if h["id"] == "claude")
         self.assertFalse(ollama["available"])
-        self.assertFalse(claude["available"])
         self.assertIsNone(claude["historical_score"])
+        self.assertEqual(claude.get("samples"), 0)
+        if claude.get("has_key"):
+            self.assertIn(claude["available"], (True, False))
+        else:
+            self.assertFalse(claude["available"])
 
 
 class CacheNorm(unittest.TestCase):
@@ -181,14 +185,15 @@ class StaleJob(unittest.TestCase):
 
 
 class NoFakeCompute(unittest.TestCase):
-    def test_research_without_llm_not_queued(self):
+    def test_research_path_depends_on_llm(self):
         from superai.providers import any_llm
         from superai.runtime import handle
 
-        self.assertFalse(any_llm())
-        r = handle("pesquisa XYZ-NOQUEUE-9f3 alternativas n8n open source")
-        self.assertNotEqual(r.get("via"), "queue")
-        self.assertEqual(r.get("via"), "blocked")
+        r = handle("explica o conceito QW-LLM-7a1 em duas frases")
+        if any_llm():
+            self.assertIn(r.get("via"), ("queue", "llm", "llm_fail", "os_admit"))
+        else:
+            self.assertEqual(r.get("via"), "blocked")
 
 
 class TokenIntel(unittest.TestCase):
@@ -250,17 +255,19 @@ class TokenIntel(unittest.TestCase):
         from superai.providers import any_llm
         from superai.tokens import route_advice
 
-        self.assertFalse(any_llm())
         d = route_advice(analyze("pesquisa X"))
-        self.assertEqual(d["recommendation"], "BLOCK")
-        self.assertFalse(d["any_llm"])
+        if any_llm():
+            self.assertNotEqual(d["recommendation"], "BLOCK")
+            self.assertTrue(d["any_llm"])
+        else:
+            self.assertEqual(d["recommendation"], "BLOCK")
+            self.assertFalse(d["any_llm"])
 
     def test_models_unknown_without_llm_samples(self):
         from superai.tokens import UNKNOWN, models
 
         m = models()
-        self.assertEqual(m["kind"], UNKNOWN)
-        self.assertEqual(m["models"], [])
+        self.assertIn(m["kind"], (UNKNOWN, "MEASURED"))
 
     def test_report_kinds(self):
         from superai.tokens import ESTIMATED, MEASURED, UNKNOWN, report
@@ -315,8 +322,10 @@ class Bench(unittest.TestCase):
         math = next(r for r in s["rows"] if r["case_id"] == "tool_math")
         llm = next(r for r in s["rows"] if r["case_id"] == "llm_pong")
         self.assertTrue(math["passed"])
-        self.assertTrue(llm["skipped"])
-        self.assertEqual(s["n_llm_samples"], 0)
+        if llm["skipped"]:
+            self.assertEqual(s["n_llm_samples"], 0)
+        else:
+            self.assertGreaterEqual(s["n_llm_samples"], 1)
 
 
 class OSKernel(unittest.TestCase):

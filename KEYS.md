@@ -2,6 +2,8 @@
 
 Medido 2026-09-04 neste host. Sem inventar providers.
 
+Chaves **não vão para o git**. Neste host estão em `.env` (gitignored). Probe 2026-09-04: Groq, Cerebras, Gemini, OpenRouter, Inference.net, Z.ai, Claude **HTTP 200**. Ollama local continua down.
+
 ## Bloqueia LLM (F6) — ela fica OFFLINE sem isto
 
 | Variável / processo | Onde o código lê | Estado |

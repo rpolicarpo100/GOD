@@ -1,3 +1,7 @@
+"""Model adapters. Keys from env/.env. available=True only after a live probe.
+
+Order: local → cheap API → Claude last. No historical scores invented.
+"""
 from __future__ import annotations
 
 import os
@@ -6,6 +10,12 @@ import time
 from typing import Any
 
 import httpx
+
+from .config import load_dotenv
+
+load_dotenv()
+
+PROBE_TTL = 30.0
 
 
 def _port_open(host: str, port: int, timeout: float = 0.25) -> bool:
@@ -20,10 +30,18 @@ def _port_open(host: str, port: int, timeout: float = 0.25) -> bool:
         s.close()
 
 
+def _key(*names: str) -> str:
+    for n in names:
+        v = (os.environ.get(n) or "").strip()
+        if v:
+            return v
+    return ""
+
+
 class Provider:
     id: str
     name: str
-    kind: str  # local | premium | api
+    kind: str
 
     def health(self) -> dict[str, Any]:
         raise NotImplementedError
@@ -46,16 +64,18 @@ class OllamaAdapter(Provider):
                 r = httpx.get("http://127.0.0.1:11434/api/tags", timeout=1.0)
                 if r.status_code == 200:
                     models = [m.get("name") for m in r.json().get("models", [])]
+                else:
+                    err = f"HTTP {r.status_code}"
             except Exception as e:
-                err = str(e)
+                err = str(e)[:200]
         return {
             "id": self.id,
             "name": self.name,
             "kind": self.kind,
             "available": bool(open_ and not err),
             "endpoint": "http://127.0.0.1:11434",
-            "models": models,
-            "error": None if open_ else "porta 11434 fechada — Ollama não está a correr neste host",
+            "models": models[:8],
+            "error": None if open_ else "porta 11434 fechada — Ollama local não está a correr",
             "verified": True,
             "historical_score": None,
             "samples": 0,
@@ -65,60 +85,362 @@ class OllamaAdapter(Provider):
         h = self.health()
         if not h["available"]:
             return {"status": "unavailable", "provider": self.id, "error": h["error"]}
-        return {"status": "unavailable", "provider": self.id, "error": "complete() não chamado: sem modelos verificados em runtime"}
+        model = kw.get("model") or (h["models"][0] if h["models"] else None)
+        if not model:
+            return {"status": "unavailable", "provider": self.id, "error": "sem modelos no Ollama local"}
+        try:
+            r = httpx.post(
+                "http://127.0.0.1:11434/api/chat",
+                json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "stream": False,
+                    "options": {"num_predict": int(kw.get("max_tokens") or 256)},
+                },
+                timeout=60.0,
+            )
+            r.raise_for_status()
+            data = r.json()
+            text = (data.get("message") or {}).get("content") or ""
+            return {
+                "status": "success",
+                "provider": self.id,
+                "model": model,
+                "text": text,
+                "tokens": None,
+                "raw_usage": None,
+            }
+        except Exception as e:
+            return {"status": "error", "provider": self.id, "error": str(e)[:300]}
+
+
+class OpenAICompatAdapter(Provider):
+    """OpenAI-compatible chat.completions. Probe GET /models before available=True."""
+
+    def __init__(self, id: str, name: str, env: str, base: str, kind: str = "api", headers: dict | None = None):
+        self.id = id
+        self.name = name
+        self.kind = kind
+        self._env = env
+        self._base = base.rstrip("/")
+        self._extra = headers or {}
+        self._probe: dict | None = None
+        self._probe_t = 0.0
+
+    def _headers(self) -> dict[str, str]:
+        k = _key(self._env)
+        h = {"Authorization": f"Bearer {k}", "Content-Type": "application/json"}
+        h.update(self._extra)
+        return h
+
+    def health(self) -> dict[str, Any]:
+        k = _key(self._env)
+        if not k:
+            return {
+                "id": self.id,
+                "name": self.name,
+                "kind": self.kind,
+                "available": False,
+                "endpoint": self._base,
+                "models": [],
+                "error": f"sem {self._env}",
+                "has_key": False,
+                "verified": True,
+                "historical_score": None,
+                "samples": 0,
+            }
+        now = time.time()
+        if self._probe is not None and now - self._probe_t < PROBE_TTL:
+            return self._probe
+        models: list[str] = []
+        err = None
+        try:
+            r = httpx.get(f"{self._base}/models", headers=self._headers(), timeout=8.0)
+            if r.status_code == 200:
+                data = r.json()
+                rows = data.get("data") or data.get("models") or []
+                for m in rows:
+                    mid = m.get("id") or m.get("name") if isinstance(m, dict) else None
+                    if mid:
+                        models.append(str(mid))
+                    if len(models) >= 8:
+                        break
+            else:
+                err = f"HTTP {r.status_code}"
+        except Exception as e:
+            err = str(e)[:200]
+        rec = {
+            "id": self.id,
+            "name": self.name,
+            "kind": self.kind,
+            "available": bool(k and not err and models),
+            "endpoint": self._base,
+            "models": models,
+            "error": err,
+            "has_key": True,
+            "verified": True,
+            "historical_score": None,
+            "samples": 0,
+        }
+        self._probe, self._probe_t = rec, now
+        return rec
+
+    def complete(self, prompt: str, **kw: Any) -> dict[str, Any]:
+        h = self.health()
+        if not h["available"]:
+            return {"status": "unavailable", "provider": self.id, "error": h.get("error")}
+        model = kw.get("model") or (h["models"][0] if h["models"] else None)
+        if not model:
+            return {"status": "unavailable", "provider": self.id, "error": "sem model id"}
+        try:
+            r = httpx.post(
+                f"{self._base}/chat/completions",
+                headers=self._headers(),
+                json={
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": int(kw.get("max_tokens") or 256),
+                },
+                timeout=45.0,
+            )
+            r.raise_for_status()
+            data = r.json()
+            text = data["choices"][0]["message"]["content"]
+            usage = data.get("usage") or {}
+            total = usage.get("total_tokens")
+            if total is None:
+                it, ot = usage.get("prompt_tokens"), usage.get("completion_tokens")
+                if it is not None and ot is not None:
+                    total = int(it) + int(ot)
+            return {
+                "status": "success",
+                "provider": self.id,
+                "adapter": self.id,
+                "model": model,
+                "text": text,
+                "tokens": total,
+                "raw_usage": usage if usage else None,
+            }
+        except Exception as e:
+            return {"status": "error", "provider": self.id, "error": str(e)[:300]}
 
 
 class ClaudeAdapter(Provider):
     id = "claude"
     name = "Claude"
     kind = "premium"
+    _probe: dict | None = None
+    _probe_t = 0.0
 
     def health(self) -> dict[str, Any]:
-        key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("CLAUDE_API_KEY")
-        return {
+        key = _key("ANTHROPIC_API_KEY", "CLAUDE_API_KEY")
+        if not key:
+            return {
+                "id": self.id,
+                "name": self.name,
+                "kind": self.kind,
+                "available": False,
+                "endpoint": "https://api.anthropic.com/v1",
+                "models": [],
+                "error": "sem ANTHROPIC_API_KEY",
+                "has_key": False,
+                "verified": True,
+                "historical_score": None,
+                "samples": 0,
+            }
+        now = time.time()
+        if self._probe is not None and now - self._probe_t < PROBE_TTL:
+            return self._probe
+        models: list[str] = []
+        err = None
+        try:
+            r = httpx.get(
+                "https://api.anthropic.com/v1/models",
+                headers={"x-api-key": key, "anthropic-version": "2023-06-01"},
+                timeout=8.0,
+            )
+            if r.status_code == 200:
+                for m in r.json().get("data") or []:
+                    if m.get("id"):
+                        models.append(m["id"])
+                    if len(models) >= 8:
+                        break
+            else:
+                err = f"HTTP {r.status_code}"
+        except Exception as e:
+            err = str(e)[:200]
+        rec = {
             "id": self.id,
             "name": self.name,
             "kind": self.kind,
-            "available": False,
-            "endpoint": "api.anthropic.com (não chamado)",
-            "models": [],
-            "error": "sem credenciais no ambiente — Claude não será chamado",
-            "has_key": bool(key),
+            "available": bool(not err and models),
+            "endpoint": "https://api.anthropic.com/v1/messages",
+            "models": models,
+            "error": err,
+            "has_key": True,
             "verified": True,
             "historical_score": None,
             "samples": 0,
         }
+        self._probe, self._probe_t = rec, now
+        return rec
 
     def complete(self, prompt: str, **kw: Any) -> dict[str, Any]:
-        return {"status": "unavailable", "provider": self.id, "error": "sem credenciais — recusa em chamar a API"}
+        key = _key("ANTHROPIC_API_KEY", "CLAUDE_API_KEY")
+        h = self.health()
+        if not h["available"] or not key:
+            return {"status": "unavailable", "provider": self.id, "error": h.get("error") or "sem credenciais"}
+        model = kw.get("model") or (h["models"][0] if h["models"] else "claude-sonnet-4-5")
+        try:
+            r = httpx.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": model,
+                    "max_tokens": int(kw.get("max_tokens") or 256),
+                    "messages": [{"role": "user", "content": prompt}],
+                },
+                timeout=45.0,
+            )
+            r.raise_for_status()
+            data = r.json()
+            parts = data.get("content") or []
+            text = "".join(p.get("text") or "" for p in parts if isinstance(p, dict))
+            usage = data.get("usage") or {}
+            total = None
+            if usage.get("input_tokens") is not None and usage.get("output_tokens") is not None:
+                total = int(usage["input_tokens"]) + int(usage["output_tokens"])
+            return {
+                "status": "success",
+                "provider": self.id,
+                "adapter": self.id,
+                "model": data.get("model") or model,
+                "text": text,
+                "tokens": total,
+                "raw_usage": usage or None,
+            }
+        except Exception as e:
+            return {"status": "error", "provider": self.id, "error": str(e)[:300]}
 
 
 class GeminiAdapter(Provider):
     id = "gemini"
     name = "Gemini"
     kind = "api"
+    _probe: dict | None = None
+    _probe_t = 0.0
 
     def health(self) -> dict[str, Any]:
-        key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
-        return {
+        key = _key("GOOGLE_API_KEY", "GEMINI_API_KEY")
+        if not key:
+            return {
+                "id": self.id,
+                "name": self.name,
+                "kind": self.kind,
+                "available": False,
+                "endpoint": "generativelanguage.googleapis.com",
+                "models": [],
+                "error": "sem GOOGLE_API_KEY",
+                "has_key": False,
+                "verified": True,
+                "historical_score": None,
+                "samples": 0,
+            }
+        now = time.time()
+        if self._probe is not None and now - self._probe_t < PROBE_TTL:
+            return self._probe
+        models: list[str] = []
+        err = None
+        try:
+            r = httpx.get(
+                "https://generativelanguage.googleapis.com/v1beta/models",
+                params={"key": key},
+                timeout=8.0,
+            )
+            if r.status_code == 200:
+                for m in r.json().get("models") or []:
+                    name = (m.get("name") or "").split("/")[-1]
+                    methods = m.get("supportedGenerationMethods") or []
+                    if name and (not methods or "generateContent" in methods):
+                        models.append(name)
+                    if len(models) >= 8:
+                        break
+            else:
+                err = f"HTTP {r.status_code}"
+        except Exception as e:
+            err = str(e)[:200]
+        rec = {
             "id": self.id,
             "name": self.name,
             "kind": self.kind,
-            "available": False,
-            "endpoint": None,
-            "models": [],
-            "error": "sem credenciais — adapter presente, provider não verificado",
-            "has_key": bool(key),
+            "available": bool(not err and models),
+            "endpoint": "https://generativelanguage.googleapis.com/v1beta",
+            "models": models,
+            "error": err,
+            "has_key": True,
             "verified": True,
             "historical_score": None,
             "samples": 0,
         }
+        self._probe, self._probe_t = rec, now
+        return rec
 
     def complete(self, prompt: str, **kw: Any) -> dict[str, Any]:
-        return {"status": "unavailable", "provider": self.id, "error": "sem credenciais"}
+        key = _key("GOOGLE_API_KEY", "GEMINI_API_KEY")
+        h = self.health()
+        if not h["available"] or not key:
+            return {"status": "unavailable", "provider": self.id, "error": h.get("error")}
+        model = kw.get("model") or next((m for m in h["models"] if "flash" in m), None) or h["models"][0]
+        try:
+            r = httpx.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+                params={"key": key},
+                json={"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"maxOutputTokens": int(kw.get("max_tokens") or 256)}},
+                timeout=45.0,
+            )
+            r.raise_for_status()
+            data = r.json()
+            cands = data.get("candidates") or []
+            text = ""
+            if cands:
+                parts = ((cands[0].get("content") or {}).get("parts")) or []
+                text = "".join(p.get("text") or "" for p in parts)
+            usage = data.get("usageMetadata") or {}
+            total = usage.get("totalTokenCount")
+            return {
+                "status": "success",
+                "provider": self.id,
+                "adapter": self.id,
+                "model": model,
+                "text": text,
+                "tokens": int(total) if total is not None else None,
+                "raw_usage": usage or None,
+            }
+        except Exception as e:
+            return {"status": "error", "provider": self.id, "error": str(e)[:300]}
 
 
-ADAPTERS: list[Provider] = [OllamaAdapter(), ClaudeAdapter(), GeminiAdapter()]
+# LLM-last among providers: local → fast API → Claude premium last.
+ADAPTERS: list[Provider] = [
+    OllamaAdapter(),
+    OpenAICompatAdapter("groq", "Groq", "GROQ_API_KEY", "https://api.groq.com/openai/v1"),
+    OpenAICompatAdapter("cerebras", "Cerebras", "CEREBRAS_API_KEY", "https://api.cerebras.ai/v1"),
+    GeminiAdapter(),
+    OpenAICompatAdapter(
+        "openrouter",
+        "OpenRouter",
+        "OPENROUTER_API_KEY",
+        "https://openrouter.ai/api/v1",
+        headers={"HTTP-Referer": "https://github.com/rpolicarpo100/GOD", "X-Title": "GOD"},
+    ),
+    OpenAICompatAdapter("inference", "Inference.net", "INFERENCE_API_KEY", "https://api.inference.net/v1"),
+    OpenAICompatAdapter("zai", "Z.ai", "ZAI_API_KEY", "https://api.z.ai/api/paas/v4"),
+    ClaudeAdapter(),
+]
 
 _hcache: list[dict] | None = None
 _ht = 0.0
@@ -127,7 +449,7 @@ _ht = 0.0
 def health_all() -> list[dict]:
     global _hcache, _ht
     now = time.time()
-    if _hcache is not None and now - _ht < 2.0:
+    if _hcache is not None and now - _ht < 5.0:
         return _hcache
     _hcache = [a.health() for a in ADAPTERS]
     _ht = now

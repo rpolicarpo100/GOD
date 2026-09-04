@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from copy import deepcopy
 from pathlib import Path
 
@@ -9,6 +10,28 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 DATA.mkdir(exist_ok=True)
 CFG_PATH = ROOT / "config.yaml"
+
+
+def load_dotenv(path: Path | None = None) -> int:
+    """Load KEY=VAL from .env without overriding a real process env. Never logs values."""
+    p = path or (ROOT / ".env")
+    n = 0
+    if not p.is_file():
+        return 0
+    for raw in p.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        k, v = k.strip(), v.strip().strip('"').strip("'")
+        if not k or k in os.environ:
+            continue
+        os.environ[k] = v
+        n += 1
+    return n
+
+
+load_dotenv()
 
 _DEFAULT = {
     "mode": "auto",
