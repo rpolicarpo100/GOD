@@ -12,7 +12,7 @@ MATH_RE = re.compile(r"^[\s\d\.\+\-\*/%\(\)\^x×÷,]+$", re.I)
 TYPE_RULES = [
     ("git", r"\bgit\b|commit|diff|branch|\brepo\b"),
     ("status", r"\b(estado|sa[uú]de|briefing|modo de opera|budget|orçamento|providers?)\b"),
-    ("math", r"\b(calcul|quanto [eé]|soma|multipl|dividi)|\d+\s*[\+\-\*/×÷^]"),
+    ("math", r"\b(calcul|quanto [eé]|soma|multipl|dividi)|\d+\s*[\+\-\*/×÷^]\s*\d+"),
     ("parse", r"\b(json|csv|xml|parse|parsing)\b"),
     ("files", r"\b(ficheiro|arquivo|lista|ls\b|l[eê] |cat |directoria|diretório|path|ler o)\b"),
     ("python", r"\b(python|executa(r)? este c[oó]digo|corre este)\b"),

@@ -1,64 +1,48 @@
-# GOD — roadmap e fluxo (2026-09-04)
+# GOD — roadmap (2026-09-04)
 
-Ela chama-se **GOD**. Fonte: código em `/home/user/super-ai` + sondas neste host. Sem marketing.
+Fonte: código em `/home/user/super-ai`. GitHub: [rpolicarpo100/GOD](https://github.com/rpolicarpo100/GOD) `main`. Plane: slug `godsx` MEASURED, não é o núcleo.
 
-**GitHub:** [rpolicarpo100/GOD](https://github.com/rpolicarpo100/GOD) — `origin/main` em `bb9ffec`. Local **à frente** (`7b8902f`+). Push desta sessão: SSH **Permission denied**.  
-**Plane:** slug `godsx` MEASURED. Identifier `GODSX` → UUID via `/projects/`. Work-items da API. Não é o núcleo.  
-**LLM:** Ollama :11434 fechado · OmniRoute :20128 fechado · APIs probed. Modo **TOKEN_SAVER**.  
-**GPU:** ausente, `required=false`.
+Este é o roadmap **correcto** (prioridade do utilizador). Não é marketing.
 
 ```mermaid
 flowchart LR
   U[Tu] --> H[handle]
-  H --> A[analyze tiktoken]
-  A --> C{cache hash / Qdrant 0.88}
-  C -->|hit| OUT[resposta 0 LLM]
-  C -->|miss| M[memória SQL por perfil]
-  M --> FW[Token Firewall 70/90/100]
-  FW -->|reject| OUT
-  FW --> P{plan LLM-last}
-  P -->|math git fs parse py| SY[OS syscall → Governor → tools]
-  SY --> OUT
-  P -->|needs_llm e any_llm| Q[fila]
-  Q --> W[worker in-process]
-  P -->|needs_llm sem provider| NP[NO_PROVIDER]
-  W --> R[Intelligent Router]
-  R -->|OmniRoute down| D[DirectAdapter]
-  D -->|HTML fences| PR["/preview no mesmo FastAPI"]
+  H --> A[analyze exec_mode]
+  A --> C{cache hash}
+  C -->|hit| OUT[0 LLM]
+  C -->|miss FAST/NORMAL| F[skip vector/mem]
+  C -->|miss DEEP| M[SQL + Qdrant]
+  F --> P{plan}
+  M --> P
+  P -->|tools| SY[Governor]
+  P -->|NORMAL needs_llm| D[Direct LLM]
+  P -->|DEEP needs_llm| Q[fila worker]
+  P -->|sem provider| NP[NO_PROVIDER]
 ```
 
-## Fases — estado MEASURED
+## Prioridade
 
-| Fase | Quê | Estado | Evidência |
-|---|---|---|---|
-| F0 | Infra FastAPI SQLite tools Governor | **FEITO** | `server.py` `:8000` |
-| F1 | LLM-last cache→mem→tools→router | **FEITO** | `runtime.handle` |
-| F2 | Memória Qdrant hashing 384 | **FEITO** | neural **não** |
-| F3 | Fila + worker in-process | **FEITO** | GPU não exigida |
-| F4 | Token Intelligence | **FEITO** | cost **UNKNOWN**; avisos 70/90/100 **tokens** |
-| F5 | OS kernel | **FEITO** | sem preempção running |
-| F6 | LLM vivo | **FEITO** | diálogo curto no prompt |
-| F7 | GitHub público | **PARCIAL** | repo existe; local ahead; push SSH falhou nesta sessão |
-| F8 | Plane no produto | **NÃO** | sem workspace_slug |
-| F9 | Embeddings neurais / SearXNG / Postgres | **NÃO** | ausentes |
-| F10 | Preço € / Langfuse | **NÃO** | sem source |
-| F11 | Sites locais `/preview` | **FEITO** | `data/projects` + Governor write |
-| F12 | GOD Builder (perfis, 1 handle) | **FEITO** | `superai/gods.py` |
-| F13 | Repair MEASURED + memória por perfil + rollback | **FEITO** | `superai/repair.py` · `kinds=` · `history/` |
-| F14 | Isolamento cache/Qdrant por `god_id` | **FEITO** | post-filter payload |
-| F15 | Custo 3 baldes + PC i5-4590 caps 50% | **FEITO** | 22€ IVA incluído USER_STATED ≠ API UNKNOWN. layout `applied_here=false` |
-| F16 | GOD 2.0 audit + FAST path | **FEITO** | `GOD20.md`. FAST skip vector/mem. Plane probe MEASURED. AUTONOMOUS/DAG **não**. Disco 2TB USER_DECLARED |
+| Pri | Sistema | Objectivo | Estado | Evidência |
+| --- | --- | --- | --- | --- |
+| 🔴 P0 | Fast Path | eliminar latência desnecessária | **FEITO** | `exec_mode=FAST` → sem Qdrant/SQL. math/git/fs/parse/status |
+| 🔴 P0 | Latency telemetry | descobrir onde realmente demora | **FEITO** | `latency_ms` + `stages_ms` MEASURED no pipeline |
+| 🔴 P0 | Direct LLM path | não pôr chat simples sempre na queue | **FEITO** | NORMAL/FAST com LLM → inline. DEEP → fila |
+| 🔴 P0 | Smart memory | memória apenas quando necessária | **FEITO** | memória/vector só DEEP ou complexity≥5 |
+| 🟠 P1 | Executive Core | verdadeira decisão/orquestração | PARTIAL | `runtime.handle` é o orquestrador. Sem DAG |
+| 🟠 P1 | Mission Engine | objectivos persistentes | **NOT IMPLEMENTED** | — |
+| 🟠 P1 | Task Graph | dependências + paralelismo | **NOT IMPLEMENTED** | inflight=1 |
+| 🟠 P1 | Model Router | qualidade/latência/custo | PARTIAL | DirectAdapter ordem local→API→Claude. € UNKNOWN. n=0 scores |
+| 🟡 P2 | Agent Factory | agentes especializados | **NOT IMPLEMENTED** | Builder ≠ factory |
+| 🟡 P2 | Validator | verificar trabalho | PARTIAL | `evaluate()` heurístico, não testes da tarefa |
+| 🟡 P2 | Third Eye 2.0 | criticar decisões | PARTIAL | observer métricas host. Sem crítica de planos |
+| 🟢 P3 | GOD Factory | criar GODs especializadas | **NOT IMPLEMENTED** | perfis no mesmo handle |
+| 🟢 P3 | Compute Mesh | PC + portátil + telemóvel | **NOT IMPLEMENTED** | `pc_node` USER_DECLARED only |
+| 🟢 P4 | UI Command Center | visualizar toda a operação | PARTIAL | dashboard viva. Sem mission/graph |
 
-## Não adicionar agora
+## Não agora
 
-- Desktop Windows, wizard, swarm, marketplace, SDK, workflow visual.
-- Plane no dashboard sem issues da API.
-- Preços hard-coded. cost continua UNKNOWN.
-- Segundo `handle` / Repair GOD como agente.
+Desktop, swarm, marketplace, Redis/Postgres/Kafka por aparência, segundo `handle`, preços inventados, Plane como núcleo.
 
-## A fazer (quando houver evidência)
+## Feito à volta (não é P0–P4)
 
-1. Push GitHub (PAT no `.env` gitignored; nunca no git).
-2. Plane só com `PLANE_API_KEY` + `workspace_slug` + issues da API. `GODSX` é USER_DECLARED — **não** há adapter.
-3. Preços API só com `source` verificável. 22€ IVA incluído ≠ tokens.
-4. Este sandbox ≠ PC i5-4590. Caps 12GB / 2 cores / GPU não-LLM aplicam-se **quando** ela correr aí.
+GitHub público + deploy key SSH. Plane `godsx` / GODSX work-items MEASURED. Caps PC i5-4590 50%. 22€ IVA ≠ API UNKNOWN.

@@ -302,7 +302,7 @@ function paint(s){
   const p=s.last_pipeline;
   if(p){
     $('pipe').textContent =
-      `rota ${(p.route||[]).join(' → ') || '—'}\nmode ${(p.task&&p.task.exec_mode)||''} fast=${p.fast||false} ${p.latency_ms!=null?p.latency_ms+'ms MEASURED':''}\ncache ${p.cache} · mem ${p.memory_hits} · fw ${(p.firewall&&p.firewall.action)||'n/a'}`;
+      `rota ${(p.route||[]).join(' → ') || '—'}\nmode ${(p.task&&p.task.exec_mode)||''} fast=${p.fast||false} direct=${p.direct_llm} ${p.stages_ms?JSON.stringify(p.stages_ms):''} ${p.latency_ms!=null?p.latency_ms+'ms MEASURED':''}\ncache ${p.cache} · mem ${p.memory_hits} · fw ${(p.firewall&&p.firewall.action)||'n/a'}`;
   }
 
   $('tool-list').innerHTML = (s.tools||[]).map(t=>`

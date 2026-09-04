@@ -42,12 +42,25 @@ def _say(role: str, text: str, replace_prefix: str | None = None) -> dict:
     return msg
 
 
+def _mark(p: dict, name: str) -> None:
+    """Δ ms desde o último marco. MEASURED, não estimado."""
+    now = time.perf_counter()
+    last = p.get("_tmark")
+    if last is None:
+        last = p.get("t0") or now
+    p.setdefault("stages_ms", {})[name] = round((now - float(last)) * 1000, 1)
+    p["_tmark"] = now
+
+
 def _set_pipe(p: dict) -> None:
     global _last_pipeline
     t0 = p.pop("t0", None)
+    p.pop("_tmark", None)
     if t0 is not None:
         p["latency_ms"] = round((time.perf_counter() - float(t0)) * 1000, 1)
         p["latency_kind"] = "MEASURED"
+    if p.get("stages_ms"):
+        p["stages_kind"] = "MEASURED"
     with _lock:
         _last_pipeline = p
 
@@ -670,13 +683,17 @@ def handle(text: str, from_worker: bool = False) -> dict:
         "t0": time.perf_counter(),
     }
     fast = (task.get("exec_mode") or "") == "FAST"
+    deep = (task.get("exec_mode") or "") == "DEEP"
+    need_mem = deep or int(task.get("complexity") or 0) >= 5
     pipeline["fast"] = fast
-    pipeline["skipped_heavy"] = ["vector", "memory"] if fast else []
+    pipeline["deep"] = deep
+    pipeline["direct_llm"] = not deep
+    pipeline["skipped_heavy"] = ["vector", "memory"] if not need_mem else []
 
-    # 2 cache (hash then semantic / Qdrant). FAST: só hash.
+    # 2 cache (hash then semantic / Qdrant). Sem memória pesada: só hash.
     gid = gods.active_id()
     hit = cache_lookup(text, gid)
-    if not hit and not fast and cfg.get("evolution_policy", "semantic_cache", default=True) is not False and vectors.available():
+    if not hit and need_mem and cfg.get("evolution_policy", "semantic_cache", default=True) is not False and vectors.available():
         sem = vectors.search("cache", text, k=1, min_score=0.88, god_id=gid)
         pipeline["vector_cache"] = sem[:1]
         if sem and sem[0].get("key"):
@@ -712,15 +729,17 @@ def handle(text: str, from_worker: bool = False) -> dict:
                 + "\n\n"
                 + str(summ)[:2500],
             )
+        _mark(pipeline, "cache")
         _broadcast()
         return {"ok": True, "via": "cache"}
 
     store.incr("cache_misses")
     bus.emit("CACHE_MISS", "INFO", task["task_id"])
+    _mark(pipeline, "cache")
 
-    # 3 memory — FAST não pesquisa vector/SQL (spec 2.0 quick path)
+    # 3 memory — só DEEP ou complexity≥5 (P0 smart memory)
     gact = gods.active()
-    if fast or gact.get("memory", True) is False:
+    if (not need_mem) or gact.get("memory", True) is False:
         mem, vec_mem = [], []
     else:
         gid = gods.active_id()
@@ -736,6 +755,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
     raw_ctx = (task.get("text") or "") + "\n" + "\n".join(str(m.get("value") or m.get("text") or "") for m in merged)
     pipeline["context"] = ti.context_efficiency(raw_ctx, ctx["text"])
     pipeline["route_token"] = ti.route_advice(task)
+    _mark(pipeline, "memory")
 
     # 4 firewall (Token Intelligence wrap — mesma política)
     fw = ti.gate(task, extra_tokens=ctx["tokens"])
@@ -769,16 +789,22 @@ def handle(text: str, from_worker: bool = False) -> dict:
     tool_results: list[dict] = []
     blocked = None
 
-    if not from_worker and plan.get("needs_llm") and providers.any_llm():
+    # P0 Direct LLM: chat simples NÃO vai à fila. DEEP sim.
+    if not from_worker and plan.get("needs_llm") and providers.any_llm() and deep:
         q = _enqueue("chat", text)
         if not q.get("skip"):
             pipeline["route"].append("QUEUE:" + q.get("location", ""))
+            pipeline["direct_llm"] = False
             task["status"] = "queued"
             task["via"] = "queue"
             store.save_task(task)
+            _mark(pipeline, "queue")
             with _lock:
                 _set_pipe(pipeline)
             return q
+    if plan.get("needs_llm") and not deep:
+        pipeline["route"].append("DIRECT_LLM")
+        pipeline["direct_llm"] = True
 
     if plan["steps"] and not (len(plan["steps"]) == 1 and plan["steps"][0].get("kind") == "status"):
         pipeline["route"].append("DETERMINISTIC_TOOLS")
@@ -812,6 +838,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
         store.save_task(task)
         bus.emit("TASK_COMPLETED", "INFO", f"{task['task_id']} overall {scores['OVERALL']} via tools")
         pipeline["scores"] = scores
+        _mark(pipeline, "tools")
         with _lock:
             _set_pipe(pipeline)
         _say("brain", _format_result(task, pipeline, tool_results, scores, None))

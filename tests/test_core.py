@@ -746,6 +746,41 @@ class God20Sprint1(unittest.TestCase):
             self.assertNotIn("vector_cache", p)
             self.assertEqual(p.get("latency_kind"), "MEASURED")
             self.assertIsInstance(p.get("latency_ms"), (int, float))
+            self.assertEqual(p.get("stages_kind"), "MEASURED")
+            self.assertIn("cache", p.get("stages_ms") or {})
+
+    def test_normal_chat_skips_queue(self):
+        from superai.providers import any_llm
+        from superai.runtime import handle, snapshot
+
+        r = handle("quem és tu em duas frases directpathcheck")
+        if any_llm():
+            self.assertNotEqual(r.get("via"), "queue")
+            self.assertIn(r.get("via"), ("llm", "llm_fail", "os_admit", "cache"))
+            p = snapshot().get("last_pipeline") or {}
+            if r.get("via") in ("llm", "llm_fail"):
+                self.assertTrue(p.get("direct_llm"))
+                self.assertIn("DIRECT_LLM", p.get("route") or [])
+        else:
+            self.assertIn(r.get("via"), ("blocked", "llm_fail", "no_provider", "cache"))
+
+    def test_deep_still_queues(self):
+        from superai import queue as tq
+        from superai.providers import any_llm
+        from superai.runtime import handle
+
+        tq.register_worker("p0-deep-w", "p0-deep-w", "control", ["chat"])
+        tq.heartbeat("p0-deep-w")
+        try:
+            r = handle("zzdeepqueue991wn implementa um refactor da arquitectura deste sistema crítico")
+            if any_llm():
+                self.assertEqual(r.get("via"), "queue", r)
+                if r.get("job"):
+                    tq.cancel(r["job"])
+            else:
+                self.assertIn(r.get("via"), ("blocked", "llm_fail", "no_provider", "cache", "queue"))
+        finally:
+            tq.unregister_worker("p0-deep-w")
 
     def test_plane_probe_no_fake_board(self):
         from superai.plane import probe
