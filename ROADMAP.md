@@ -2,7 +2,7 @@
 
 Ela chama-se **GOD**. Fonte: código em `/home/user/super-ai` + sondas neste host. Sem marketing.
 
-**GitHub:** [rpolicarpo100/GOD](https://github.com/rpolicarpo100/GOD) — `GET` **404**. **Não está no deploy.**  
+**GitHub:** [rpolicarpo100/GOD](https://github.com/rpolicarpo100/GOD) — **publicado** `origin/main`.  
 **Plane:** API `users/me` 200 (conta Ruben Policarpo). **Não há adapter no produto.** Workspaces não listados. Sem issues criadas daqui.  
 **LLM:** Ollama :11434 fechado · Claude sem key · OmniRoute :20128 fechado. Modo **OFFLINE**.  
 **GPU:** ausente, `required=false`.
@@ -66,7 +66,7 @@ flowchart TB
 | F4 | Token Intelligence | **FEITO** | cost **UNKNOWN**; 9240 actual = poluição de testes, não Claude |
 | F5 | OS kernel admit/syscall/kill/ps | **FEITO** | sem preempção running |
 | F6 | LLM vivo | **BLOQUEADO** | providers `available=false` |
-| F7 | Deploy GitHub público | **NÃO** | repo 404; `.git` inválido (sem config) |
+| F7 | Deploy GitHub público | **FEITO** | `git push` origin/main https://github.com/rpolicarpo100/GOD |
 | F8 | Plane no produto | **NÃO** | chave existe fora do git; código sem adapter |
 | F9 | Embeddings neurais / SearXNG / Postgres | **NÃO** | ausentes |
 | F10 | Preço € / Langfuse | **NÃO** | sem source |

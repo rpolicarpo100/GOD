@@ -13,12 +13,12 @@ Código em `/home/user/super-ai`, live **uvicorn :8000**. Versão `0.3.0`. Modo 
 
 ## A fazer
 1. Um LLM verificado (Ollama a correr **ou** key) — sem isto ela não conversa como modelo
-2. GitHub público https://github.com/rpolicarpo100/GOD — **hoje 404, não está no deploy**
+2. ~~GitHub~~ **feito** https://github.com/rpolicarpo100/GOD
 3. Plane: API user ok; **produto ainda sem adapter / workspace**
 4. Limpar `session_tokens=9240` (lixo de testes, não Claude)
 
 ## Deploy GitHub
-**NÃO.** `.git` incompleto (sem `config`). Não empurrar secrets (`plane_api_*`, `github_pat_*`).
+**SIM** — `main` em https://github.com/rpolicarpo100/GOD (`840d3d5` e commits seguintes). Deploy key SSH neste host. Sem secrets no repo.
 
 ## Não fazer
 Reescrever Brain/Router/Governor. Inventar providers, preços, poupanças €, scores de modelos. Segundo processo com `memory_vec` enquanto `:8000` tem `data/qdrant`.

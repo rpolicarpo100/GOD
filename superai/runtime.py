@@ -109,7 +109,8 @@ def snapshot() -> dict:
             "name": "GOD",
             "pronoun": "ela",
             "github_url": "https://github.com/rpolicarpo100/GOD",
-            "github_deployed": False,
+            "github_deployed": True,
+            "github_ref": "main",
             "plane_in_product": False,
         },
         "unverified": [
@@ -340,7 +341,8 @@ def handle(text: str, from_worker: bool = False) -> dict:
             "Sou a GOD. Falo no feminino. Não sou um tab de documentação.",
             f"Modo {resolve_mode()[0]}. GPU required=false. OS booted={os_s.get('booted')} syscalls={os_s.get('syscalls')}.",
             "FEITO: F0 infra · F1 LLM-last · F2 memória hashing · F3 fila · F4 tokens · F5 OS.",
-            "BLOQUEADO: F6 LLM vivo (Ollama/Claude/OmniRoute down) · F7 GitHub 404 não no deploy · F8 Plane não está no produto.",
+            "BLOQUEADO: F6 LLM vivo (Ollama/Claude/OmniRoute down) · F8 Plane não está no produto.",
+            "FEITO extra: F7 GitHub main publicado (https://github.com/rpolicarpo100/GOD).",
             "Não adiciono camadas nem resultados de pesquisa fictícios. Sem provider, recuso.",
         ]
         _say("brain", "\n".join(lines))

@@ -326,6 +326,73 @@ function paint(s){
   paintChat(s.chat||[]);
 }
 
+function phases(s){
+  const llm=(s.providers||[]).some(p=>p.available);
+  const os=s.os||{};
+  const god=s.god||{};
+  const gw=s.gateway && s.gateway.omniroute && s.gateway.omniroute.available;
+  return [
+    {id:'F0', t:'Infra', st:'done'},
+    {id:'F1', t:'LLM-last', st:'done'},
+    {id:'F2', t:'Memória', st:'done'},
+    {id:'F3', t:'Fila', st:'done'},
+    {id:'F4', t:'Tokens', st:'done'},
+    {id:'F5', t:'OS', st: os.booted ? 'done' : 'partial'},
+    {id:'F6', t:'LLM vivo', st: llm ? 'done' : 'blocked'},
+    {id:'F7', t:'GitHub', st: god.github_deployed ? 'done' : 'blocked'},
+    {id:'F8', t:'Plane', st: god.plane_in_product ? 'done' : 'blocked'},
+    {id:'F9', t:'OmniRoute', st: gw ? 'done' : 'blocked'}
+  ];
+}
+function paintRoad(s){
+  const ph=phases(s);
+  $('road-ph').innerHTML = ph.map(x=>`<b class="${x.st}" title="${x.st}">${esc(x.id)} ${esc(x.t)}</b>`).join('');
+  const nDone=ph.filter(x=>x.st==='done').length;
+  const nBlk=ph.filter(x=>x.st==='blocked').length;
+  const gh=s.god && s.god.github_deployed ? 'GitHub main publicado' : 'GitHub não no deploy';
+  $('road-note').textContent = `GOD · ela · ${nDone} feito · ${nBlk} bloqueado · ${gh} · Plane não no produto · LLM last.`;
+}
+function paintFlow(s){
+  const route=((s.last_pipeline&&s.last_pipeline.route)||[]).join(' ').toUpperCase();
+  const cache=(s.last_pipeline&&s.last_pipeline.cache)||'';
+  const llm=(s.providers||[]).some(p=>p.available);
+  const on = k => {
+    if(k==='USER') return true;
+    if(k==='ANL') return !!s.last_pipeline;
+    if(k==='CACHE') return /CACHE/.test(route) || cache==='hit' || cache==='semantic';
+    if(k==='MEM') return !!(s.last_pipeline && cache!=='hit' && cache!=='semantic');
+    if(k==='FW') return /FIREWALL/.test(route) || !!(s.last_pipeline && s.last_pipeline.firewall);
+    if(k==='TOOLS') return /TOOLS|STATE/.test(route);
+    if(k==='OS') return (s.os&&s.os.booted) || /TOOLS/.test(route);
+    if(k==='Q') return /QUEUE/.test(route);
+    if(k==='RTR') return /ROUTER|NO_PROVIDER|OMNI|DIRECT/.test(route);
+    if(k==='OUT') return /NO_PROVIDER/.test(route) || (!llm && /ROUTER/.test(route));
+    return false;
+  };
+  const node=(x,y,w,label,key)=>{
+    const a=on(key);
+    const fill=a?'rgba(228,201,138,.22)':'rgba(255,255,255,.03)';
+    const str=a?'#e4c98a':'rgba(232,230,227,.18)';
+    const tc=a?'#eceae6':'#8d8b86';
+    return `<rect x="${x}" y="${y}" width="${w}" height="28" rx="7" fill="${fill}" stroke="${str}"/>
+      <text x="${x+w/2}" y="${y+18}" text-anchor="middle" font-size="10" font-family="ui-sans-serif,system-ui" fill="${tc}">${label}</text>`;
+  };
+  const arr=(x1,y1,x2,y2)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="rgba(228,201,138,.35)" stroke-width="1.2"/>`;
+  $('flowbox').innerHTML = `<svg viewBox="0 0 640 148" xmlns="http://www.w3.org/2000/svg">
+    ${node(8,12,70,'tu','USER')}${arr(78,26,96,26)}
+    ${node(96,12,78,'analyze','ANL')}${arr(174,26,192,26)}
+    ${node(192,12,70,'cache','CACHE')}${arr(262,26,280,26)}
+    ${node(280,12,62,'mem','MEM')}${arr(342,26,360,26)}
+    ${node(360,12,78,'firewall','FW')}${arr(438,26,456,26)}
+    ${node(456,12,70,'tools','TOOLS')}${arr(526,26,544,26)}
+    ${node(544,12,86,'OS syscall','OS')}
+    ${node(96,78,78,'fila','Q')}${arr(174,92,192,92)}
+    ${node(192,78,86,'router','RTR')}${arr(278,92,296,92)}
+    ${node(296,78,110, llm ? 'LLM' : 'NO_PROVIDER','OUT')}
+    ${arr(490,40,135,78)}
+    <text x="8" y="140" font-size="10" fill="#8d8b86" font-family="ui-sans-serif,system-ui">PC control → SQLite/Qdrant → worker local · GPU não exigida · dourado = última rota</text>
+  </svg>`;
+}
 function paintChat(msgs){
   const box=$('msgs');
   if(msgs.length===chatLen && box.children.length) return;
