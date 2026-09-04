@@ -16,6 +16,52 @@ from .config import load_dotenv
 load_dotenv()
 
 PROBE_TTL = 30.0
+_SKIP_CHAT = (
+    "guard",
+    "safeguard",
+    "embed",
+    "whisper",
+    "tts",
+    "moderation",
+    "rerank",
+    "transcribe",
+    "orpheus",
+    "prompt-guard",
+    "compound",
+)
+_PREFER_CHAT = (
+    "instruct",
+    "-it",
+    "chat",
+    "flash",
+    "llama",
+    "gemma",
+    "qwen",
+    "mixtral",
+    "glm",
+    "sonnet",
+    "haiku",
+    "opus",
+    "fable",
+    "gpt-oss-120",
+)
+
+
+def is_chat_model(mid: str) -> bool:
+    low = (mid or "").lower()
+    return bool(low) and not any(s in low for s in _SKIP_CHAT)
+
+
+def pick_chat_model(models: list[str]) -> str | None:
+    """Skip STT/TTS/guard/embed. Prefer instruct/chat. Never invent an id."""
+    clean = [m for m in models if is_chat_model(m)]
+    if not clean:
+        return None
+    for m in clean:
+        low = m.lower()
+        if any(p in low for p in _PREFER_CHAT):
+            return m
+    return clean[0]
 
 
 def _port_open(host: str, port: int, timeout: float = 0.25) -> bool:
@@ -161,7 +207,7 @@ class OpenAICompatAdapter(Provider):
                 rows = data.get("data") or data.get("models") or []
                 for m in rows:
                     mid = m.get("id") or m.get("name") if isinstance(m, dict) else None
-                    if mid:
+                    if mid and is_chat_model(str(mid)):
                         models.append(str(mid))
                     if len(models) >= 8:
                         break
@@ -189,9 +235,9 @@ class OpenAICompatAdapter(Provider):
         h = self.health()
         if not h["available"]:
             return {"status": "unavailable", "provider": self.id, "error": h.get("error")}
-        model = kw.get("model") or (h["models"][0] if h["models"] else None)
+        model = kw.get("model") or pick_chat_model(h.get("models") or [])
         if not model:
-            return {"status": "unavailable", "provider": self.id, "error": "sem model id"}
+            return {"status": "unavailable", "provider": self.id, "error": "sem model de chat (só guard/whisper/tts)"}
         try:
             r = httpx.post(
                 f"{self._base}/chat/completions",
@@ -365,7 +411,7 @@ class GeminiAdapter(Provider):
                 for m in r.json().get("models") or []:
                     name = (m.get("name") or "").split("/")[-1]
                     methods = m.get("supportedGenerationMethods") or []
-                    if name and (not methods or "generateContent" in methods):
+                    if name and is_chat_model(name) and (not methods or "generateContent" in methods):
                         models.append(name)
                     if len(models) >= 8:
                         break

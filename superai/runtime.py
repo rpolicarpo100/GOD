@@ -240,7 +240,30 @@ def _fmt_bench(s: dict) -> str:
     return "\n".join(lines)
 
 
+def _llm_text(tool_results: list[dict]) -> str | None:
+    for r in tool_results:
+        if not str(r.get("tool") or "").startswith("llm:"):
+            continue
+        f0 = (r.get("findings") or [None])[0]
+        if isinstance(f0, dict) and f0.get("text"):
+            return str(f0["text"]).strip()
+        if isinstance(f0, str) and f0.strip():
+            return f0.strip()
+    return None
+
+
 def _format_result(task: dict, pipeline: dict, tool_results: list[dict], scores: dict | None, blocked: str | None) -> str:
+    speech = None if blocked else _llm_text(tool_results)
+    if speech:
+        ev = ""
+        for r in tool_results:
+            if r.get("evidence"):
+                ev = str(r["evidence"][0])
+                break
+        toks = scores.get("tokens_actual") if scores else None
+        kind = "MEASURED" if toks else "UNKNOWN"
+        return f"{speech}\n\n— GOD · {ev or 'llm'} · tokens {toks} {kind} · cost UNKNOWN"
+
     fw = pipeline.get("firewall") or {}
     lines = [
         f"Tarefa {task['task_id']} · tipo {task['type']} · complexidade {task['complexity']}/10",
@@ -288,10 +311,13 @@ def _enqueue(kind: str, text: str) -> dict:
         return {"skip": True, "loc": loc}
     job = tq.enqueue(kind, text, None, loc.get("location") or "LOCAL_WORKER")
     note = "dedup — já na fila, não duplico." if job.get("deduped") else "O PC não executa isto no pedido HTTP. A fila e o worker tratam. Eventos chegam por SSE."
-    _say(
-        "brain",
-        f"CONTROL → COMPUTE\n{loc['reason']}\njob {job['id']} · {kind} · {loc['location']}\n{note}",
-    )
+    if kind == "chat":
+        _say("brain", f"Um momento — a pensar ({loc['location']}, job {job['id']}).")
+    else:
+        _say(
+            "brain",
+            f"CONTROL → COMPUTE\n{loc['reason']}\njob {job['id']} · {kind} · {loc['location']}\n{note}",
+        )
     _broadcast()
     return {"ok": True, "via": "queue", "job": job["id"], "location": loc["location"]}
 
@@ -342,8 +368,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
             "Sou a GOD. Falo no feminino. Não sou um tab de documentação.",
             f"Modo {resolve_mode()[0]}. GPU required=false. OS booted={os_s.get('booted')} syscalls={os_s.get('syscalls')}.",
             "FEITO: F0 infra · F1 LLM-last · F2 memória hashing · F3 fila · F4 tokens · F5 OS.",
-            "BLOQUEADO: F6 LLM vivo (Ollama/Claude/OmniRoute down) · F8 Plane não está no produto.",
-            "FEITO extra: F7 GitHub main publicado (https://github.com/rpolicarpo100/GOD).",
+            f"F6 LLM vivo: {'sim' if llm else 'não'} — up={[h['id'] for h in providers.health_all() if h.get('available')]} · Ollama local={'up' if any(h['id']=='ollama' and h.get('available') for h in providers.health_all()) else 'down'}. F7 GitHub publicado. F8 Plane não no produto.",
             "Não adiciono camadas nem resultados de pesquisa fictícios. Sem provider, recuso.",
         ]
         _say("brain", "\n".join(lines))
@@ -651,7 +676,13 @@ def handle(text: str, from_worker: bool = False) -> dict:
 
     pipeline["route"].append(gw["active"].upper())
     bus.emit("MODEL_STARTED", "INFO", gw["active"])
-    res = routing.complete(ctx["text"] + "\n\nUSER: " + text, max_tokens=256)
+    res = routing.complete(
+        "És a GOD. Falas no feminino. Responde ao pedido. Não inventes APIs, preços nem factos. Se não souberes, diz.\n\n"
+        + ctx["text"]
+        + "\n\nUSER: "
+        + text,
+        max_tokens=256,
+    )
     if res.get("status") != "success":
         bus.emit("MODEL_FAILED", "WARNING", str(res.get("error")))
         scores = evaluate(task, [], False, 0)

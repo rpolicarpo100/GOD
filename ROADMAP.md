@@ -4,7 +4,7 @@ Ela chama-se **GOD**. Fonte: código em `/home/user/super-ai` + sondas neste hos
 
 **GitHub:** [rpolicarpo100/GOD](https://github.com/rpolicarpo100/GOD) — **publicado** `origin/main`.  
 **Plane:** API `users/me` 200 (conta Ruben Policarpo). **Não há adapter no produto.** Workspaces não listados. Sem issues criadas daqui.  
-**LLM:** Ollama :11434 fechado · Claude sem key · OmniRoute :20128 fechado. Modo **OFFLINE**.  
+**LLM:** Ollama :11434 fechado · OmniRoute :20128 fechado · APIs probed (Groq/Cerebras/Gemini/OpenRouter/inference/Z.ai/Claude). Chat filtra whisper/guard. Modo **TOKEN_SAVER**.  
 **GPU:** ausente, `required=false`.
 
 ```mermaid
@@ -65,7 +65,7 @@ flowchart TB
 | F3 | Fila + worker in-process | **FEITO** | GPU não exigida |
 | F4 | Token Intelligence | **FEITO** | cost **UNKNOWN**; 9240 actual = poluição de testes, não Claude |
 | F5 | OS kernel admit/syscall/kill/ps | **FEITO** | sem preempção running |
-| F6 | LLM vivo | **BLOQUEADO** | providers `available=false` |
+| F6 | LLM vivo | **FEITO** | adapters probed; `pick_chat_model`; GOD fala o texto do LLM |
 | F7 | Deploy GitHub público | **FEITO** | `git push` origin/main https://github.com/rpolicarpo100/GOD |
 | F8 | Plane no produto | **NÃO** | chave existe fora do git; código sem adapter |
 | F9 | Embeddings neurais / SearXNG / Postgres | **NÃO** | ausentes |
@@ -79,11 +79,11 @@ flowchart TB
 - **Não** Plane no dashboard até haver `workspace_slug` + issues **criadas pela API** (senão é teatro).
 - **Não** voltar a meter PAT/`plane_api_*` no repo. Deploy key já chega para push.
 - **Não** tratar `QUALITY_DROP` como falha da GOD: é rating de tarefas `blocked` sem LLM.
-- **Próximo código que vale:** (1) provider LLM real ou Ollama local; (2) `git init` + push **sem** `.env`/`data/`; (3) personalidade/UX. O resto é ruído.
+- **Próximo código que vale:** (1) UX/personalidade em cima do LLM vivo; (2) Plane só com workspace_slug real; (3) preços só com source. Sem `.env` no git.
 
 ## Handoff (próximo trabalhador)
 
-- **Feito:** F0–F5 no processo `uvicorn :8000`. 47 testes na última corrida OS. Dashboard vivo + chat.
-- **A fazer:** F6 provider; F7 publish GOD público; F8 Plane só depois de workspace.
-- **Deploy GitHub:** **NÃO.**
+- **Feito:** F0–F7. Chat-model filter. `_format_result` lidera com texto do LLM.
+- **A fazer:** F8 Plane só depois de workspace; cost UNKNOWN.
+- **Deploy GitHub:** **SIM** `origin/main` https://github.com/rpolicarpo100/GOD
 - **Não reescrever** Brain / Router / Governor / Memory / Evolution.

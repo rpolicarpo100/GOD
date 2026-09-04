@@ -1,45 +1,40 @@
-# Chaves e processos que FALTAM — só o que o código lê
+# Chaves — o que o código lê (2026-09-04)
 
-Medido 2026-09-04 neste host. Sem inventar providers.
+Chaves **só em `.env` (gitignored)**. Nunca no git. Nunca no chat.
 
-Chaves **não vão para o git**. Neste host estão em `.env` (gitignored). Probe 2026-09-04: Groq, Cerebras, Gemini, OpenRouter, Inference.net, Z.ai, Claude **HTTP 200**. Ollama local continua down.
+Probe HTTP 200 neste host: Groq, Cerebras, Gemini, OpenRouter, Inference.net, Z.ai, Claude. Ollama local `:11434` **fechado**. OmniRoute `:20128` **fechado**. Cloudflare R2 = object storage, **não** LLM. HuggingFace `whoami` ≠ chat — **sem** adapter HF.
 
-## Bloqueia LLM (F6) — ela fica OFFLINE sem isto
+## LLM no produto (ordem: local → API → Claude last)
 
-| Variável / processo | Onde o código lê | Estado |
+| Adapter | Variável | Chave neste host | Link oficial |
+|---|---|---|---|
+| Ollama local | processo `:11434` | **down** | [ollama.com/download](https://ollama.com/download) |
+| Groq | `GROQ_API_KEY` | no `.env` · probed 200 | [console.groq.com/keys](https://console.groq.com/keys) |
+| Cerebras | `CEREBRAS_API_KEY` | no `.env` · probed 200 | [cloud.cerebras.ai](https://cloud.cerebras.ai/) · [auth docs](https://inference-docs.cerebras.ai/api-reference/authentication) |
+| Gemini | `GOOGLE_API_KEY` / `GEMINI_API_KEY` | no `.env` · probed 200 | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+| OpenRouter | `OPENROUTER_API_KEY` | no `.env` · probed 200 | [openrouter.ai/keys](https://openrouter.ai/keys) |
+| Inference.net | `INFERENCE_API_KEY` | no `.env` · probed 200 | [inference.net](https://inference.net) |
+| Z.ai | `ZAI_API_KEY` | no `.env` · probed 200 | [z.ai](https://z.ai) |
+| Claude | `ANTHROPIC_API_KEY` / `CLAUDE_API_KEY` | no `.env` · probed 200 | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
+
+`available=True` só depois de GET `/models` 200 **e** pelo menos um id de **chat** (skip whisper/guard/embed/tts). Completions usam `pick_chat_model`, não `models[0]` cru.
+
+## Não são LLM — não ligar como chat
+
+| Item | Link | Estado |
 |---|---|---|
-| `ANTHROPIC_API_KEY` ou `CLAUDE_API_KEY` | `providers.ClaudeAdapter` | **AUSENTE** — adapter recusa chamar a API |
-| `GOOGLE_API_KEY` ou `GEMINI_API_KEY` | `providers.GeminiAdapter` | **AUSENTE** |
-| Ollama processo `:11434` | `providers.OllamaAdapter` | **porta fechada** — não é API key |
-| OmniRoute processo `:20128` | `routing` probe | **porta fechada** — não é API key |
+| HuggingFace token | [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) | whoami only — sem adapter de completions |
+| Cloudflare R2 | [developers.cloudflare.com/r2](https://developers.cloudflare.com/r2/) | S3 storage |
+| OmniRoute npm `:20128` | [npmjs.com/package/omniroute](https://www.npmjs.com/package/omniroute) | **down** neste host (EACCES no install global) |
+| Plane | [developers.plane.so](https://developers.plane.so/) · API `https://api.plane.so/` header `X-API-Key` | **F8** — sem workspace_slug no produto |
+| Langfuse / LiteLLM | — | ausentes; **não** obrigatórios |
+| Preços | — | `cost=UNKNOWN` até haver `source` verificável |
 
-Basta **um** LLM verificado (Ollama a correr **ou** uma key) para sair de OFFLINE.
+## Ainda em falta neste host
 
-## Opcional — o core não depende
+- Ollama local (RAM ~2 GB — modelos grandes **não cabem**).
+- OmniRoute processo.
+- Plane `PLANE_WORKSPACE_SLUG` + project id **antes** de adapter.
+- Tabela de preços com source.
 
-| Variável | Onde | Estado |
-|---|---|---|
-| `SUPERAI_WORKER_TOKEN` | `server.py` auth workers | vazio = auth desligada (ok neste sandbox) |
-| `SUPERAI_QDRANT` | `memory_vec` | vazio = Qdrant **embedded** local (ok) |
-| `SUPERAI_API` / `SUPERAI_WORKER_ID` | `worker.py` remoto | só se houver outro host |
-| Langfuse / LiteLLM | `tokens.adapters_status` | módulos **ausentes** — não instalar à força |
-| `model_pricing.source` | `tokens.pricing` | tabela vazia → **cost=UNKNOWN** |
-
-## Integrações pedidas — não estão no produto até haver workspace/repo
-
-| Item | Estado MEASURED |
-|---|---|
-| GitHub deploy key | **OK neste host** (`ssh` → `rpolicarpo100/GOD`) |
-| GitHub PAT | API repo deu 404 com o PAT antigo — **não reutilizar no git** |
-| Plane `X-API-Key` | `GET /api/v1/users/me/` 200; **sem workspace_slug** no código → adapter **não** ligado |
-| OpenAI / Groq / etc. | **não existem no código** — não pedir keys que ela não lê |
-
-## Não são keys (não fingir)
-
-Docker, Postgres, Redis, SearXNG, Qdrant `:6333`, preços Anthropic/OpenAI hard-coded.
-
-## O que obter a seguir (ordem)
-
-1. **Uma** key LLM (Claude **ou** Gemini) **ou** Ollama noutro host com RAM — este tem ~2 GB, modelos locais grandes **não cabem**.
-2. Plane: `PLANE_WORKSPACE_SLUG` + project id, **depois** adapter.
-3. (Opcional) `SUPERAI_WORKER_TOKEN` se a GOD ficar exposta na rede.
+Rodar as keys que foram coladas no chat.

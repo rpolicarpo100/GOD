@@ -66,6 +66,15 @@ class Providers(unittest.TestCase):
         else:
             self.assertFalse(claude["available"])
 
+    def test_pick_skips_guard(self):
+        from superai.providers import pick_chat_model
+
+        self.assertIsNone(pick_chat_model(["whisper-large-v3", "llama-prompt-guard-2-86m"]))
+        self.assertEqual(
+            pick_chat_model(["whisper-large-v3", "llama-3.1-8b-instruct", "gpt-oss-safeguard-20b"]),
+            "llama-3.1-8b-instruct",
+        )
+
 
 class CacheNorm(unittest.TestCase):
     def test_same_intent(self):
