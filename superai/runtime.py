@@ -7,7 +7,7 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-from . import aios, benchmark, evolution, observer, plane, providers, queue as tq, resources, routing, tokens as ti
+from . import aios, benchmark, evolution, executive, mission, observer, plane, providers, queue as tq, resources, routing, tokens as ti
 from .brain import analyze, cache_lookup, cache_store, context_pack, evaluate
 from .config import ROOT, cfg
 from .events import bus
@@ -135,6 +135,8 @@ def snapshot() -> dict:
         "inflight": resources.inflight_cap(),
         "plane": plane.status(),
         "queue": tq.stats(),
+        "mission": mission.snapshot(),
+        "graph": tq.graph(12),
         "workers": tq.list_workers(),
         "jobs": tq.jobs(12),
         "away": tq.peek_away(),
@@ -467,7 +469,7 @@ def _format_result(task: dict, pipeline: dict, tool_results: list[dict], scores:
     return "\n".join(lines)
 
 
-def _enqueue(kind: str, text: str) -> dict:
+def _enqueue(kind: str, text: str, parent_id: str | None = None, mission_id: str | None = None) -> dict:
     adm = aios.admit(kind, text)
     if not adm.get("ok"):
         _say(
@@ -480,7 +482,14 @@ def _enqueue(kind: str, text: str) -> dict:
     loc = adm["loc"]
     if not loc.get("enqueue"):
         return {"skip": True, "loc": loc}
-    job = tq.enqueue(kind, text, None, loc.get("location") or "LOCAL_WORKER")
+    job = tq.enqueue(
+        kind,
+        text,
+        None,
+        loc.get("location") or "LOCAL_WORKER",
+        parent_id=parent_id,
+        mission_id=mission_id,
+    )
     note = "dedup — já na fila, não duplico." if job.get("deduped") else "O PC não executa isto no pedido HTTP. A fila e o worker tratam. Eventos chegam por SSE."
     if kind == "chat":
         _say("brain", f"Um momento — a pensar ({loc['location']}, job {job['id']}).")
@@ -547,7 +556,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
         lines = [
             "Sou a GOD. Falo no feminino. Não sou um tab de documentação.",
             f"Modo {resolve_mode()[0]}. GPU required=false. OS booted={os_s.get('booted')} syscalls={os_s.get('syscalls')}.",
-            "FEITO: F0 infra · F1 LLM-last · F2 memória hashing · F3 fila · F4 tokens · F5 OS.",
+            "P0 Fast Path FEITO. P1 Executive decide + missão SQLite + parent_id na fila + router MEASURED n≥3.",
             f"F6 LLM vivo: {'sim' if llm else 'não'} — up={[h['id'] for h in providers.health_all() if h.get('available')]} · Ollama local={'up' if any(h['id']=='ollama' and h.get('available') for h in providers.health_all()) else 'down'}. F7 GitHub publicado. F8 Plane não no produto.",
             "Não adiciono camadas nem resultados de pesquisa fictícios. Sem provider, recuso.",
         ]
@@ -595,6 +604,68 @@ def handle(text: str, from_worker: bool = False) -> dict:
         _say("brain", "\n".join(lines))
         _broadcast()
         return {"ok": True, "via": "repair", "repair": r}
+
+    mm = re.match(r"^\s*(missão|nova missão|objectivo)\s*[:\-]\s*(.+)$", text, re.I | re.S)
+    if mm:
+        r = mission.create(mm.group(2).strip())
+        if not r.get("ok"):
+            _say("brain", f"Missão recusada: {r.get('error')}")
+            return {"ok": False, "via": "mission"}
+        _say(
+            "brain",
+            "MISSÃO ACTIVE (SQLite, MEASURED).\n"
+            f"id={r['id']}\n{r['goal']}\n"
+            "Tarefas seguintes ficam ligadas a esta missão. Uma active de cada vez.",
+        )
+        _broadcast()
+        return {"ok": True, "via": "mission", "mission": r}
+    if re.match(r"^\s*(missão actual|objectivo actual|qual (é )?a missão|missão)\s*$", low):
+        a = mission.active()
+        if not a:
+            _say("brain", "Nenhuma missão active. Escreve: missão: <objectivo>")
+        else:
+            _say("brain", f"MISSÃO ACTIVE {a['id']}\n{a['goal']}\nstatus={a['status']} ts={a['ts']}")
+        _broadcast()
+        return {"ok": True, "via": "mission", "mission": a}
+    if re.match(r"^\s*(conclui missão|missão feita|fecha missão)\s*$", low):
+        a = mission.active()
+        if not a:
+            _say("brain", "Nenhuma missão active para concluir.")
+            return {"ok": True, "via": "mission"}
+        mission.set_status(a["id"], "done")
+        _say("brain", f"Missão {a['id']} → done.\n{a['goal']}")
+        _broadcast()
+        return {"ok": True, "via": "mission"}
+    if re.match(r"^\s*pausa missão\s*$", low):
+        a = mission.active()
+        if not a:
+            _say("brain", "Nenhuma missão active para pausar.")
+            return {"ok": True, "via": "mission"}
+        mission.set_status(a["id"], "paused")
+        _say("brain", f"Missão {a['id']} → paused.")
+        _broadcast()
+        return {"ok": True, "via": "mission"}
+    if re.match(r"^\s*cancela missão\s*$", low):
+        a = mission.active()
+        if not a:
+            _say("brain", "Nenhuma missão active para cancelar.")
+            return {"ok": True, "via": "mission"}
+        mission.set_status(a["id"], "cancelled")
+        _say("brain", f"Missão {a['id']} → cancelled.")
+        _broadcast()
+        return {"ok": True, "via": "mission"}
+
+    dm = re.match(r"^\s*(depois|em seguida)\s*[:.\-]\s+(.+)$", text, re.I | re.S)
+    if dm:
+        body = dm.group(2).strip()
+        last = tq.last_open() or tq.last_job()
+        mid = (mission.active() or {}).get("id")
+        if last and last.get("status") in ("queued", "assigned", "running"):
+            q = _enqueue("chat", body, parent_id=last.get("id"), mission_id=mid)
+            if not q.get("skip"):
+                return q
+        text = body
+        low = text.lower()
 
     if re.search(r"terceiro olho|olho do sistema|\bobserva sistema\b", low):
         eye = observer.tick()
@@ -668,6 +739,9 @@ def handle(text: str, from_worker: bool = False) -> dict:
 
     # 1 analyzer
     task = analyze(text)
+    act_m = mission.active()
+    if act_m:
+        task["mission_id"] = act_m["id"]
     task["status"] = "running"
     store.save_task(task)
     store.audit("user", "task", task["task_id"])
@@ -687,7 +761,8 @@ def handle(text: str, from_worker: bool = False) -> dict:
     need_mem = deep or int(task.get("complexity") or 0) >= 5
     pipeline["fast"] = fast
     pipeline["deep"] = deep
-    pipeline["direct_llm"] = not deep
+    pipeline["direct_llm"] = False
+    pipeline["mission_id"] = task.get("mission_id")
     pipeline["skipped_heavy"] = ["vector", "memory"] if not need_mem else []
 
     # 2 cache (hash then semantic / Qdrant). Sem memória pesada: só hash.
@@ -784,14 +859,24 @@ def handle(text: str, from_worker: bool = False) -> dict:
         _broadcast()
         return {"ok": True, "via": "firewall"}
 
-    # 5 plan (tools vs llm)
+    # 5 plan + executive decide (determinístico, não é LLM)
     plan = _plan(task)
     tool_results: list[dict] = []
     blocked = None
+    d = executive.decide(task, plan, any_llm=providers.any_llm(), from_worker=from_worker)
+    pipeline["decision"] = d
+    pipeline["direct_llm"] = d["direct_llm"]
+    pipeline["fast"] = d["fast"]
+    pipeline["deep"] = d["deep"]
 
-    # P0 Direct LLM: chat simples NÃO vai à fila. DEEP sim.
-    if not from_worker and plan.get("needs_llm") and providers.any_llm() and deep:
-        q = _enqueue("chat", text)
+    if not from_worker and d.get("queue") and providers.any_llm():
+        parent = tq.last_open(mission_id=task.get("mission_id")) if task.get("mission_id") else None
+        q = _enqueue(
+            "chat",
+            text,
+            parent_id=(parent or {}).get("id"),
+            mission_id=task.get("mission_id"),
+        )
         if not q.get("skip"):
             pipeline["route"].append("QUEUE:" + q.get("location", ""))
             pipeline["direct_llm"] = False
@@ -802,7 +887,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
             with _lock:
                 _set_pipe(pipeline)
             return q
-    if plan.get("needs_llm") and not deep:
+    if d.get("direct_llm"):
         pipeline["route"].append("DIRECT_LLM")
         pipeline["direct_llm"] = True
 
@@ -903,7 +988,15 @@ def handle(text: str, from_worker: bool = False) -> dict:
     pipeline["route"].append(gw["active"].upper())
     bus.emit("MODEL_STARTED", "INFO", gw["active"])
     max_tok = 1024 if task.get("type") == "coding" else 256
-    res = routing.complete(_llm_prompt(text, merged, _dialogue(4, current=text)), max_tokens=max_tok)
+    advice = pipeline.get("route_token") or {}
+    res = routing.complete(
+        _llm_prompt(text, merged, _dialogue(4, current=text)),
+        max_tokens=max_tok,
+        recommendation=advice.get("recommendation"),
+    )
+    pipeline["llm_ms"] = res.get("latency_ms")
+    pipeline["llm_adapter"] = res.get("adapter") or res.get("provider")
+    _mark(pipeline, "llm")
     if res.get("status") != "success":
         bus.emit("MODEL_FAILED", "WARNING", str(res.get("error")))
         scores = evaluate(task, [], False, 0)
@@ -918,6 +1011,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
             fallback=res.get("fallback"),
             context=pipeline.get("context"),
             route_advice=pipeline.get("route_token"),
+            latency_ms=res.get("latency_ms"),
         )
         task["status"] = "failed"
         task["via"] = "llm_fail"
@@ -945,6 +1039,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
         route_advice=pipeline.get("route_token"),
         fallback=res.get("fallback"),
         retry_count=int(res.get("retry_count") or 0),
+        latency_ms=res.get("latency_ms"),
     )
     tool_results = [{"tool": f"llm:{res.get('adapter')}", "status": "success", "confidence": 0.5, "findings": [{"text": res.get("text")}], "errors": [], "evidence": [f"adapter={res.get('adapter')} model={res.get('model')}"]}]
     scores = evaluate(task, tool_results, True, toks)

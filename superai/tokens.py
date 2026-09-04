@@ -299,6 +299,46 @@ def adapters_status() -> dict:
     return {"langfuse": _mod("langfuse"), "litellm": _mod("litellm")}
 
 
+def provider_stats(n: int = 80) -> dict:
+    """Sucesso/latência por provider. n=0 → UNKNOWN. Não inventa score nem €."""
+    rows = store.recent_token_events(n)
+    by: dict[str, dict] = {}
+    for r in rows:
+        pid = r.get("provider")
+        if not pid:
+            continue
+        if r.get("via") not in ("llm", "llm_fail"):
+            continue
+        slot = by.setdefault(
+            pid,
+            {"provider": pid, "n": 0, "ok": 0, "fail": 0, "latency_sum": 0.0, "latency_n": 0},
+        )
+        slot["n"] += 1
+        if r.get("status") == "ok":
+            slot["ok"] += 1
+        else:
+            slot["fail"] += 1
+        if r.get("latency_ms") is not None:
+            try:
+                slot["latency_sum"] += float(r["latency_ms"])
+                slot["latency_n"] += 1
+            except (TypeError, ValueError):
+                pass
+    out = []
+    for s in by.values():
+        s["ok_rate"] = round(s["ok"] / s["n"], 3) if s["n"] else None
+        s["avg_latency_ms"] = round(s["latency_sum"] / s["latency_n"], 1) if s["latency_n"] else None
+        s["kind"] = MEASURED if s["n"] else UNKNOWN
+        s.pop("latency_sum", None)
+        out.append(s)
+    return {
+        "kind": MEASURED if out else UNKNOWN,
+        "n_events": sum(x["n"] for x in out),
+        "providers": out,
+        "note": "n<3 por provider → DirectAdapter mantém ordem default. cost UNKNOWN.",
+    }
+
+
 def route_advice(task: dict) -> dict:
     """Dados quantitativos para o router. Não inverte LLM-last. Não inventa qualidade."""
     from . import providers
@@ -325,6 +365,7 @@ def route_advice(task: dict) -> dict:
     else:
         rec = "CHEAP"
         reason.append("complexidade baixa — se LLM, barato primeiro; tools/cache já foram tentados")
+    st = provider_stats()
     return {
         "estimated_tokens": est,
         "daily_remaining_measured": remaining,
@@ -333,8 +374,9 @@ def route_advice(task: dict) -> dict:
         "quality_required": task.get("quality_priority"),
         "recommendation": rec,
         "reason": reason,
+        "providers": st,
         "kind": MEASURED,
-        "note": "advisory. runtime continua LLM-last. sem scores de modelo (n=0).",
+        "note": "advisory. runtime LLM-last. n<3 → ordem default. cost UNKNOWN.",
     }
 
 

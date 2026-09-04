@@ -208,6 +208,18 @@ def params(body: ParamsIn):
     return set_params(body.patch)
 
 
+@app.get("/api/missions")
+def api_missions():
+    from superai import mission as ms
+
+    return ms.snapshot()
+
+
+@app.get("/api/graph")
+def api_graph():
+    return tq.graph(20)
+
+
 @app.get("/api/gods")
 def api_gods():
     from superai import gods

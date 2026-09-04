@@ -218,6 +218,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
       <button class="chip" data-q="ps">ps</button>
       <button class="chip" data-q="kernel">Kernel</button>
       <button class="chip" data-q="quem és tu em duas frases">Quem és</button>
+      <button class="chip" data-q="missão actual">Missão</button>
+      <button class="chip" data-q="missão: P1 executive no SQLite">Nova missão</button>
       <button class="chip" data-q="roadmap">Roadmap</button>
       <button class="chip" data-q="cria uma landing page de um café em Lisboa, só HTML e CSS">Cria um site</button>
     </div>
@@ -302,7 +304,7 @@ function paint(s){
   const p=s.last_pipeline;
   if(p){
     $('pipe').textContent =
-      `rota ${(p.route||[]).join(' → ') || '—'}\nmode ${(p.task&&p.task.exec_mode)||''} fast=${p.fast||false} direct=${p.direct_llm} ${p.stages_ms?JSON.stringify(p.stages_ms):''} ${p.latency_ms!=null?p.latency_ms+'ms MEASURED':''}\ncache ${p.cache} · mem ${p.memory_hits} · fw ${(p.firewall&&p.firewall.action)||'n/a'}`;
+      `rota ${(p.route||[]).join(' → ') || '—'}\nmode ${(p.task&&p.task.exec_mode)||''} path=${(p.decision&&p.decision.path)||'—'} fast=${p.fast||false} direct=${p.direct_llm} ${p.stages_ms?JSON.stringify(p.stages_ms):''} ${p.latency_ms!=null?p.latency_ms+'ms MEASURED':''}\n${(p.decision&&p.decision.reasons||[]).join(' · ')}\ncache ${p.cache} · mem ${p.memory_hits} · fw ${(p.firewall&&p.firewall.action)||'n/a'} · missão ${p.mission_id||'—'}`;
   }
 
   $('tool-list').innerHTML = (s.tools||[]).map(t=>`
@@ -322,6 +324,10 @@ function paint(s){
     <div class="d">benchmark ${b? b.run_id+' n_llm='+b.n_llm_samples+' passed='+b.passed+' skip='+b.skipped : 'ainda n=0'}</div>
     <div class="d">GPU ${host.gpu && host.gpu.present ? 'presente (opcional)' : 'ausente — não exigida'} · pressure ${host.pressure||'—'}</div>
     <div class="d">workers ${(s.workers||[]).map(w=>w.id+(w.alive?'✓':'✗')+' '+w.location).join(', ')||'nenhum'}</div>
+    ${(() => { const mi=s.mission||{}; const a=mi.active; const g=s.graph||{}; return `
+    <div class="d">MISSÃO ${a?esc(a.id)+' '+esc(a.status)+' — '+esc((a.goal||'').slice(0,80)):'nenhuma active'} · n=${mi.n??0} ${esc(mi.kind||'')}</div>
+    <div class="d">GRAPH edges=${(g.edges||[]).length} parallel=${g.parallel} inflight=${g.inflight_applied} ${esc(g.kind||'')}</div>
+    ${(g.edges||[]).slice(0,6).map(e=>`<div class="d">  ${esc(e.from)} → ${esc(e.to)}</div>`).join('')}`; })()}
     <div class="d">fila queued ${qq.queued||0} running ${qq.running||0} done ${qq.completed||0}</div>
     ${(s.jobs||[]).slice(0,6).map(j=>`<div class="d">job ${esc(j.id)} ${esc(j.kind)} ${esc(j.status)}</div>`).join('')}
     ${(s.projects&&s.projects.length)? `<div class="d">sites ${s.projects.map(p=>`<a href="${esc(p.preview)}" target="_blank" rel="noopener">${esc(p.slug)}</a>`).join(' · ')}</div>`: '<div class="d">sites: nenhum em data/projects</div>'}

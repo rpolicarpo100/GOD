@@ -804,5 +804,123 @@ class God20Sprint1(unittest.TestCase):
             self.assertIsNone(p.get("issues"))
 
 
+class God20P1(unittest.TestCase):
+    def test_decide_fast_tools(self):
+        from superai.brain import analyze
+        from superai.executive import decide
+        from superai.runtime import _plan
+
+        t = analyze("calcula 2+2")
+        d = decide(t, _plan(t), any_llm=True)
+        self.assertEqual(d["path"], "tools")
+        self.assertEqual(d["kind"], "DETERMINISTIC")
+        self.assertFalse(d["queue"])
+        self.assertFalse(d["memory"])
+
+    def test_decide_normal_direct_or_no_provider(self):
+        from superai.brain import analyze
+        from superai.executive import decide
+        from superai.runtime import _plan
+
+        t = analyze("quem és tu em duas frases")
+        p = _plan(t)
+        self.assertEqual(decide(t, p, any_llm=True)["path"], "direct_llm")
+        self.assertEqual(decide(t, p, any_llm=False)["path"], "no_provider")
+
+    def test_decide_deep_queues_until_worker(self):
+        from superai.brain import analyze
+        from superai.executive import decide
+        from superai.runtime import _plan
+
+        t = analyze("implementa um refactor da arquitectura deste sistema crítico")
+        p = _plan(t)
+        self.assertEqual(decide(t, p, any_llm=True, from_worker=False)["path"], "queue")
+        self.assertEqual(decide(t, p, any_llm=True, from_worker=True)["path"], "direct_llm")
+
+    def test_mission_one_active(self):
+        from superai import mission as ms
+
+        prev = ms.active()
+        a = ms.create("p1-miss-aaa-objetivo")
+        b = ms.create("p1-miss-bbb-objetivo")
+        try:
+            self.assertTrue(a.get("ok") and b.get("ok"))
+            self.assertEqual(ms.active()["id"], b["id"])
+            self.assertEqual(ms.get(a["id"])["status"], "paused")
+        finally:
+            ms.set_status(a["id"], "cancelled")
+            ms.set_status(b["id"], "cancelled")
+            if prev:
+                ms.set_status(prev["id"], "active")
+
+    def test_mission_chat_commands(self):
+        from superai import mission as ms
+        from superai.runtime import handle
+
+        prev = ms.active()
+        r = handle("missão: p1-chat-nonce-zzqn")
+        self.assertEqual(r.get("via"), "mission")
+        try:
+            a = ms.active()
+            self.assertIsNotNone(a)
+            self.assertIn("p1-chat-nonce-zzqn", a["goal"])
+            self.assertEqual(handle("missão actual").get("via"), "mission")
+        finally:
+            handle("cancela missão")
+            if prev:
+                ms.set_status(prev["id"], "active")
+        if not prev:
+            self.assertIsNone(ms.active())
+
+    def test_parent_id_persists_and_ready(self):
+        from superai import queue as tq
+
+        orig = tq.get_job
+        try:
+            tq.get_job = lambda pid: {"id": pid, "status": "queued"}
+            self.assertFalse(tq.job_is_ready({"parent_id": "x"}))
+            tq.get_job = lambda pid: {"id": pid, "status": "completed"}
+            self.assertTrue(tq.job_is_ready({"parent_id": "x"}))
+            tq.get_job = lambda pid: None
+            self.assertTrue(tq.job_is_ready({"parent_id": "missing"}))
+            self.assertTrue(tq.job_is_ready({"parent_id": None}))
+        finally:
+            tq.get_job = orig
+        j1 = tq.enqueue("p1graph", "p1-parent-nonce-aa")
+        j2 = tq.enqueue("p1graph", "p1-child-nonce-bb", parent_id=j1["id"])
+        try:
+            self.assertEqual(tq.get_job(j2["id"])["parent_id"], j1["id"])
+            g = tq.graph(40)
+            self.assertFalse(g["parallel"])
+            self.assertEqual(g["inflight_applied"], 1)
+            self.assertEqual(g["kind"], "MEASURED")
+            self.assertTrue(any(e.get("from") == j1["id"] and e.get("to") == j2["id"] for e in g["edges"]))
+        finally:
+            tq.cancel(j1["id"])
+            tq.cancel(j2["id"])
+
+    def test_sort_adapters_demotes_only_with_n3(self):
+        from superai.routing import sort_adapters
+
+        class A:
+            def __init__(self, i):
+                self.id = i
+
+        failing = {"providers": [{"provider": "groq", "n": 5, "ok": 0, "fail": 5, "ok_rate": 0.0, "avg_latency_ms": 10}]}
+        order = sort_adapters([A("groq"), A("cerebras")], failing)
+        self.assertEqual(order[0].id, "cerebras")
+        low_n = {"providers": [{"provider": "groq", "n": 2, "ok": 0, "fail": 2, "ok_rate": 0.0}]}
+        order2 = sort_adapters([A("groq"), A("cerebras")], low_n)
+        self.assertEqual(order2[0].id, "groq")
+
+    def test_provider_stats_kind(self):
+        from superai.tokens import provider_stats
+
+        s = provider_stats()
+        self.assertIn(s["kind"], ("MEASURED", "UNKNOWN"))
+        if s["n_events"] == 0:
+            self.assertEqual(s["kind"], "UNKNOWN")
+
+
 if __name__ == "__main__":
     unittest.main()

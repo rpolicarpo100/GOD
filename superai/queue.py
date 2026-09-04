@@ -48,12 +48,24 @@ def init() -> None:
         cols = [row[1] for row in c.execute("PRAGMA table_info(jobs)")]
         if "priority" not in cols:
             c.execute("ALTER TABLE jobs ADD COLUMN priority INTEGER DEFAULT 0")
+        if "parent_id" not in cols:
+            c.execute("ALTER TABLE jobs ADD COLUMN parent_id TEXT")
+        if "mission_id" not in cols:
+            c.execute("ALTER TABLE jobs ADD COLUMN mission_id TEXT")
 
 
 init()
 
 
-def enqueue(kind: str, text: str, payload: dict | None = None, location: str = "LOCAL_WORKER", priority: int = 0) -> dict:
+def enqueue(
+    kind: str,
+    text: str,
+    payload: dict | None = None,
+    location: str = "LOCAL_WORKER",
+    priority: int = 0,
+    parent_id: str | None = None,
+    mission_id: str | None = None,
+) -> dict:
     from .util import normalize_query
 
     norm = normalize_query(text) or text
@@ -85,9 +97,11 @@ def enqueue(kind: str, text: str, payload: dict | None = None, location: str = "
                 "ts": now_iso(),
                 "updated": now_iso(),
                 "priority": prio,
+                "parent_id": parent_id,
+                "mission_id": mission_id,
             }
             c.execute(
-                "INSERT INTO jobs(id,kind,status,text,payload,result,worker_id,location,error,ts,updated,priority) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO jobs(id,kind,status,text,payload,result,worker_id,location,error,ts,updated,priority,parent_id,mission_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     job["id"],
                     job["kind"],
@@ -101,6 +115,8 @@ def enqueue(kind: str, text: str, payload: dict | None = None, location: str = "
                     job["ts"],
                     job["updated"],
                     job["priority"],
+                    job["parent_id"],
+                    job["mission_id"],
                 ),
             )
     if job.get("deduped"):
@@ -119,6 +135,17 @@ def worker_inflight(wid: str) -> int:
     return int(n)
 
 
+def job_is_ready(job: dict) -> bool:
+    """Filho espera o pai. Sem DAG. Sem paralelismo fingido."""
+    pid = job.get("parent_id") if job else None
+    if not pid:
+        return True
+    parent = get_job(pid)
+    if not parent:
+        return True
+    return parent.get("status") in ("completed", "failed", "killed")
+
+
 def claim(worker_id: str) -> dict | None:
     from .resources import inflight_cap
 
@@ -126,9 +153,18 @@ def claim(worker_id: str) -> dict | None:
     if worker_inflight(worker_id) >= cap:
         return None
     with store._lock, store._conn() as c:
-        r = c.execute(
-            "SELECT * FROM jobs WHERE status='queued' ORDER BY COALESCE(priority,0) DESC, ts ASC LIMIT 1"
-        ).fetchone()
+        rows = c.execute(
+            "SELECT * FROM jobs WHERE status='queued' ORDER BY COALESCE(priority,0) DESC, ts ASC LIMIT 20"
+        ).fetchall()
+        r = None
+        for cand in rows:
+            pid = cand["parent_id"] if "parent_id" in cand.keys() else None
+            if pid:
+                parent = c.execute("SELECT status FROM jobs WHERE id=?", (pid,)).fetchone()
+                if parent and parent["status"] not in ("completed", "failed", "killed"):
+                    continue
+            r = cand
+            break
         if not r:
             return None
         c.execute(
@@ -219,6 +255,8 @@ def _job_row(r, **over) -> dict:
         "ts": r["ts"],
         "updated": r["updated"] if "updated" in r.keys() else None,
         "priority": int(r["priority"] or 0) if "priority" in r.keys() else 0,
+        "parent_id": r["parent_id"] if "parent_id" in r.keys() else None,
+        "mission_id": r["mission_id"] if "mission_id" in r.keys() else None,
     }
     d.update(over)
     return d
@@ -228,6 +266,39 @@ def get_job(jid: str) -> dict | None:
     with store._conn() as c:
         r = c.execute("SELECT * FROM jobs WHERE id=?", (jid,)).fetchone()
     return _job_row(r) if r else None
+
+
+def last_open(mission_id: str | None = None) -> dict | None:
+    with store._conn() as c:
+        if mission_id:
+            r = c.execute(
+                "SELECT * FROM jobs WHERE mission_id=? AND status IN ('queued','assigned','running') ORDER BY ts DESC LIMIT 1",
+                (mission_id,),
+            ).fetchone()
+        else:
+            r = c.execute(
+                "SELECT * FROM jobs WHERE status IN ('queued','assigned','running') ORDER BY ts DESC LIMIT 1"
+            ).fetchone()
+    return _job_row(r) if r else None
+
+
+def last_job() -> dict | None:
+    with store._conn() as c:
+        r = c.execute("SELECT * FROM jobs ORDER BY ts DESC LIMIT 1").fetchone()
+    return _job_row(r) if r else None
+
+
+def graph(n: int = 20) -> dict:
+    items = jobs(n)
+    edges = [{"from": j["parent_id"], "to": j["id"]} for j in items if j.get("parent_id")]
+    return {
+        "kind": "MEASURED",
+        "n": len(items),
+        "edges": edges,
+        "parallel": False,
+        "inflight_applied": 1,
+        "note": "parent_id no SQLite. inflight=1. Sem motor DAG. Sem workers paralelos.",
+    }
 
 
 def cancel(jid: str) -> dict:

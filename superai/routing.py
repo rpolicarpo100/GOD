@@ -6,6 +6,7 @@ fails over our ModelAdapters. Core never talks to a provider SDK directly.
 from __future__ import annotations
 
 import socket
+import time
 from typing import Any
 
 import httpx
@@ -96,6 +97,31 @@ class OmniRouteAdapter(RoutingAdapter):
             return {"status": "error", "adapter": self.id, "error": str(e)}
 
 
+def sort_adapters(adapters: list, stats: dict | None, prefer: str | None = None) -> list:
+    """Ordem default local→API→Claude. Só reordena com n≥3 MEASURED. Sem € inventado."""
+    order = list(adapters)
+    if prefer:
+        order = sorted(order, key=lambda a: 0 if getattr(a, "id", None) == prefer else 1)
+    ranks = {getattr(a, "id", i): i for i, a in enumerate(order)}
+    by = {p["provider"]: p for p in ((stats or {}).get("providers") or []) if p.get("provider")}
+
+    def key(a):
+        aid = getattr(a, "id", "")
+        st = by.get(aid) or {}
+        n = int(st.get("n") or 0)
+        demote = 0
+        lat = 0.0
+        if n >= 3:
+            rate = st.get("ok_rate")
+            if rate is not None and float(rate) <= 0.3:
+                demote = 1
+            if st.get("avg_latency_ms") is not None:
+                lat = float(st["avg_latency_ms"])
+        return (demote, ranks.get(aid, 99), lat)
+
+    return sorted(order, key=key)
+
+
 class DirectAdapter(RoutingAdapter):
     """Fallback when OmniRoute is down — still goes through ModelAdapters."""
 
@@ -119,9 +145,8 @@ class DirectAdapter(RoutingAdapter):
 
     def complete(self, prompt: str, **kw: Any) -> dict[str, Any]:
         prefer = kw.get("prefer")
-        order = list(providers.ADAPTERS)
-        if prefer:
-            order = sorted(order, key=lambda a: 0 if a.id == prefer else 1)
+        stats = kw.get("stats")
+        order = sort_adapters(list(providers.ADAPTERS), stats, prefer)
         last = None
         tries = 0
         for a in order:
@@ -157,9 +182,24 @@ def health() -> dict:
 
 
 def complete(prompt: str, **kw: Any) -> dict[str, Any]:
+    rec = kw.get("recommendation")
+    prefer = kw.get("prefer")
+    if rec == "PREMIUM" and not prefer:
+        hs = providers.health_all()
+        if any(h.get("id") == "claude" and h.get("available") for h in hs):
+            kw = {**kw, "prefer": "claude"}
+    try:
+        from . import tokens as ti
+
+        kw = {**kw, "stats": ti.provider_stats()}
+    except Exception:
+        pass
     o = omni.health()
     act = omni if o["available"] else direct
+    t0 = time.perf_counter()
     res = act.complete(prompt, **kw)
+    res["latency_ms"] = round((time.perf_counter() - t0) * 1000, 1)
+    res["latency_kind"] = "MEASURED"
     res["gateway"] = act.id
     res["fallback"] = act.id == "direct" and not o["available"]
     res["retry_count"] = int(kw.get("retry_count") or 0)
