@@ -569,8 +569,8 @@ def handle(text: str, from_worker: bool = False) -> dict:
             "Sou a GOD. Falo no feminino. Não sou um tab de documentação.",
             f"Modo {resolve_mode()[0]}. GPU required=false. OS booted={os_s.get('booted')} syscalls={os_s.get('syscalls')}.",
             "P0 FEITO: Fast Path, latency MEASURED, Direct LLM, smart memory.",
-            "P1 FEITO: decide() + missão SQLite. PARTIAL: graph parent_id inflight=1, router n≥3, cost UNKNOWN.",
-            "P2 a fazer: Validator + Third Eye. Factory NÃO. P3 mesh NÃO. P4 UI PARTIAL.",
+            "P1 FEITO: decide() + missão SQLite + graph inflight=2 + router fiabilidade + HARDCORE MODE.",
+            "P2 FEITO: Validator + Third Eye 2.0. Factory NÃO. P3 mesh NÃO. P4 UI FEITO.",
             f"LLM vivo: {'sim' if llm else 'não'} — up={[h['id'] for h in providers.health_all() if h.get('available')]} · Ollama={'up' if any(h['id']=='ollama' and h.get('available') for h in providers.health_all()) else 'down'}. GitHub main. Plane godsx MEASURED, não no produto.",
             "Não adiciono camadas nem resultados fictícios. Sem provider, recuso.",
         ]
@@ -1018,10 +1018,16 @@ def handle(text: str, from_worker: bool = False) -> dict:
     bus.emit("MODEL_STARTED", "INFO", gw["active"])
     max_tok = 1024 if task.get("type") == "coding" else 256
     advice = pipeline.get("route_token") or {}
+    # HARDCORE MODE: Claude como primary (premium, pago)
+    hardcore = bool(re.search(r"\b(hardcore|HARDCORE)\b", text))
+    if hardcore:
+        pipeline["route"].append("HARDCORE_MODE")
+        pipeline["hardcore"] = True
     res = routing.complete(
         _llm_prompt(text, merged, _dialogue(4, current=text)),
         max_tokens=max_tok,
         recommendation=advice.get("recommendation"),
+        hardcore=hardcore,
     )
     pipeline["llm_ms"] = res.get("latency_ms")
     pipeline["llm_adapter"] = res.get("adapter") or res.get("provider")

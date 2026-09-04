@@ -231,14 +231,19 @@ class Queue(unittest.TestCase):
         tq.register_worker("t-inflight", "t-inflight", "control", ["chat"])
         a = tq.enqueue("chat", "inflight-unique-aaa-1", None, "LOCAL_WORKER")
         b = tq.enqueue("chat", "inflight-unique-bbb-2", None, "LOCAL_WORKER")
+        c = tq.enqueue("chat", "inflight-unique-ccc-3", None, "LOCAL_WORKER")
         self.assertFalse(a.get("deduped"))
         self.assertFalse(b.get("deduped"))
+        self.assertFalse(c.get("deduped"))
         c1 = tq.claim("t-inflight")
         self.assertIsNotNone(c1)
         c2 = tq.claim("t-inflight")
-        self.assertIsNone(c2)
+        self.assertIsNotNone(c2)  # inflight=2, second claim succeeds
+        c3 = tq.claim("t-inflight")
+        self.assertIsNone(c3)  # inflight=2, third claim fails
         tq.cancel(c1["id"])
-        tq.cancel(b["id"])
+        tq.cancel(c2["id"])
+        tq.cancel(c["id"])
         tq.unregister_worker("t-inflight")
 
 
@@ -360,7 +365,7 @@ class TokenIntel(unittest.TestCase):
         self.assertEqual(L["pc"]["cores_god_max"], 2)
         self.assertEqual(L["pc"]["ram_gb_god_max"], 12.0)
         inf = inflight_cap()
-        self.assertEqual(inf["applied"], 1)
+        self.assertEqual(inf["applied"], 2)  # inflight=2 now
         self.assertEqual(inf["applied_kind"], "MEASURED")
         self.assertEqual(inf["declared_pc_target"], 2)
 
@@ -891,8 +896,8 @@ class God20P1(unittest.TestCase):
         try:
             self.assertEqual(tq.get_job(j2["id"])["parent_id"], j1["id"])
             g = tq.graph(40)
-            self.assertFalse(g["parallel"])
-            self.assertEqual(g["inflight_applied"], 1)
+            self.assertTrue(g["parallel"])  # inflight=2
+            self.assertEqual(g["inflight_applied"], 2)
             self.assertEqual(g["kind"], "MEASURED")
             self.assertTrue(any(e.get("from") == j1["id"] and e.get("to") == j2["id"] for e in g["edges"]))
         finally:
@@ -1144,6 +1149,130 @@ class ThirdEye(unittest.TestCase):
         self.assertGreater(len(c["recommendations"]), 0)
         recs = c["recommendations"]
         self.assertTrue(any("quality" in r["type"] for r in recs))
+
+
+class P1GraphParallel(unittest.TestCase):
+    """P1 Task Graph — inflight=2 paralelismo."""
+
+    def test_inflight_cap_returns_2(self):
+        from superai.resources import inflight_cap
+
+        cap = inflight_cap()
+        self.assertEqual(cap["applied"], 2)
+        self.assertEqual(cap["applied_kind"], "MEASURED")
+        self.assertIn("inflight=2", cap["applied_reason"])
+        self.assertEqual(cap["declared_pc_target"], 2)
+
+    def test_graph_reflects_inflight_2(self):
+        from superai import queue as tq
+
+        g = tq.graph(20)
+        self.assertTrue(g["parallel"])
+        self.assertEqual(g["inflight_applied"], 2)
+        self.assertIn("inflight=2", g["note"])
+
+    def test_claim_allows_two_jobs(self):
+        from superai import queue as tq
+
+        tq.register_worker("t-parallel", "t-parallel", "control", ["chat"])
+        a = tq.enqueue("chat", "parallel-test-aaa-unique", None, "LOCAL_WORKER")
+        b = tq.enqueue("chat", "parallel-test-bbb-unique", None, "LOCAL_WORKER")
+        self.assertFalse(a.get("deduped"))
+        self.assertFalse(b.get("deduped"))
+        c1 = tq.claim("t-parallel")
+        self.assertIsNotNone(c1)
+        c2 = tq.claim("t-parallel")
+        self.assertIsNotNone(c2)  # inflight=2, so second claim succeeds
+        c3 = tq.claim("t-parallel")
+        self.assertIsNone(c3)  # inflight=2, third should fail
+        tq.cancel(c1["id"])
+        tq.cancel(c2["id"])
+        tq.unregister_worker("t-parallel")
+
+
+class P1RouterReliability(unittest.TestCase):
+    """P1 Router — ordenar por fiabilidade (ok_rate)."""
+
+    def test_sort_by_ok_rate_desc(self):
+        from superai.routing import sort_adapters
+
+        class A:
+            def __init__(self, i):
+                self.id = i
+
+        stats = {
+            "providers": [
+                {"provider": "groq", "n": 10, "ok": 3, "fail": 7, "ok_rate": 0.3, "avg_latency_ms": 50},
+                {"provider": "cerebras", "n": 10, "ok": 9, "fail": 1, "ok_rate": 0.9, "avg_latency_ms": 100},
+                {"provider": "gemini", "n": 10, "ok": 6, "fail": 4, "ok_rate": 0.6, "avg_latency_ms": 80},
+            ]
+        }
+        adapters = [A("groq"), A("cerebras"), A("gemini")]
+        order = sort_adapters(adapters, stats)
+        # Should order by ok_rate desc: cerebras (0.9) > gemini (0.6) > groq (0.3, demoted)
+        self.assertEqual(order[0].id, "cerebras")
+        self.assertEqual(order[1].id, "gemini")
+        self.assertEqual(order[2].id, "groq")
+
+    def test_sort_demotes_low_ok_rate(self):
+        from superai.routing import sort_adapters
+
+        class A:
+            def __init__(self, i):
+                self.id = i
+
+        stats = {
+            "providers": [
+                {"provider": "groq", "n": 10, "ok": 1, "fail": 9, "ok_rate": 0.1, "avg_latency_ms": 10},
+                {"provider": "cerebras", "n": 10, "ok": 8, "fail": 2, "ok_rate": 0.8, "avg_latency_ms": 100},
+            ]
+        }
+        adapters = [A("groq"), A("cerebras")]
+        order = sort_adapters(adapters, stats)
+        # groq has ok_rate 0.1 <= 0.3, should be demoted
+        self.assertEqual(order[0].id, "cerebras")
+        self.assertEqual(order[1].id, "groq")
+
+    def test_sort_requires_n3(self):
+        from superai.routing import sort_adapters
+
+        class A:
+            def __init__(self, i):
+                self.id = i
+
+        # n=2, not enough data to reorder
+        stats = {
+            "providers": [
+                {"provider": "groq", "n": 2, "ok": 0, "fail": 2, "ok_rate": 0.0, "avg_latency_ms": 10},
+                {"provider": "cerebras", "n": 2, "ok": 2, "fail": 0, "ok_rate": 1.0, "avg_latency_ms": 100},
+            ]
+        }
+        adapters = [A("groq"), A("cerebras")]
+        order = sort_adapters(adapters, stats)
+        # Default order preserved (n < 3)
+        self.assertEqual(order[0].id, "groq")
+
+    def test_hardcore_mode_claude_first(self):
+        from superai.routing import sort_adapters
+
+        class A:
+            def __init__(self, i):
+                self.id = i
+
+        stats = {
+            "providers": [
+                {"provider": "groq", "n": 10, "ok": 9, "fail": 1, "ok_rate": 0.9, "avg_latency_ms": 50},
+                {"provider": "cerebras", "n": 10, "ok": 8, "fail": 2, "ok_rate": 0.8, "avg_latency_ms": 80},
+                {"provider": "claude", "n": 10, "ok": 7, "fail": 3, "ok_rate": 0.7, "avg_latency_ms": 200},
+            ]
+        }
+        adapters = [A("groq"), A("cerebras"), A("claude")]
+        order_normal = sort_adapters(adapters, stats, hardcore=False)
+        order_hardcore = sort_adapters(adapters, stats, hardcore=True)
+        # Normal: by ok_rate desc
+        self.assertEqual(order_normal[0].id, "groq")
+        # Hardcore: claude first
+        self.assertEqual(order_hardcore[0].id, "claude")
 
 
 if __name__ == "__main__":

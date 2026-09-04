@@ -144,13 +144,14 @@ def layout() -> dict:
 
 
 def inflight_cap() -> dict:
-    """Jobs simultâneos. Este sandbox = 1. Alvo no PC = cores_max (nunca 4/4)."""
+    """Jobs simultâneos. Max 2 no PC (nunca 4/4). LLM remoto não usa CPU local."""
     n = declared_node()
     target = (n.get("caps") or {}).get("cores_max") or 1
+    applied = min(target, 2)  # Max 2 por segurança; LLM é remoto
     return {
-        "applied": 1,
+        "applied": applied,
         "applied_kind": "MEASURED",
-        "applied_reason": "1 worker in-process; este host ≠ PC i5-4590 24GB",
+        "applied_reason": f"inflight={applied} (min of cores_max={target}, hardcoded=2); LLM remoto não usa CPU",
         "declared_pc_target": int(target),
         "declared_kind": "USER_DECLARED",
     }

@@ -97,8 +97,11 @@ class OmniRouteAdapter(RoutingAdapter):
             return {"status": "error", "adapter": self.id, "error": str(e)}
 
 
-def sort_adapters(adapters: list, stats: dict | None, prefer: str | None = None) -> list:
-    """Ordem default local→API→Claude. Só reordena com n≥3 MEASURED. Sem € inventado."""
+def sort_adapters(adapters: list, stats: dict | None, prefer: str | None = None, hardcore: bool = False) -> list:
+    """Ordem por fiabilidade (ok_rate). Só reordena com n≥3 MEASURED. Sem € inventado.
+    
+    HARDCORE MODE: Claude como primary (premium, pago).
+    """
     order = list(adapters)
     if prefer:
         order = sorted(order, key=lambda a: 0 if getattr(a, "id", None) == prefer else 1)
@@ -110,14 +113,18 @@ def sort_adapters(adapters: list, stats: dict | None, prefer: str | None = None)
         st = by.get(aid) or {}
         n = int(st.get("n") or 0)
         demote = 0
-        lat = 0.0
+        ok_rate = 0.0
         if n >= 3:
             rate = st.get("ok_rate")
-            if rate is not None and float(rate) <= 0.3:
-                demote = 1
-            if st.get("avg_latency_ms") is not None:
-                lat = float(st["avg_latency_ms"])
-        return (demote, ranks.get(aid, 99), lat)
+            if rate is not None:
+                ok_rate = float(rate)
+                if ok_rate <= 0.3:
+                    demote = 1
+        # HARDCORE MODE: Claude sempre primeiro (rank -1)
+        if hardcore and aid == "claude":
+            return (-1, 0, 0)
+        # Ordenar por fiabilidade (ok_rate desc), depois por rank default
+        return (demote, -ok_rate, ranks.get(aid, 99))
 
     return sorted(order, key=key)
 
@@ -146,7 +153,8 @@ class DirectAdapter(RoutingAdapter):
     def complete(self, prompt: str, **kw: Any) -> dict[str, Any]:
         prefer = kw.get("prefer")
         stats = kw.get("stats")
-        order = sort_adapters(list(providers.ADAPTERS), stats, prefer)
+        hardcore = kw.get("hardcore", False)
+        order = sort_adapters(list(providers.ADAPTERS), stats, prefer, hardcore=hardcore)
         last = None
         tries = 0
         for a in order:
@@ -184,6 +192,7 @@ def health() -> dict:
 def complete(prompt: str, **kw: Any) -> dict[str, Any]:
     rec = kw.get("recommendation")
     prefer = kw.get("prefer")
+    hardcore = kw.get("hardcore", False)
     if rec == "PREMIUM" and not prefer:
         hs = providers.health_all()
         if any(h.get("id") == "claude" and h.get("available") for h in hs):
@@ -197,7 +206,7 @@ def complete(prompt: str, **kw: Any) -> dict[str, Any]:
     o = omni.health()
     act = omni if o["available"] else direct
     t0 = time.perf_counter()
-    res = act.complete(prompt, **kw)
+    res = act.complete(prompt, **kw, hardcore=hardcore)
     res["latency_ms"] = round((time.perf_counter() - t0) * 1000, 1)
     res["latency_kind"] = "MEASURED"
     res["gateway"] = act.id

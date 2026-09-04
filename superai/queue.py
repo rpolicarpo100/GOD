@@ -291,13 +291,15 @@ def last_job() -> dict | None:
 def graph(n: int = 20) -> dict:
     items = jobs(n)
     edges = [{"from": j["parent_id"], "to": j["id"]} for j in items if j.get("parent_id")]
+    from .resources import inflight_cap
+    cap = inflight_cap()
     return {
         "kind": "MEASURED",
         "n": len(items),
         "edges": edges,
-        "parallel": False,
-        "inflight_applied": 1,
-        "note": "parent_id no SQLite. inflight=1. Sem motor DAG. Sem workers paralelos.",
+        "parallel": cap["applied"] > 1,
+        "inflight_applied": cap["applied"],
+        "note": f"parent_id no SQLite. inflight={cap['applied']}. Paralelismo limitado a {cap['applied']} jobs.",
     }
 
 
