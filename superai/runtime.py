@@ -268,7 +268,8 @@ def _format_result(task: dict, pipeline: dict, tool_results: list[dict], scores:
         )
         lines.append(f"LLM usado: {scores['llm_used']} · tokens LLM: {scores['tokens_actual']}")
     lines.append("")
-    lines.append("Não chamei Claude. Não inventei providers. Incerteza é reportada.")
+    via = task.get("via") or (pipeline.get("route") or ["?"])[-1]
+    lines.append(f"Via {via}. Não inventei providers nem preços. Incerteza é reportada.")
     return "\n".join(lines)
 
 
