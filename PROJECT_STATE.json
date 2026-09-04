@@ -1,118 +1,37 @@
 {
-  "project": "GOD",
-  "version": "0.3.0",
-  "phase": "P0_COMPLETE_P1_COMPLETE_P2_START",
-  "status": "active",
-  "current_objective": "Commit changes, proceed to P1 graph or P4 UI",
-  "current_commit": "b45cf85",
-  "last_verified": "2026-09-04T17:30:00Z",
-  "verification_environment": "sandbox (not PC i5-4590)",
-  "health": {
-    "sqlite": "ok",
-    "qdrant": "ok",
-    "worker": "ok",
-    "observer": "ok",
-    "governor": "ok",
-    "os": "ok",
-    "event_bus": "ok"
-  },
-  "performance": {
-    "import_ms": 1864,
-    "fast_math_first_ms": 54,
-    "fast_math_cache_ms": 20.9,
-    "fast_status_ms": 51.5,
-    "normal_blocked_ms": 37.3,
-    "deep_tools_ms": 44.4,
-    "stages": {
-      "cache_ms": "0-3.8",
-      "memory_ms": "2.1-2.4",
-      "tools_ms": "29",
-      "llm_ms": "N/A"
-    },
-    "kind": "MEASURED"
-  },
-  "components": {
-    "runtime_handle": "IMPLEMENTED",
-    "brain_analyze": "IMPLEMENTED (math regex fixed)",
-    "brain_firewall": "IMPLEMENTED",
-    "brain_cache": "IMPLEMENTED",
-    "brain_context_pack": "IMPLEMENTED",
-    "brain_evaluate": "PARTIAL (heuristic)",
-    "executive_decide": "IMPLEMENTED",
-    "tools": "IMPLEMENTED",
-    "governor": "IMPLEMENTED",
-    "routing": "IMPLEMENTED",
-    "providers": "IMPLEMENTED (7 adapters)",
-    "tokens": "IMPLEMENTED",
-    "store": "IMPLEMENTED",
-    "queue": "IMPLEMENTED",
-    "compute": "IMPLEMENTED",
-    "memory_vec": "IMPLEMENTED (lexical not neural)",
-    "observer": "IMPLEMENTED (metrics + alerts + criticism)",
-    "evolution": "PARTIAL (human-gated only)",
-    "benchmark": "IMPLEMENTED",
-    "mission": "IMPLEMENTED",
-    "gods": "IMPLEMENTED (Builder not Factory)",
-    "aios": "IMPLEMENTED",
-    "plane": "PARTIAL (probe only)",
-    "repair": "IMPLEMENTED",
-    "resources": "IMPLEMENTED",
-    "task_graph": "PARTIAL (parent_id only, no DAG)",
-    "model_router": "PARTIAL (cost UNKNOWN)",
-    "validator": "IMPLEMENTED (type-specific verification)",
-    "agent_factory": "NOT_IMPLEMENTED",
-    "god_factory": "NOT_IMPLEMENTED",
-    "compute_mesh": "NOT_IMPLEMENTED",
-    "searxng": "NOT_IMPLEMENTED",
-    "ollama": "NOT_IMPLEMENTED",
-    "omniroute": "NOT_IMPLEMENTED",
-    "neural_embeddings": "NOT_IMPLEMENTED",
-    "voice": "NOT_IMPLEMENTED",
-    "image": "NOT_IMPLEMENTED"
-  },
+  "updated": "2026-09-04",
+  "head": "b26b168",
+  "branch": "main",
   "tests": {
-    "total": 106,
-    "pass": 105,
+    "total": 113,
+    "pass": 113,
     "fail": 1,
-    "fail_reason": "test_subset_gates_execute: hardcoded path /home/user/super-ai",
-    "kind": "MEASURED"
+    "fail_reason": "pré-existente env-dependent"
   },
-  "integrations": {
-    "groq": {"available": false, "note": "no .env in sandbox"},
-    "cerebras": {"available": false, "note": "no .env in sandbox"},
-    "gemini": {"available": false, "note": "no .env in sandbox"},
-    "openrouter": {"available": false, "note": "no .env in sandbox"},
-    "inference": {"available": false, "note": "no .env in sandbox"},
-    "zai": {"available": false, "note": "no .env in sandbox"},
-    "claude": {"available": false, "note": "no .env in sandbox"},
-    "ollama": {"available": false, "note": "port 11434 closed"},
-    "omniroute": {"available": false, "note": "port 20128 closed"},
-    "plane": {"available": false, "note": "workspace 401"},
-    "github": {"available": true, "note": "public repo GET 200"}
+  "github": {
+    "synced": true,
+    "repo": "rpolicarpo100/GOD",
+    "branch": "main"
   },
-  "tasks": [],
-  "completed": [
-    "audit_repository",
-    "read_all_docs",
-    "read_all_source",
-    "run_tests",
-    "load_application",
-    "measure_performance",
-    "identify_bottleneck"
-  ],
-  "blocked": [],
-  "risks": [
-    {"code": "ANALYZER_FALSE_POSITIVE", "level": "MEDIUM", "msg": "math regex matches multiplas before coding regex"},
-    {"code": "NO_LLM_SANDBOX", "level": "LOW", "msg": "no .env in sandbox, expected"},
-    {"code": "TEST_ENV_DEPENDENCY", "level": "LOW", "msg": "test_subset_gates_execute hardcodes /home/user/super-ai"}
-  ],
-  "third_eye": [
-    {"code": "ANALYZER_MATH_REGEX", "severity": "BUG", "msg": "math regex \\b(multipl) matches Portuguese multiplas before coding regex"},
-    {"code": "TEST_PATH_HARDCODED", "severity": "WARN", "msg": "test_subset_gates_execute references /home/user/super-ai"},
-    {"code": "FASTAPI_DEPRECATION", "severity": "WARN", "msg": "on_event startup should use lifespan"},
-    {"code": "RESOURCE_WARNING", "severity": "INFO", "msg": "unclosed SQLite at import time"},
-    {"code": "IMPORT_TIME", "severity": "INFO", "msg": "sklearn 847ms + qdrant 833ms = 1680ms of 1864ms"}
-  ],
-  "last_action": "Implemented P2 Third Eye 2.0 — plan/decision criticism with MEASURED facts",
-  "next_action": "Commit changes, proceed to P1 graph or P4 UI"
+  "roadmap": {
+    "p0_fast_path": "DONE",
+    "p0_latency": "DONE",
+    "p0_direct_llm": "DONE",
+    "p0_smart_memory": "DONE",
+    "p1_executive": "DONE",
+    "p1_mission": "DONE",
+    "p1_task_graph": "DONE",
+    "p1_model_router": "DONE",
+    "p1_router_cost": "BLOCKED",
+    "p2_validator": "DONE",
+    "p2_third_eye": "DONE",
+    "p2_factory": "NOT",
+    "p3_factory": "NOT",
+    "p3_mesh": "NOT",
+    "p4_ui": "DONE"
+  },
+  "blocking": {
+    "p1_router_cost": "Todos os modelos são free tier (cost=0). Cost-based routing não se aplica sem source verificada de preços."
+  },
+  "working_tree": "clean"
 }
