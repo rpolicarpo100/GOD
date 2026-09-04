@@ -6,7 +6,7 @@ Plane: slug `godsx` MEASURED — **não** é o núcleo.
 
 Este é o roadmap **correcto**. Não é marketing. Fluxo = código actual.
 
-**HEAD de código P1:** [`3c0c8cb`](https://github.com/rpolicarpo100/GOD/commit/3c0c8cb) · testes **89 OK**.
+**HEAD de código P2:** [`6592c90`](https://github.com/rpolicarpo100/GOD/commit/6592c90) · testes **105 OK**.
 
 ```mermaid
 flowchart LR
@@ -40,27 +40,30 @@ flowchart LR
 | 🟠 P1 | Task Graph | dependências + paralelismo | PARTIAL | `queue.parent_id` + `job_is_ready`. `/api/graph`. inflight=1. Sem DAG. Sem paralelo |
 | 🟠 P1 | Model Router | qualidade/latência/custo | PARTIAL | `routing.sort_adapters` n≥3 MEASURED. PREMIUM→claude se probed. cost UNKNOWN |
 | 🟡 P2 | Agent Factory | agentes especializados | **NOT IMPLEMENTED** | Builder (`gods.py`) ≠ factory |
-| 🟡 P2 | Validator | verificar trabalho | PARTIAL | `brain.evaluate()` heurístico, não testes da tarefa |
-| 🟡 P2 | Third Eye 2.0 | criticar decisões | PARTIAL | `observer` métricas host. Sem crítica de planos |
+| 🟡 P2 | Validator | verificar trabalho | **FEITO** | `superai/validator.py` 12 check types · 10 tests |
+| 🟡 P2 | Third Eye 2.0 | criticar decisões | **FEITO** | `superai/thirdeye.py` 10 checks MEASURED · 7 tests |
 | 🟢 P3 | GOD Factory | criar GODs especializadas | **NOT IMPLEMENTED** | perfis no mesmo handle |
 | 🟢 P3 | Compute Mesh | PC + portátil + telemóvel | **NOT IMPLEMENTED** | `pc_node` USER_DECLARED only |
-| 🟢 P4 | UI Command Center | visualizar toda a operação | PARTIAL | dashboard: missão + graph + `decision.path` · chips P0–P4 |
+| 🟢 P4 | UI Command Center | visualizar toda a operação | **FEITO** | dashboard: missão + graph + decision.path + validator + thirdeye + chips P0–P4 |
 
 ## Feito
 
 - P0 completo (Fast Path, latency MEASURED, Direct LLM, smart memory).
 - P1 Executive + Mission no código, APIs e dashboard.
+- P2 Validator (`superai/validator.py`) — 12 check types, 10 tests.
+- P2 Third Eye 2.0 (`superai/thirdeye.py`) — 10 criticism checks, 7 tests.
+- P4 UI Command Center — dashboard interactivo com missões e grafo.
 - GitHub público + push por deploy key SSH (`3c0c8cb` e seguintes).
 - Plane `godsx` / GODSX work-items MEASURED (`in_product=false`).
 - Caps PC i5-4590 50%. 22€ IVA USER_STATED ≠ API UNKNOWN.
 
 ## A fazer (ordem)
 
-1. **P2 Validator** — provas da tarefa, não só `evaluate()` heurístico. Sem agente QA fictício.
-2. **P2 Third Eye 2.0** — criticar decisões/planos com factos MEASURED. Sem LLM de crítica inventado.
+1. ~~**P2 Validator**~~ — provas da tarefa, não só `evaluate()` heurístico. Sem agente QA fictício. **FEITO** (`superai/validator.py`).
+2. ~~**P2 Third Eye 2.0**~~ — criticar decisões/planos com factos MEASURED. Sem LLM de crítica inventado. **FEITO** (`superai/thirdeye.py`).
 3. **P1 graph** — fica PARTIAL de propósito: inflight=1 neste host; paralelo só no PC com cap de cores, nunca 4/4.
 4. **P1 router €** — só com `source` verificada em `model_pricing`. Até lá cost=UNKNOWN.
-5. **P4 UI** — mission/graph/decision já visíveis; falta command center de missão/grafo interactivo.
+5. ~~**P4 UI**~~ — mission/graph/decision já visíveis; falta command center de missão/grafo interactivo. **FEITO** (dashboard interactivo).
 6. **Não** P2 Agent Factory, P3 GOD Factory, P3 mesh, Desktop, swarm, Redis/K8s por aparência.
 
 ## GitHub deploy
