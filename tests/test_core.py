@@ -1214,6 +1214,28 @@ class P1RouterReliability(unittest.TestCase):
         self.assertEqual(order[1].id, "gemini")
         self.assertEqual(order[2].id, "groq")
 
+    def test_sort_by_latency_secondary(self):
+        from superai.routing import sort_adapters
+
+        class A:
+            def __init__(self, i):
+                self.id = i
+
+        # Same ok_rate, different latency
+        stats = {
+            "providers": [
+                {"provider": "groq", "n": 10, "ok": 8, "fail": 2, "ok_rate": 0.8, "avg_latency_ms": 200},
+                {"provider": "cerebras", "n": 10, "ok": 8, "fail": 2, "ok_rate": 0.8, "avg_latency_ms": 50},
+                {"provider": "gemini", "n": 10, "ok": 8, "fail": 2, "ok_rate": 0.8, "avg_latency_ms": 100},
+            ]
+        }
+        adapters = [A("groq"), A("cerebras"), A("gemini")]
+        order = sort_adapters(adapters, stats)
+        # Same ok_rate, should order by latency asc: cerebras (50ms) > gemini (100ms) > groq (200ms)
+        self.assertEqual(order[0].id, "cerebras")
+        self.assertEqual(order[1].id, "gemini")
+        self.assertEqual(order[2].id, "groq")
+
     def test_sort_demotes_low_ok_rate(self):
         from superai.routing import sort_adapters
 

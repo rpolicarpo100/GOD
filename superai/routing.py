@@ -98,9 +98,10 @@ class OmniRouteAdapter(RoutingAdapter):
 
 
 def sort_adapters(adapters: list, stats: dict | None, prefer: str | None = None, hardcore: bool = False) -> list:
-    """Ordem por fiabilidade (ok_rate). Só reordena com n≥3 MEASURED. Sem € inventado.
+    """Ordem por fiabilidade (ok_rate), depois por latência. Só reordena com n≥3 MEASURED. Sem € inventado.
     
     HARDCORE MODE: Claude como primary (premium, pago).
+    Critério: (demote, -ok_rate, avg_latency_ms, rank_default)
     """
     order = list(adapters)
     if prefer:
@@ -114,17 +115,21 @@ def sort_adapters(adapters: list, stats: dict | None, prefer: str | None = None,
         n = int(st.get("n") or 0)
         demote = 0
         ok_rate = 0.0
+        latency = 9999.0  # default alto para providers sem dados
         if n >= 3:
             rate = st.get("ok_rate")
             if rate is not None:
                 ok_rate = float(rate)
                 if ok_rate <= 0.3:
                     demote = 1
+            lat = st.get("avg_latency_ms")
+            if lat is not None:
+                latency = float(lat)
         # HARDCORE MODE: Claude sempre primeiro (rank -1)
         if hardcore and aid == "claude":
-            return (-1, 0, 0)
-        # Ordenar por fiabilidade (ok_rate desc), depois por rank default
-        return (demote, -ok_rate, ranks.get(aid, 99))
+            return (-1, 0, 0, 0)
+        # Ordenar: demote asc, ok_rate desc, latency asc, rank default asc
+        return (demote, -ok_rate, latency, ranks.get(aid, 99))
 
     return sorted(order, key=key)
 
