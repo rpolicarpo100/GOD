@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+tiktoken
+numpy
+lxml
+httpx
+pyyaml
+scikit-learn
+qdrant-client

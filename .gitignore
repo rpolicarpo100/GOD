@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+data/*.db
+data/qdrant/
+data/sandbox/
+.pytest_cache/
+.ssh/
+*.pem
+god_deploy
+.env
+node_modules/
+.venv/

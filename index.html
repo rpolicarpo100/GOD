@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>GOD — viva</title>
+<style>
+:root{
+  --bg:#07080b; --bg2:#0c0e13; --bg3:#12151c; --bg4:#181c26;
+  --line:rgba(232,230,227,.09); --line2:rgba(232,230,227,.16);
+  --text:#eceae6; --muted:#8d8b86; --dim:#5c5b57;
+  --brain:#e4c98a; --spine:#e4c98a; --nerve:#3eecc0;
+  --body:#6aa8ff; --ok:#3eecc0; --warn:#ffd166; --crit:#ff5d5d;
+  --opp:#5eb0ff; --evo:#c084fc;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans)}
+body{display:flex;flex-direction:column;overflow:hidden}
+button,input,select{font-family:inherit;color:inherit}
+button{cursor:pointer}
+.top{height:48px;flex-shrink:0;display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:1px solid var(--line);background:#0c0e14}
+.mark{width:22px;height:22px;border-radius:7px;background:conic-gradient(from 210deg,var(--brain),var(--nerve),var(--spine),var(--brain))}
+.brand{font-size:12px;letter-spacing:.22em;font-weight:700;text-transform:uppercase}
+.pills{display:flex;gap:8px;flex:1;align-items:center}
+.pill{font-size:10px;letter-spacing:.12em;text-transform:uppercase;padding:4px 8px;border-radius:999px;border:1px solid var(--line2);color:var(--muted)}
+.pill.on{color:var(--ok);border-color:rgba(62,236,192,.35);background:rgba(62,236,192,.08)}
+.pill.bad{color:var(--crit);border-color:rgba(255,93,93,.35)}
+.meta{font-family:var(--mono);font-size:11px;color:var(--muted);display:flex;gap:14px}
+.meta b{color:var(--text)}
+.board{flex:1;min-height:0;display:grid;gap:10px;padding:10px 12px 8px;grid-template-columns:250px 1.2fr 1fr 250px;grid-template-rows:122px minmax(0,1fr) minmax(0,1fr)}
+.panel{background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));border:1px solid var(--line);border-radius:14px;padding:12px;min-height:0;display:flex;flex-direction:column;overflow:hidden}
+.k{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.params{grid-column:1;grid-row:1/4}
+.vitals{grid-column:2/4;grid-row:1;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0;border:0;background:none}
+.prov{grid-column:4;grid-row:1}
+.pipe{grid-column:2;grid-row:2}
+.tools{grid-column:3;grid-row:2}
+.cachep{grid-column:4;grid-row:2}
+.tasks{grid-column:2;grid-row:3}
+.feed{grid-column:3/5;grid-row:3}
+.v{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:rgba(255,255,255,.025)}
+.v .n{font-family:var(--mono);font-size:20px;font-weight:600}
+.v .s{font-size:11px;color:var(--muted);margin-top:4px}
+.sl{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+.sl b{font-family:var(--mono);color:var(--text);font-weight:500}
+input[type=range]{-webkit-appearance:none;appearance:none;height:4px;background:#1c212b;border-radius:99px;width:100%;margin:5px 0 10px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--spine)}
+.row{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px}
+.seg{font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:5px 8px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted)}
+.seg.on{color:var(--text);background:rgba(255,255,255,.06);border-color:var(--line2)}
+.toggle{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:8px 0;border-top:1px solid var(--line);color:var(--muted)}
+.knob{width:32px;height:18px;border-radius:99px;background:#1c212b;border:1px solid var(--line2);position:relative}
+.knob::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--muted);transition:.15s}
+.knob.on{background:rgba(62,236,192,.25);border-color:rgba(62,236,192,.4)}
+.knob.on::after{left:16px;background:var(--ok)}
+.list{overflow:auto;flex:1;display:flex;flex-direction:column;gap:6px}
+.list::-webkit-scrollbar{width:8px}
+.list::-webkit-scrollbar-thumb{background:#22262f;border-radius:8px}
+.item{border:1px solid var(--line);border-radius:10px;padding:8px 9px;background:rgba(255,255,255,.02);font-size:12px}
+.item .h{display:flex;justify-content:space-between;gap:8px}
+.item .h span{color:var(--muted);font-family:var(--mono);font-size:10px}
+.d{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.45}
+.pre{font-family:var(--mono);font-size:11px;color:var(--spine);white-space:pre-wrap;line-height:1.45}
+.ev{display:grid;grid-template-columns:70px 1fr;gap:8px;font-size:12px;padding:6px 4px;border-bottom:1px solid var(--line)}
+.ev .t{font-family:var(--mono);font-size:10px;color:var(--dim)}
+.lvl{font-size:9px;letter-spacing:.1em;text-transform:uppercase}
+.mc{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--line);font-size:12px}
+.tag{font-size:10px;padding:2px 6px;border-radius:99px;border:1px solid var(--line)}
+.tag.off{color:var(--crit)}
+.tag.on{color:var(--ok)}
+.note{font-size:11px;color:var(--muted);line-height:1.5;margin-top:8px}
+.brain{flex-shrink:0;height:min(32vh,280px);border-top:1px solid var(--line);display:grid;grid-template-rows:36px 1fr 52px;background:#0a0c11}
+.bh{display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid var(--line)}
+.bh .k{margin:0;color:var(--brain)}
+.chips{display:flex;gap:6px;overflow:auto}
+.chip{font-size:10px;padding:4px 8px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--muted);white-space:nowrap}
+.chip:hover{color:var(--text)}
+.msgs{overflow:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:82%;padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.5;white-space:pre-wrap}
+.msg.user{align-self:flex-end;background:#1a2030;border:1px solid var(--line2)}
+.msg.brain{align-self:flex-start;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.22)}
+.msg .who{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.composer{display:flex;gap:8px;padding:8px 16px 10px}
+.composer input{flex:1;background:var(--bg3);border:1px solid var(--line2);border-radius:12px;padding:10px 12px;font-size:13px;outline:none}
+.send{background:var(--brain);color:#12081f;border:0;border-radius:12px;padding:10px 16px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-size:11px}
+.warnbox{font-size:11px;color:var(--warn);line-height:1.4}
+.ph{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0 4px}
+.ph b{font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius:6px;border:1px solid var(--line);color:var(--muted);font-weight:600}
+.ph b.done{color:var(--ok);border-color:rgba(62,236,192,.4);background:rgba(62,236,192,.08)}
+.ph b.blocked{color:var(--crit);border-color:rgba(255,93,93,.35);background:rgba(255,93,93,.08)}
+.ph b.partial{color:var(--warn);border-color:rgba(255,209,102,.35)}
+.flowbox{flex:0 0 auto}
+.flowbox svg{width:100%;height:148px;display:block}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="mark"></div>
+  <div class="brand">GOD</div>
+  <div class="pills">
+    <span class="pill" id="st-mode">modo</span>
+    <span class="pill" id="st-gov">governor</span>
+    <span class="pill bad" id="st-llm">llm</span>
+    <span class="pill" id="st-eye">olho</span>
+    <span class="pill" id="st-os">os</span>
+  </div>
+  <div class="meta">
+    <span>tok sessão <b id="m-tok">0</b></span>
+    <span>tools <b id="m-tools">0</b></span>
+    <span>cache <b id="m-cache">—</b></span>
+    <span>cpu <b id="m-cpu">—</b></span>
+    <span>ram <b id="m-ram">—</b></span>
+    <span>fila <b id="m-q">—</b></span>
+    <span id="m-clock">—</span>
+  </div>
+</header>
+<main class="board">
+  <section class="panel params">
+    <div class="k">Token firewall</div>
+    <div class="sl"><span>Task budget</span><b id="v-task">8000</b></div>
+    <input type="range" min="500" max="32000" step="500" id="b-task"/>
+    <div class="sl"><span>Session</span><b id="v-session">50000</b></div>
+    <input type="range" min="1000" max="200000" step="1000" id="b-session"/>
+    <div class="sl"><span>Daily</span><b id="v-daily">200000</b></div>
+    <input type="range" min="5000" max="1000000" step="5000" id="b-daily"/>
+    <div class="k" style="margin-top:6px">Modo</div>
+    <div class="row" id="modes">
+      <button class="seg" data-v="auto">Auto</button>
+      <button class="seg" data-v="token_saver">Token saver</button>
+      <button class="seg" data-v="conservative">Conservative</button>
+      <button class="seg" data-v="offline">Offline</button>
+      <button class="seg" data-v="normal">Normal</button>
+    </div>
+    <div class="toggle" id="t-gov"><span>Governor estrito</span><div class="knob" id="k-gov"></div></div>
+    <div class="k" style="margin-top:10px">Roadmap ela</div>
+    <div class="ph" id="road-ph"></div>
+    <p class="note" id="road-note">CACHE → MEM → TOOLS → OS → ROUTER → HUMANO. LLM last. Sem provider ela recusa — não inventa.</p>
+    <p class="warnbox" id="unverified"></p>
+  </section>
+
+  <section class="vitals">
+    <div class="v"><div class="k">Modo efectivo</div><div class="n" id="h-mode">—</div><div class="s" id="h-mode-s">—</div></div>
+    <div class="v"><div class="k">Cache hit</div><div class="n" id="h-cache">—</div><div class="s" id="h-cache-s">hits / misses</div></div>
+    <div class="v"><div class="k">Claude dep.</div><div class="n" id="h-dep">n/a</div><div class="s">claude_tasks / llm_tasks</div></div>
+    <div class="v"><div class="k">Último overall</div><div class="n" id="h-ov">—</div><div class="s" id="h-ov-s">sem execuções</div></div>
+  </section>
+
+  <section class="panel prov">
+    <div class="k">Providers · probed</div>
+    <div id="prov-list" class="list"></div>
+  </section>
+
+  <section class="panel pipe">
+    <div class="k">Fluxo vivo · GOD</div>
+    <div class="flowbox" id="flowbox"></div>
+    <div class="list"><div class="pre" id="pipe">ainda sem tarefas — o fluxo acende com a última rota MEASURED</div></div>
+  </section>
+
+  <section class="panel tools">
+    <div class="k">Ferramentas determinísticas</div>
+    <div class="list" id="tool-list"></div>
+  </section>
+
+  <section class="panel cachep">
+    <div class="k">Memória / uso</div>
+    <div class="list" id="mem-box"></div>
+  </section>
+
+  <section class="panel tasks">
+    <div class="k">Tarefas reais</div>
+    <div class="list" id="task-list"></div>
+  </section>
+
+  <section class="panel feed">
+    <div class="k">Event bus</div>
+    <div class="list" id="feed-list"></div>
+  </section>
+</main>
+<footer class="brain">
+  <div class="bh">
+    <div class="k">GOD · ela · LLM last</div>
+    <div class="chips">
+      <button class="chip" data-q="estado">Estado</button>
+      <button class="chip" data-q="calcula 17*24+9">Cálculo</button>
+      <button class="chip" data-q="git status">Git</button>
+      <button class="chip" data-q="lista ficheiros em super-ai">Ficheiros</button>
+      <button class="chip" data-q="lê config.yaml">Lê config</button>
+      <button class="chip" data-q="pesquisa alternativas open-source ao n8n">Pesquisa (deve recusar LLM)</button>
+      <button class="chip" data-q="corre benchmark">Benchmark</button>
+      <button class="chip" data-q="evolução">Evolução</button>
+      <button class="chip" data-q="aprova">Aprova</button>
+      <button class="chip" data-q="terceiro olho">Terceiro olho</button>
+      <button class="chip" data-q="economia de tokens">Tokens</button>
+      <button class="chip" data-q="ps">ps</button>
+      <button class="chip" data-q="kernel">Kernel</button>
+      <button class="chip" data-q="roadmap">Roadmap</button>
+    </div>
+  </div>
+  <div class="msgs" id="msgs"></div>
+  <form class="composer" id="form">
+    <input id="inp" autocomplete="off" placeholder="Objectivo. Ferramenta se chegar. Senão, digo que não há provider."/>
+    <button class="send" type="submit">Enviar</button>
+  </form>
+</footer>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const LEVELC = {INFO:'#9aa4b2',NOTICE:'#6aa8ff',WARNING:'var(--warn)',CRITICAL:'var(--crit)',SECURITY:'var(--crit)',OPPORTUNITY:'var(--opp)',EVOLUTION:'var(--evo)'};
+let S=null, applying=false, chatLen=0;
+
+function clock(){
+  $('m-clock').textContent = new Intl.DateTimeFormat('pt-PT',{timeZone:'Europe/Lisbon',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date());
+}
+setInterval(clock,1000); clock();
+
+function paint(s){
+  S=s;
+  const u=s.usage||{};
+  $('m-tok').textContent = u.session_tokens||0;
+  $('m-tools').textContent = u.tool_calls||0;
+  const host=s.host||{};
+  $('m-cpu').textContent = (host.load1??'—')+'/'+(host.cpu_count??'—');
+  $('m-ram').textContent = host.ram_avail_mb!=null ? host.ram_avail_mb+'MB' : '—';
+  const qq=s.queue||{};
+  $('m-q').textContent = (qq.queued||0)+'q '+(qq.running||0)+'r';
+  $('st-llm').title = (host.gpu && host.gpu.note) || '';
+  const hr=s.cache && s.cache.hit_rate;
+  $('m-cache').textContent = hr==null ? 'n/a' : Math.round(hr*100)+'%';
+  $('st-mode').textContent = s.mode;
+  $('st-mode').className = 'pill '+(s.mode==='OFFLINE'?'bad':'on');
+  $('st-gov').textContent = s.governor.strict ? 'governor on' : 'governor lax';
+  $('st-gov').classList.toggle('on', s.governor.strict);
+  const llmOn = (s.providers||[]).some(p=>p.available);
+  $('st-llm').textContent = llmOn ? 'llm up' : 'llm none';
+  $('st-llm').className = 'pill '+(llmOn?'on':'bad');
+  const alerts=(s.eye&&s.eye.alerts)||[];
+  $('st-eye').textContent = alerts.length ? 'olho '+alerts.length : 'olho ok';
+  $('st-eye').className = 'pill '+(alerts.some(a=>a.level==='CRITICAL'||a.level==='SECURITY')?'bad':alerts.length?'':'on');
+  const os=s.os||{};
+  $('st-os').textContent = os.booted ? ('os '+(os.running||0)+'r '+(os.ready||0)+'q') : 'os';
+  $('st-os').className = 'pill '+(os.booted?'on':'');
+  $('st-os').title = (os.sysname||'')+' gpu_required=false preempt=false';
+  $('h-mode').textContent = s.mode;
+  $('h-mode-s').textContent = s.mode_reason||'';
+  $('h-cache').textContent = hr==null ? 'n/a' : Math.round(hr*100)+'%';
+  $('h-cache-s').textContent = `${s.cache.hits||0} hits · ${s.cache.misses||0} misses · ${s.cache.entries||0} entries`;
+  const dep=s.claude_dependency||{};
+  $('h-dep').textContent = dep.ratio==null ? 'n/a' : dep.ratio.toFixed(2);
+  const r=s.last_rating;
+  $('h-ov').textContent = r ? r.OVERALL+'/100' : '—';
+  $('h-ov-s').textContent = r ? `tok ${r.tokens_actual} · llm ${r.llm_used}` : 'sem execuções medidas';
+
+  if(!applying && s.budgets){
+    ['task','session','daily'].forEach(k=>{
+      $('b-'+k).value = s.budgets[k];
+      $('v-'+k).textContent = s.budgets[k];
+    });
+    document.querySelectorAll('#modes .seg').forEach(b=>b.classList.toggle('on', b.dataset.v===(s.mode||'').toLowerCase() || (s.mode==='OFFLINE'&&b.dataset.v==='auto')));
+    $('k-gov').classList.toggle('on', s.governor.strict);
+  }
+
+  $('prov-list').innerHTML = (s.providers||[]).map(p=>`
+    <div class="mc">
+      <div><b>${esc(p.name)}</b><div class="d">${esc(p.error||p.endpoint||'')}</div></div>
+      <span class="tag ${p.available?'on':'off'}">${p.available?'up':'down'}</span>
+    </div>`).join('');
+
+  paintRoad(s);
+  paintFlow(s);
+  const p=s.last_pipeline;
+  if(p){
+    $('pipe').textContent =
+      `rota ${(p.route||[]).join(' → ') || '—'}\ncache ${p.cache} · mem ${p.memory_hits} · fw ${(p.firewall&&p.firewall.action)||'n/a'}`;
+  }
+
+  $('tool-list').innerHTML = (s.tools||[]).map(t=>`
+    <div class="item"><div class="h"><b>${esc(t.name)}</b><span>ok ${t.ok} · fail ${t.fail}</span></div>
+    <div class="d">${(t.capabilities||[]).join(', ')} · risk ${t.risk} · ${t.permissions}</div></div>`).join('');
+
+  const mem=s.memory||{};
+  const qd=s.qdrant||{};
+  const b=s.benchmark;
+  const pend=(s.experiments||[]).find(e=>e.status==='pending');
+  $('mem-box').innerHTML = `<div class="item">
+    <div class="d">session tokens ${u.session_tokens||0} / ${s.budgets && s.budgets.session}</div>
+    <div class="d">llm_calls ${u.llm_calls||0} · tool_calls ${u.tool_calls||0}</div>
+    <div class="d">memória SQL: ${Object.entries(mem).map(([k,v])=>k+' '+v).join(' · ')||'vazia'}</div>
+    <div class="d">Qdrant ${qd.available?'up':'down'} · ${JSON.stringify(qd.collections||{})}</div>
+    <div class="d">${esc((qd.embed&&qd.embed.method)||'')}</div>
+    <div class="d">benchmark ${b? b.run_id+' n_llm='+b.n_llm_samples+' passed='+b.passed+' skip='+b.skipped : 'ainda n=0'}</div>
+    <div class="d">GPU ${host.gpu && host.gpu.present ? 'presente (opcional)' : 'ausente — não exigida'} · pressure ${host.pressure||'—'}</div>
+    <div class="d">workers ${(s.workers||[]).map(w=>w.id+(w.alive?'✓':'✗')+' '+w.location).join(', ')||'nenhum'}</div>
+    <div class="d">fila queued ${qq.queued||0} running ${qq.running||0} done ${qq.completed||0}</div>
+    ${(s.jobs||[]).slice(0,6).map(j=>`<div class="d">job ${esc(j.id)} ${esc(j.kind)} ${esc(j.status)}</div>`).join('')}
+    ${(s.away&&s.away.length)? `<div class="d">enquanto a UI esteve fora: ${s.away.length} job(s)</div>`:''}
+    ${((s.eye&&s.eye.alerts)||[]).map(a=>`<div class="d">olho [${esc(a.level)}] ${esc(a.code)} — ${esc(a.msg)}</div>`).join('')}
+    <div class="d">useful_work/token ${s.eye && s.eye.metrics && s.eye.metrics.useful_work_per_token != null ? s.eye.metrics.useful_work_per_token : 'n/a (0 tok LLM)'} · avg ${s.eye && s.eye.metrics ? s.eye.metrics.avg_overall : '—'}</div>
+    ${(() => { const t=s.token||{}; const u=t.usage||{}; const c=t.cost||{}; const f=t.forecast||{}; const b=t.budget||{}; return `
+    <div class="d">TOKEN MEASURED actual=${u.sum_actual??0} llm=${u.llm_calls??0} · ESTIMATED sum=${u.sum_estimated??0}</div>
+    <div class="d">COST ${esc(c.kind||'UNKNOWN')} — ${esc(c.reason||'sem source')}</div>
+    <div class="d">FORECAST ${esc(f.status||f.kind||'UNKNOWN')} ${esc(f.reason||'')}</div>
+    <div class="d">budget daily ${b.daily ? b.daily.used_measured+'/'+b.daily.limit : '—'} hard=${b.daily && b.daily.hard}</div>`; })()}
+    ${pend? `<div class="d">PENDENTE ${esc(pend.id)} ${esc(pend.title)}</div>
+      <button class="seg" id="btn-yes">Adoptar</button> <button class="seg" id="btn-no">Rejeitar</button>`:''}
+  </div>`;
+  if(pend){
+    const yes=$('btn-yes'), no=$('btn-no');
+    if(yes) yes.onclick=()=>fetch('/api/experiment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:pend.id,approve:true})});
+    if(no) no.onclick=()=>fetch('/api/experiment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:pend.id,approve:false})});
+  }
+  $('unverified').textContent = 'Ainda ausente: '+(s.unverified||[]).join(' · ');
+
+  $('task-list').innerHTML = ((s.tasks&&s.tasks.length)?s.tasks:[{task_id:'—',title:'sem tarefas',status:'',type:''}]).map(t=>`
+    <div class="item"><div class="h"><b>${esc(t.title||t.task_id)}</b><span>${esc(t.status)} ${esc(t.via||'')}</span></div>
+    <div class="d">${esc(t.task_id)} · ${esc(t.type)} · est ${t.estimated_tokens??'—'} tok</div></div>`).join('');
+
+  $('feed-list').innerHTML = (s.events||[]).slice(0,40).map(e=>`
+    <div class="ev">
+      <div><div class="t">${new Date(e.ts).toLocaleTimeString('pt-PT')}</div>
+      <div class="lvl" style="color:${LEVELC[e.level]||'#9aa4b2'}">${esc(e.level)}</div></div>
+      <div><div>${esc(e.name)}</div><div class="d">${esc(e.msg)}</div></div>
+    </div>`).join('');
+
+  paintChat(s.chat||[]);
+}
+
+function paintChat(msgs){
+  const box=$('msgs');
+  if(msgs.length===chatLen && box.children.length) return;
+  chatLen=msgs.length;
+  box.innerHTML = msgs.map(m=>`<div class="msg ${m.role}"><div class="who">${m.role==='brain'?'GOD':'tu'}</div>${esc(m.text)}</div>`).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+function patch(obj){
+  applying=true;
+  fetch('/api/params',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({patch:obj})})
+    .finally(()=>setTimeout(()=>applying=false,80));
+}
+['task','session','daily'].forEach(k=>{
+  $('b-'+k).addEventListener('input', e=>{
+    applying=true;
+    $('v-'+k).textContent=e.target.value;
+    patch({budgets:{[k]: Number(e.target.value)}});
+  });
+});
+document.querySelectorAll('#modes .seg').forEach(b=>b.onclick=()=>patch({mode:b.dataset.v}));
+$('t-gov').onclick=()=>patch({governor:{strict: !(S&&S.governor.strict)}});
+
+function send(text){
+  text=(text||'').trim();
+  if(!text) return;
+  fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+  $('inp').value='';
+}
+$('form').onsubmit=ev=>{ev.preventDefault(); send($('inp').value)};
+document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>send(b.dataset.q));
+
+function connect(){
+  const es=new EventSource('/api/stream');
+  es.addEventListener('snapshot', e=>paint(JSON.parse(e.data)));
+  es.addEventListener('event', ()=>{});
+  es.onerror=()=>{ es.close(); setTimeout(connect,1500); fetch('/api/state').then(r=>r.json()).then(paint).catch(()=>{}); };
+}
+connect();
+</script>
+</body>
+</html>

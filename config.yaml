@@ -1,0 +1,38 @@
+# SUPER AI — configuração verificada neste host (2026-09-04)
+# O que NÃO está disponível não é inventado: fica marked unavailable.
+
+mode: auto  # auto | token_saver | conservative | offline | normal
+
+budgets:
+  task: 8000
+  session: 50000
+  daily: 200000
+  project: 2000000
+  agent: 40000
+
+governor:
+  strict: true
+  fs_root: /home/user
+  python_timeout_s: 8
+  deny_names:
+    - ".env"
+    - ".netrc"
+    - "credentials"
+    - "id_rsa"
+    - ".git-credentials"
+
+thresholds:
+  accept: 70
+  max_retries: 3
+
+unverified_or_absent:
+  - PostgreSQL (usar SQLite)
+  - Redis/Valkey (usar cache em SQLite)
+  - Qdrant
+  - Ollama (porta 11434 fechada)
+  - Claude API (sem credenciais)
+  - OmniRoute
+  - SearXNG
+  - Docker
+  - OpenTelemetry exporter
+  - model quality benchmarks (n=0)
