@@ -6,7 +6,7 @@ Plane: slug `godsx` MEASURED — **não** é o núcleo.
 
 Este é o roadmap **correcto**. Não é marketing. Fluxo = código actual.
 
-**HEAD de código P1:** [`6971de5`](https://github.com/rpolicarpo100/GOD/commit/6971de5) · testes **112 OK**.
+**HEAD de código P1:** [`535fcd7`](https://github.com/rpolicarpo100/GOD/commit/535fcd7) · testes **113 OK**.
 
 ```mermaid
 flowchart LR
@@ -38,7 +38,7 @@ flowchart LR
 | 🟠 P1 | Executive Core | verdadeira decisão/orquestração | **FEITO** | `superai/executive.py` `decide()`. Sem classe Brain. `handle` mantém-se |
 | 🟠 P1 | Mission Engine | objectivos persistentes | **FEITO** | `superai/mission.py` SQLite. `/api/missions`. chat `missão:` / actual / conclui |
 | 🟠 P1 | Task Graph | dependências + paralelismo | **FEITO** | `queue.parent_id` + `job_is_ready`. `/api/graph`. inflight=2 (2 jobs paralelos). LLM remoto não usa CPU |
-| 🟠 P1 | Model Router | qualidade/fiabilidade | **FEITO** | `routing.sort_adapters` por ok_rate (fiabilidade). HARDCORE MODE → claude primary. cost UNKNOWN |
+| 🟠 P1 | Model Router | qualidade/fiabilidade/latência | **FEITO** | `routing.sort_adapters` por ok_rate (fiabilidade) + latência (secundário). HARDCORE MODE → claude primary. cost UNKNOWN |
 | 🟡 P2 | Agent Factory | agentes especializados | **NOT IMPLEMENTED** | Builder (`gods.py`) ≠ factory |
 | 🟡 P2 | Validator | verificar trabalho | **FEITO** | `superai/validator.py` 12 check types · 10 tests |
 | 🟡 P2 | Third Eye 2.0 | criticar decisões | **FEITO** | `superai/thirdeye.py` 10 checks MEASURED · 7 tests |
@@ -51,7 +51,7 @@ flowchart LR
 - P0 completo (Fast Path, latency MEASURED, Direct LLM, smart memory).
 - P1 Executive + Mission no código, APIs e dashboard.
 - P1 Task Graph — inflight=2 (2 jobs paralelos). LLM remoto não usa CPU.
-- P1 Model Router — ordenar por fiabilidade (ok_rate). HARDCORE MODE → claude primary.
+- P1 Model Router — ordenar por fiabilidade (ok_rate) + latência (secundário). HARDCORE MODE → claude primary.
 - P2 Validator (`superai/validator.py`) — 12 check types, 10 tests.
 - P2 Third Eye 2.0 (`superai/thirdeye.py`) — 10 criticism checks, 7 tests.
 - P4 UI Command Center — dashboard interactivo com missões e grafo.
@@ -64,8 +64,8 @@ flowchart LR
 1. ~~**P2 Validator**~~ — provas da tarefa, não só `evaluate()` heurístico. Sem agente QA fictício. **FEITO** (`superai/validator.py`).
 2. ~~**P2 Third Eye 2.0**~~ — criticar decisões/planos com factos MEASURED. Sem LLM de crítica inventado. **FEITO** (`superai/thirdeye.py`).
 3. ~~**P1 Task Graph**~~ — dependências + paralelismo. inflight=2 (2 jobs paralelos). **FEITO** (`resources.inflight_cap`, `queue.graph`).
-4. ~~**P1 Model Router**~~ — ordenar por fiabilidade (ok_rate). HARDCORE MODE → claude primary. **FEITO** (`routing.sort_adapters`).
-5. **P1 router €** — só com `source` verificada em `model_pricing`. Até lá cost=UNKNOWN.
+4. ~~**P1 Model Router**~~ — ordenar por fiabilidade (ok_rate) + latência. HARDCORE MODE → claude primary. **FEITO** (`routing.sort_adapters`).
+5. **P1 router €** — só com `source` verificada em `model_pricing`. Até lá cost=UNKNOWN. **BLOQUEADO:** todos os modelos são free (cost=0).
 6. ~~**P4 UI**~~ — mission/graph/decision já visíveis; falta command center de missão/grafo interactivo. **FEITO** (dashboard interactivo).
 7. **Não** P2 Agent Factory, P3 GOD Factory, P3 mesh, Desktop, swarm, Redis/K8s por aparência.
 
@@ -74,7 +74,7 @@ flowchart LR
 - Repo: https://github.com/rpolicarpo100/GOD
 - Branch: `main`
 - Push: SSH deploy key (nunca HTTPS PAT, nunca commitar `.env` / chave privada)
-- P1: `3c0c8cb` · testes 89 OK
+- P1: `535fcd7` · testes 113 OK
 
 ## Não agora
 
