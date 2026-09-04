@@ -341,7 +341,8 @@ function paint(s){
     <div class="d">caps GOD ≤${cap.ram_gb_max??'—'}GB RAM · ≤${cap.cores_max??'—'} cores · gpu_for_llm=${cap.gpu_for_llm} · ${esc(cap.note||'nunca totalidade')}</div>
     <div class="d">este processo ≠ esse PC: ${n.this_process_is_not_that_pc} · disco ${esc(n.disk||'')} ${n.disk_gb??''}GB</div>`; })()}
     ${(() => { const pl=s.plane||{}; return `
-    <div class="d">PLANE ${esc(pl.kind||'UNKNOWN')} me=${pl.me_http??'—'} ws=${esc(pl.workspace_slug||'')} found=${pl.workspace_found} ${esc(pl.workspace_error||pl.error||'')} · in_product=${pl.in_product} · issues=${pl.issues==null?'null':'probed'}</div>`; })()}
+    <div class="d">PLANE ${esc(pl.kind||'UNKNOWN')} me=${pl.me_http??'—'} ws=${esc(pl.workspace_slug||'')} found=${pl.workspace_found} project=${esc(pl.project_identifier||pl.project_id||'')} ${esc(pl.project_name||'')} · in_product=${pl.in_product}</div>
+    <div class="d">issues ${pl.issues && pl.issues.n!=null ? pl.issues.n+' MEASURED' : 'null'} ${(pl.issues&&pl.issues.items||[]).slice(0,7).map(i=>'#'+ (i.sequence_id??'?')+' '+esc(i.name||'')).join(' · ')}</div>`; })()}
     <div class="d">FORECAST ${esc(f.status||f.kind||'UNKNOWN')} ${esc(f.reason||'')}</div>
     <div class="d">budget daily ${b.daily ? b.daily.used_measured+'/'+b.daily.limit : '—'} hard=${b.daily && b.daily.hard}</div>`; })()}
     ${pend? `<div class="d">PENDENTE ${esc(pend.id)} ${esc(pend.title)}</div>

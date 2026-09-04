@@ -3,7 +3,7 @@
 Ela chama-se **GOD**. Fonte: código em `/home/user/super-ai` + sondas neste host. Sem marketing.
 
 **GitHub:** [rpolicarpo100/GOD](https://github.com/rpolicarpo100/GOD) — `origin/main` em `bb9ffec`. Local **à frente** (`7b8902f`+). Push desta sessão: SSH **Permission denied**.  
-**Plane:** `users/me` 200. Workspace `GODSX` **404 MEASURED**. Sem board. Sem issues.  
+**Plane:** slug `godsx` MEASURED. Identifier `GODSX` → UUID via `/projects/`. Work-items da API. Não é o núcleo.  
 **LLM:** Ollama :11434 fechado · OmniRoute :20128 fechado · APIs probed. Modo **TOKEN_SAVER**.  
 **GPU:** ausente, `required=false`.
 

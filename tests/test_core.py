@@ -663,13 +663,15 @@ class GodBuilder(unittest.TestCase):
     def test_rollback_restores_purpose(self):
         from superai import gods
 
-        a = gods.save({"id": "rbiso", "name": "Rbiso", "capabilities": ["calculator"], "purpose": "versão-um"})
+        gid = "rbiso2"
+        a = gods.save({"id": gid, "name": "Rbiso", "capabilities": ["calculator"], "purpose": "versão-um"})
         self.assertTrue(a["ok"], a)
-        b = gods.save({"id": "rbiso", "name": "Rbiso", "capabilities": ["calculator"], "purpose": "versão-dois"})
+        v1 = int((a.get("god") or {}).get("version") or 1)
+        b = gods.save({"id": gid, "name": "Rbiso", "capabilities": ["calculator"], "purpose": "versão-dois"})
         self.assertTrue(b["ok"], b)
-        r = gods.rollback("rbiso", 1)
+        r = gods.rollback(gid, v1)
         self.assertTrue(r["ok"], r)
-        self.assertEqual(gods.get("rbiso")["purpose"], "versão-um")
+        self.assertEqual(gods.get(gid)["purpose"], "versão-um")
 
 
 class RepairMemBudget(unittest.TestCase):
@@ -751,10 +753,20 @@ class God20Sprint1(unittest.TestCase):
         p = probe()
         self.assertEqual(p["kind"], "MEASURED")
         self.assertFalse(p["in_product"])
-        self.assertIsNone(p.get("issues"))
-        if p.get("has_key"):
-            self.assertIn(p.get("workspace_found"), (True, False))
-            self.assertEqual(p.get("workspace_slug"), "GODSX")
+        if not p.get("has_key"):
+            self.assertIsNone(p.get("issues"))
+            return
+        self.assertEqual(p.get("workspace_slug"), "godsx")
+        if p.get("workspace_found"):
+            self.assertTrue(p.get("project_found"))
+            iss = p.get("issues") or {}
+            self.assertEqual(iss.get("kind"), "MEASURED")
+            self.assertIsInstance(iss.get("n"), int)
+            self.assertGreaterEqual(iss["n"], 1)
+            names = [x.get("name") for x in (iss.get("items") or [])]
+            self.assertTrue(any(names))
+        else:
+            self.assertIsNone(p.get("issues"))
 
 
 if __name__ == "__main__":

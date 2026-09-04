@@ -45,11 +45,11 @@ cost:
 
 # Plane: slug/project ditos pelo utilizador. Probe em superai/plane.py. Sem issues inventadas.
 plane:
-  kind: USER_DECLARED
+  kind: MEASURED
   project_id: GODSX
-  workspace_slug: GODSX
+  workspace_slug: godsx
   in_product: false
-  reason: "users/me MEASURED. Workspace GODSX 404 nesta sonda — sem board no produto."
+  reason: "slug godsx + identifier GODSX. GET workspace 401; GET projects 200. Issues da API. Não é o núcleo."
 
 # Máquina do utilizador (foto 2026-09-04). NÃO é este sandbox.
 pc_node:
@@ -78,7 +78,7 @@ unverified_or_absent:
   - OmniRoute :20128 fechado
   - SearXNG
   - Docker
-  - Plane workspace GODSX 404 MEASURED (users/me 200; sem board)
+  - Plane não é núcleo (ferramenta externa; issues MEASURED se a API as der)
   - API €/1M (cost=UNKNOWN — tabela Claude não se aplica a Groq)
   - Langfuse / LiteLLM
   - voz / imagem / nós laptop-mobile

@@ -2,6 +2,10 @@
 
 API oficial: https://api.plane.so/  header X-API-Key
 Docs: https://developers.plane.so/api-reference/introduction
+
+GET /workspaces/{slug}/ devolve 401 neste tenant (MEASURED).
+A existência do workspace prova-se por GET /workspaces/{slug}/projects/ 200.
+Project path usa UUID, não o identifier GODSX.
 """
 from __future__ import annotations
 
@@ -26,7 +30,7 @@ def _slug() -> str:
     return (os.environ.get("PLANE_WORKSPACE_SLUG") or "").strip()
 
 
-def _project() -> str:
+def _project_ident() -> str:
     return (os.environ.get("PLANE_PROJECT_ID") or "").strip()
 
 
@@ -44,71 +48,107 @@ def _get(path: str, key: str) -> tuple[int | None, Any]:
 
 
 def probe() -> dict:
-    """MEASURED. Sem board se workspace 404. Sem PII no snapshot."""
+    """MEASURED. Sem board fictício. Issues só se a API as devolver."""
     key = _key()
     slug = _slug()
-    project = _project()
+    ident = _project_ident()
+    empty = {
+        "kind": "MEASURED",
+        "available": False,
+        "in_product": False,
+        "has_key": bool(key),
+        "workspace_slug": slug or None,
+        "workspace_found": False,
+        "project_id": ident or None,
+        "project_uuid": None,
+        "project_found": False,
+        "issues": None,
+        "source": "https://developers.plane.so/api-reference/introduction",
+    }
     if not key:
-        return {
-            "kind": "MEASURED",
-            "available": False,
-            "in_product": False,
-            "has_key": False,
-            "workspace_slug": slug or None,
-            "workspace_found": False,
-            "project_id": project or None,
-            "project_found": False,
-            "issues": None,
-            "error": "sem PLANE_API_KEY",
-            "source": "https://developers.plane.so/api-reference/introduction",
-        }
+        empty["error"] = "sem PLANE_API_KEY"
+        return empty
     st_me, me = _get("/users/me/", key)
     me_ok = st_me == 200 and isinstance(me, dict) and me.get("id")
-    ws_found = False
-    ws_error = None
-    st_ws = None
-    if slug:
-        st_ws, ws = _get(f"/workspaces/{slug}/", key)
-        if st_ws == 200 and isinstance(ws, dict) and (ws.get("id") or ws.get("slug")):
-            ws_found = True
-        else:
-            if isinstance(ws, dict):
-                ws_error = ws.get("error") or ws.get("detail") or f"HTTP {st_ws}"
-            else:
-                ws_error = f"HTTP {st_ws} {ws}"
-    else:
-        ws_error = "sem PLANE_WORKSPACE_SLUG"
+    if not slug:
+        empty["available"] = bool(me_ok)
+        empty["me_http"] = st_me
+        empty["user_id"] = me.get("id") if me_ok else None
+        empty["display_name"] = me.get("display_name") if me_ok else None
+        empty["error"] = "sem PLANE_WORKSPACE_SLUG"
+        return empty
 
-    proj_found = False
+    st_ws, ws_body = _get(f"/workspaces/{slug}/", key)
+    st_pj, pj_body = _get(f"/workspaces/{slug}/projects/", key)
+    ws_found = st_pj == 200 and isinstance(pj_body, dict) and "results" in pj_body
+    rows = (pj_body.get("results") or []) if ws_found else []
+    match = None
+    want = (ident or "").lower()
+    for p in rows:
+        if not isinstance(p, dict):
+            continue
+        if want and str(p.get("identifier") or "").lower() == want:
+            match = p
+            break
+        if want and str(p.get("id") or "") == ident:
+            match = p
+            break
+        if want and str(p.get("name") or "").lower() == want.lower():
+            match = p
+            break
+    if not match and len(rows) == 1 and isinstance(rows[0], dict):
+        match = rows[0]
+
+    proj_found = bool(match and match.get("id"))
+    uuid = match.get("id") if proj_found else None
     issues = None
-    if ws_found and project:
-        st_p, pj = _get(f"/workspaces/{slug}/projects/{project}/", key)
-        if st_p == 200 and isinstance(pj, dict) and pj.get("id"):
-            proj_found = True
-            st_i, items = _get(f"/workspaces/{slug}/projects/{project}/work-items/", key)
-            if st_i == 200 and isinstance(items, dict):
-                results = items.get("results")
-                issues = {"n": len(results) if isinstance(results, list) else None, "kind": "MEASURED"}
-            else:
-                issues = None
+    if proj_found:
+        st_i, items = _get(f"/workspaces/{slug}/projects/{uuid}/work-items/", key)
+        if st_i == 200 and isinstance(items, dict):
+            results = items.get("results") if isinstance(items.get("results"), list) else []
+            issues = {
+                "kind": "MEASURED",
+                "n": int(items.get("total_count") if items.get("total_count") is not None else len(results)),
+                "items": [
+                    {
+                        "id": it.get("id"),
+                        "sequence_id": it.get("sequence_id"),
+                        "name": it.get("name"),
+                        "priority": it.get("priority"),
+                    }
+                    for it in results[:20]
+                    if isinstance(it, dict)
+                ],
+            }
+
+    ws_error = None
+    if not ws_found:
+        if isinstance(pj_body, dict):
+            ws_error = pj_body.get("error") or pj_body.get("detail") or f"projects HTTP {st_pj}"
+        else:
+            ws_error = f"projects HTTP {st_pj} {pj_body}"
 
     return {
         "kind": "MEASURED",
-        "available": bool(me_ok),
+        "available": bool(me_ok and ws_found),
         "in_product": False,
         "has_key": True,
         "user_id": (me.get("id") if isinstance(me, dict) else None) if me_ok else None,
         "display_name": (me.get("display_name") if isinstance(me, dict) else None) if me_ok else None,
         "me_http": st_me,
-        "workspace_slug": slug or None,
+        "workspace_slug": slug,
         "workspace_http": st_ws,
         "workspace_found": ws_found,
         "workspace_error": ws_error,
-        "project_id": project or None,
+        "workspace_note": "GET /workspaces/{slug}/ 401 neste tenant; projects/ 200 prova o workspace",
+        "project_id": ident or None,
+        "project_uuid": uuid,
+        "project_name": (match.get("name") if match else None),
+        "project_identifier": (match.get("identifier") if match else None),
         "project_found": proj_found,
         "issues": issues,
         "error": None if me_ok else (me if isinstance(me, str) else f"users/me HTTP {st_me}"),
-        "note": "Plane é ferramenta externa. Sem workspace encontrado não há board no produto.",
+        "note": "Plane é ferramenta externa. Sem núcleo GOD. Sem issues inventadas.",
         "source": "https://developers.plane.so/api-reference/introduction",
     }
 
@@ -126,3 +166,8 @@ def status() -> dict:
     _cache = probe()
     _cache_t = now
     return _cache
+
+
+def reset_cache() -> None:
+    global _cache, _cache_t
+    _cache, _cache_t = None, 0.0
