@@ -444,6 +444,7 @@ function connect(){
   es.onerror=()=>{ es.close(); setTimeout(connect,1500); fetch('/api/state').then(r=>r.json()).then(paint).catch(()=>{}); };
 }
 connect();
+$('inp').focus();
 </script>
 </body>
 </html>

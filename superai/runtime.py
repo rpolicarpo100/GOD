@@ -249,8 +249,35 @@ def _fmt_bench(s: dict) -> str:
     return "\n".join(lines)
 
 
-def _llm_prompt(text: str, merged: list[dict]) -> str:
-    """Pedido + memória curta. Sem dump TASK/TYPE (custa tokens, não fala melhor)."""
+def _dialogue(n: int = 4, current: str | None = None) -> list[str]:
+    """Últimos turnos do chat vivo. Sem placeholder, sem rodapé de tokens."""
+    with _lock:
+        msgs = list(_chat)
+    cur = (current or "").strip()
+    out: list[str] = []
+    skipped_current = False
+    for m in reversed(msgs):
+        role = m.get("role")
+        text = str(m.get("text") or "").strip()
+        if role not in ("user", "brain") or not text:
+            continue
+        if text.startswith("Um momento"):
+            continue
+        if role == "user" and cur and text == cur and not skipped_current:
+            skipped_current = True
+            continue
+        if role == "brain" and "\n\n— GOD ·" in text:
+            text = text.split("\n\n— GOD ·", 1)[0].strip()
+        who = "TU" if role == "user" else "GOD"
+        out.append(f"{who}: {text[:180]}")
+        if len(out) >= n:
+            break
+    out.reverse()
+    return out
+
+
+def _llm_prompt(text: str, merged: list[dict], dialogue: list[str] | None = None) -> str:
+    """Pedido + diálogo curto + memória. Sem dump TASK/TYPE."""
     parts = [
         "És a GOD. Falas no feminino. Inteligência profissional, analítica, orientada a resultados. "
         "Compreende o objectivo antes de responder. Não inventes APIs, dados, ferramentas, preços, resultados nem capacidades. "
@@ -259,8 +286,11 @@ def _llm_prompt(text: str, merged: list[dict]) -> str:
         "Não tens pesquisa web (SearXNG ausente) nem embeddings neurais. "
         "Se criares um site, emite ficheiros em fences com path: ```html index.html … ``` "
         "Só HTML/CSS/JS em data/projects — não alteras o núcleo GOD. "
+        "Usa o diálogo recente se o pedido for anafórico (isto, isso, e o CSS, continua). "
         "Prioridade: Verdade → Precisão → Segurança → Utilidade → Eficiência → Simplicidade."
     ]
+    if dialogue:
+        parts.append("Diálogo:\n" + "\n".join(dialogue[:4]))
     mem: list[str] = []
     for m in (merged or [])[:3]:
         v = str(m.get("value") or m.get("text") or "").strip()
@@ -848,6 +878,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
         if pub.get("errors"):
             speech += "\nWrite: " + "; ".join(pub["errors"][:4])
     cache_store(text, {"summary": speech, "scores": scores}, scores["OVERALL"])
+    store.mem_put("episode", task["task_id"], f"{text[:120]} → {str(res.get('text') or '')[:240]}")
     _index_task(task, text, scores)
     task["status"] = "done"
     task["via"] = "llm"
@@ -875,7 +906,8 @@ def boot() -> None:
             "Sou a GOD. Estou online. Constituição: verdade primeiro. Não invento.\n\n"
             f"Modo {mode}. {reason}\n"
             "LLM last. OS: admit/syscall/kill/ps. Terceiro olho a observar.\n"
-            "Leve corre aqui. Pesado vai ao worker. Sem provider, eu digo que não há.",
+            "Leve corre aqui. Pesado vai ao worker. Sem provider, eu digo que não há.\n"
+            "Fala comigo no chat. Sites que eu gravar abrem em /preview neste servidor — não na cloud.",
         )
 
 

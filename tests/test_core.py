@@ -95,7 +95,19 @@ class Providers(unittest.TestCase):
         self.assertIn("GOD", p)
         self.assertIn("SearXNG", p)
         self.assertIn("USER: oi", p)
+        self.assertNotIn("Diálogo:", p)
         self.assertLess(len(p), 1200)
+
+    def test_dialogue_is_short_context(self):
+        from superai.runtime import _dialogue, _llm_prompt
+
+        p = _llm_prompt("e o CSS?", [], ["TU: cria um site", "GOD: gravei index.html"])
+        self.assertIn("Diálogo:", p)
+        self.assertIn("cria um site", p)
+        self.assertIn("USER: e o CSS?", p)
+        self.assertLess(len(p), 2000)
+        lines = _dialogue(4, current="agora")
+        self.assertTrue(all(not x.startswith("GOD: Um momento") for x in lines))
 
     def test_quem_es_goes_to_llm_path(self):
         from superai.providers import any_llm
