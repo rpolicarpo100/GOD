@@ -71,9 +71,11 @@ def inspect() -> dict:
         alerts.append({"level": "WARNING", "code": "FAIL_RATE", "msg": f"falhas de fila {failed}/{failed+done}", "evidence": q})
     bud = ti.budget_status()
     if bud["daily"]["hard"] or bud["session"]["hard"]:
-        alerts.append({"level": "CRITICAL", "code": "TOKEN_BUDGET_EXCEEDED", "msg": "budget hard MEASURED", "evidence": bud})
-    elif bud["daily"]["soft"] or bud["session"]["soft"]:
-        alerts.append({"level": "WARNING", "code": "TOKEN_BUDGET_WARNING", "msg": "budget ≥80% MEASURED", "evidence": {"daily": bud["daily"], "session": bud["session"]}})
+        alerts.append({"level": "CRITICAL", "code": "TOKEN_BUDGET_EXCEEDED", "msg": "budget 100% MEASURED — bloqueia não-essencial", "evidence": bud})
+    elif bud["daily"].get("warn90") or bud["session"].get("warn90"):
+        alerts.append({"level": "WARNING", "code": "TOKEN_BUDGET_90", "msg": "budget ≥90% MEASURED", "evidence": {"daily": bud["daily"], "session": bud["session"]}})
+    elif bud["daily"].get("warn70") or bud["session"].get("warn70"):
+        alerts.append({"level": "NOTICE", "code": "TOKEN_BUDGET_70", "msg": "budget ≥70% MEASURED", "evidence": {"daily": bud["daily"], "session": bud["session"]}})
 
     ok = not any(a["level"] in ("CRITICAL", "SECURITY") for a in alerts)
     metrics = {

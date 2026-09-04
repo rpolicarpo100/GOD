@@ -202,16 +202,26 @@ class Store:
                 (uid("mem"), kind, key[:200], json.dumps(value, ensure_ascii=False) if not isinstance(value, str) else value, now_iso()),
             )
 
-    def mem_search(self, q: str, limit: int = 8) -> list[dict]:
+    def mem_search(self, q: str, limit: int = 8, kinds: list[str] | None = None) -> list[dict]:
         words = [w for w in q.lower().split() if len(w) > 2][:8]
         if not words:
             return []
         like = " OR ".join(["key LIKE ? OR value LIKE ?"] * len(words))
         args: list[str] = []
+        where = f"({like})"
+        if kinds:
+            clean = [str(k)[:80] for k in kinds if k][:8]
+            if clean:
+                ph = ",".join("?" * len(clean))
+                where = f"kind IN ({ph}) AND {where}"
+                args.extend(clean)
         for w in words:
             args.extend([f"%{w}%", f"%{w}%"])
         with self._conn() as c:
-            rows = c.execute(f"SELECT * FROM memory WHERE {like} ORDER BY ts DESC LIMIT {int(limit)}", args).fetchall()
+            rows = c.execute(
+                f"SELECT * FROM memory WHERE {where} ORDER BY ts DESC LIMIT {int(limit)}",
+                args,
+            ).fetchall()
         return [{"id": r["id"], "kind": r["kind"], "key": r["key"], "value": r["value"], "ts": r["ts"]} for r in rows]
 
     def mem_counts(self) -> dict[str, int]:

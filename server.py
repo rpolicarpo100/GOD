@@ -90,6 +90,10 @@ class GodIn(BaseModel):
     models: str = "auto"
 
 
+class RollbackIn(BaseModel):
+    version: int
+
+
 def _worker_auth(authorization: str | None) -> None:
     if not WORKER_TOKEN:
         return
@@ -244,6 +248,35 @@ def api_gods_activate(gid: str):
     r = gods.activate(gid)
     if not r.get("ok"):
         raise HTTPException(404, r.get("error") or "not found")
+    _broadcast()
+    return r
+
+
+@app.get("/api/gods/{gid}/versions")
+def api_gods_versions(gid: str):
+    from superai import gods
+
+    return {"id": gid, "versions": gods.versions(gid)}
+
+
+@app.post("/api/gods/{gid}/rollback")
+def api_gods_rollback(gid: str, body: RollbackIn):
+    from superai import gods
+    from superai.runtime import _broadcast
+
+    r = gods.rollback(gid, body.version)
+    if not r.get("ok"):
+        raise HTTPException(400, r.get("error") or "rollback fail")
+    _broadcast()
+    return r
+
+
+@app.post("/api/repair")
+def api_repair():
+    from superai import repair
+    from superai.runtime import _broadcast
+
+    r = repair.run()
     _broadcast()
     return r
 

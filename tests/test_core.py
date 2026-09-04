@@ -253,6 +253,8 @@ class StaleJob(unittest.TestCase):
     def test_assigned_without_start_requeues(self):
         from superai import queue as tq
 
+        tq.register_worker("expire-w", "expire-w", "control", ["chat"])
+        tq.heartbeat("expire-w")
         tq.enqueue("chat", "expire-stale-unique-xyz", None, "LOCAL_WORKER")
         got = tq.claim("expire-w")
         self.assertIsNotNone(got)
@@ -261,6 +263,7 @@ class StaleJob(unittest.TestCase):
         found = next(x for x in tq.jobs(80) if x["id"] == got["id"])
         self.assertEqual(found["status"], "queued")
         self.assertIsNone(found["worker_id"])
+        tq.unregister_worker("expire-w")
 
 
 class NoFakeCompute(unittest.TestCase):
@@ -586,6 +589,56 @@ class GodBuilder(unittest.TestCase):
 
         r = gods.save({"id": "mini", "name": "Mini", "capabilities": ["calculator"], "models": "claude-opus"})
         self.assertFalse(r["ok"])
+
+    def test_rollback_restores_purpose(self):
+        from superai import gods
+
+        a = gods.save({"id": "rbiso", "name": "Rbiso", "capabilities": ["calculator"], "purpose": "versão-um"})
+        self.assertTrue(a["ok"], a)
+        b = gods.save({"id": "rbiso", "name": "Rbiso", "capabilities": ["calculator"], "purpose": "versão-dois"})
+        self.assertTrue(b["ok"], b)
+        r = gods.rollback("rbiso", 1)
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(gods.get("rbiso")["purpose"], "versão-um")
+
+
+class RepairMemBudget(unittest.TestCase):
+    def tearDown(self):
+        from superai import gods
+
+        gods.activate("master")
+
+    def test_repair_measured(self):
+        from superai import repair
+
+        r = repair.run()
+        self.assertEqual(r["kind"], "MEASURED")
+        self.assertTrue(any(a["check"] == "gods_master" and a["ok"] for a in r["actions"]))
+        self.assertTrue(any(a["check"] == "sqlite" and a["ok"] for a in r["actions"]))
+
+    def test_chat_repara(self):
+        from superai.runtime import handle
+
+        r = handle("repara")
+        self.assertEqual(r.get("via"), "repair")
+
+    def test_mem_kinds_isolated(self):
+        from superai.store import store
+
+        store.mem_put("episode:mini", "iso-k", "segredo-mini-xyz")
+        store.mem_put("episode:master", "iso-k", "segredo-master-abc")
+        mini = store.mem_search("segredo", kinds=["episode:mini"])
+        self.assertTrue(any("mini-xyz" in str(h.get("value")) for h in mini))
+        self.assertFalse(any("master-abc" in str(h.get("value")) for h in mini))
+
+    def test_budget_has_70_90_100(self):
+        from superai.tokens import budget_status
+
+        d = budget_status()["daily"]
+        self.assertIn("warn70", d)
+        self.assertIn("warn90", d)
+        self.assertIn("hard", d)
+        self.assertEqual(d["soft"], d["warn90"])
 
 
 if __name__ == "__main__":

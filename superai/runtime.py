@@ -123,6 +123,7 @@ def snapshot() -> dict:
             "plane_in_product": False,
             "active": gods.active(),
             "profiles": gods.list_gods(),
+            "versions": gods.versions(gods.active_id()),
             "swarm": False,
             "desktop": False,
             "marketplace": False,
@@ -553,6 +554,17 @@ def handle(text: str, from_worker: bool = False) -> dict:
         _broadcast()
         return {"ok": True, "via": "os"}
 
+    if re.search(r"^\s*(repara|repair|conserta)\s*$", low):
+        from . import repair
+
+        r = repair.run()
+        lines = [f"REPAIR {r['kind']} ok={r['ok']}", r.get("note") or ""]
+        for a in r.get("actions") or []:
+            lines.append(f"  {a.get('check')} ok={a.get('ok')} {a.get('error') or a.get('fix') or ''}")
+        _say("brain", "\n".join(lines))
+        _broadcast()
+        return {"ok": True, "via": "repair", "repair": r}
+
     if re.search(r"terceiro olho|olho do sistema|\bobserva sistema\b", low):
         eye = observer.tick()
         m = eye["metrics"]
@@ -684,8 +696,14 @@ def handle(text: str, from_worker: bool = False) -> dict:
     bus.emit("CACHE_MISS", "INFO", task["task_id"])
 
     # 3 memory
-    mem = store.mem_search(text)
-    vec_mem = vectors.search("memory", text, k=5, min_score=0.35) if vectors.available() else []
+    gact = gods.active()
+    if gact.get("memory", True) is False:
+        mem, vec_mem = [], []
+    else:
+        gid = gods.active_id()
+        kinds = ["episode", "episode:master"] if gid == "master" else [f"episode:{gid}"]
+        mem = store.mem_search(text, kinds=kinds)
+        vec_mem = vectors.search("memory", text, k=5, min_score=0.35) if vectors.available() else []
     pipeline["memory_hits"] = len(mem)
     pipeline["vector_hits"] = vec_mem
     merged = list(mem)
@@ -762,7 +780,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
             context=pipeline.get("context"),
             route_advice=pipeline.get("route_token"),
         )
-        store.mem_put("episode", task["title"], {"task_id": task["task_id"], "type": task["type"], "overall": scores["OVERALL"]})
+        store.mem_put(f"episode:{gods.active_id()}", task["title"], {"task_id": task["task_id"], "type": task["type"], "overall": scores["OVERALL"]})
         cache_store(text, {"summary": tool_results, "scores": scores}, scores["OVERALL"])
         _index_task(task, text, scores)
         task["status"] = "done"

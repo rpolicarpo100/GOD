@@ -192,6 +192,51 @@ def save(raw: dict, bump: bool = True) -> dict:
     return {"ok": True, "god": body}
 
 
+def versions(gid: str) -> list[dict]:
+    ensure()
+    gid = _slug(gid)
+    out: list[dict] = []
+    cur = get(gid)
+    if cur:
+        out.append(
+            {
+                "version": int(cur.get("version") or 1),
+                "current": True,
+                "updated": cur.get("updated"),
+                "purpose": (cur.get("purpose") or "")[:80],
+            }
+        )
+    hist = DIR / "history"
+    if hist.is_dir():
+        for p in sorted(hist.glob(f"{gid}-v*.json"), reverse=True):
+            try:
+                g = json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            out.append(
+                {
+                    "version": int(g.get("version") or 0),
+                    "current": False,
+                    "updated": g.get("updated"),
+                    "purpose": (g.get("purpose") or "")[:80],
+                    "file": p.name,
+                }
+            )
+    return out[:12]
+
+
+def rollback(gid: str, version: int) -> dict:
+    gid = _slug(gid)
+    p = DIR / "history" / f"{gid}-v{int(version)}.json"
+    if not p.is_file():
+        return {"ok": False, "error": "versão inexistente"}
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8"))
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:200]}
+    return save(raw, bump=True)
+
+
 def allow_tool(name: str) -> bool:
     g = active()
     caps = g.get("capabilities")

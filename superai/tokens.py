@@ -198,9 +198,18 @@ def budget_status() -> dict:
         limit = int(limit or 0)
         used = int(used or 0)
         remaining = limit - used
+        ratio = (used / limit) if limit else 0.0
         hard = used >= limit if limit else False
-        soft = (used / limit >= 0.8) if limit else False
-        return {"limit": limit, "used_measured": used, "remaining": remaining, "soft": soft, "hard": hard}
+        return {
+            "limit": limit,
+            "used_measured": used,
+            "remaining": remaining,
+            "ratio": round(ratio, 4),
+            "warn70": ratio >= 0.7,
+            "warn90": ratio >= 0.9,
+            "soft": ratio >= 0.9,
+            "hard": hard,
+        }
     return {
         "kind": MEASURED,
         "task": {"limit": int(b.get("task") or 0), "note": "enforced on ESTIMATED per call, not cumulative"},

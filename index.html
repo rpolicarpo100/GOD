@@ -148,6 +148,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
       <button class="seg" id="god-save" type="button">Guardar</button>
       <button class="seg" id="god-new" type="button">+ Novo</button>
       <button class="seg" id="god-go" type="button">Activar</button>
+      <button class="seg" id="god-repair" type="button">Repara</button>
     </div>
     <p class="note">Um handle. O perfil muda prompt e ferramentas reais. Sem swarm, sem Desktop, cost UNKNOWN.</p>
     <div class="k" style="margin-top:10px">Roadmap ela</div>
@@ -208,6 +209,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
       <button class="chip" data-q="evolução">Evolução</button>
       <button class="chip" data-q="aprova">Aprova</button>
       <button class="chip" data-q="terceiro olho">Terceiro olho</button>
+      <button class="chip" data-q="repara">Repara</button>
       <button class="chip" data-q="economia de tokens">Tokens</button>
       <button class="chip" data-q="ps">ps</button>
       <button class="chip" data-q="kernel">Kernel</button>
@@ -515,6 +517,7 @@ $('god-go').onclick=()=>{
   if(!id) return;
   fetch('/api/gods/'+encodeURIComponent(id)+'/activate',{method:'POST'}).then(()=>{ godEditing=null; });
 };
+$('god-repair').onclick=()=>fetch('/api/repair',{method:'POST'});
 
 function send(text){
   text=(text||'').trim();
