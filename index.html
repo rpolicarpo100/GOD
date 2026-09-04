@@ -154,6 +154,17 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
       <button class="seg" id="god-rb" type="button">Rollback</button>
       <button class="seg" id="god-repair" type="button">Repara</button>
     </div>
+    <div class="k" style="margin-top:10px">Missões</div>
+    <div class="row">
+      <button class="seg" id="mis-create" type="button">+ Nova</button>
+      <button class="seg" id="mis-pause" type="button">Pausa</button>
+      <button class="seg" id="mis-resume" type="button">Retoma</button>
+      <button class="seg" id="mis-done" type="button">Conclui</button>
+      <button class="seg" id="mis-cancel" type="button">Cancela</button>
+    </div>
+    <div class="list" id="mis-list" style="max-height:120px;flex:0 0 auto"></div>
+    <div class="k" style="margin-top:10px">Grafo de tarefas</div>
+    <div class="list" id="graph-viz" style="max-height:150px;flex:0 0 auto"></div>
     <p class="note">Um handle. O perfil muda prompt e ferramentas reais. Sem swarm, sem Desktop, cost UNKNOWN.</p>
     <div class="k" style="margin-top:10px">Roadmap ela</div>
     <div class="ph" id="road-ph"></div>
@@ -303,8 +314,14 @@ function paint(s){
   paintFlow(s);
   const p=s.last_pipeline;
   if(p){
+    let valLine = '';
+    const v = p.validation;
+    if(v) valLine = `\nValidator: ${v.n_passed}/${v.n_checks} checks · ${v.overall||'?'} · confidence ${v.confidence||0}`;
+    let critLine = '';
+    const cr = p.critique;
+    if(cr) critLine = `\nThird Eye: ${cr.overall||'?'} · ${cr.n_findings||0} findings · ${cr.n_issues||0} issues`;
     $('pipe').textContent =
-      `rota ${(p.route||[]).join(' → ') || '—'}\nmode ${(p.task&&p.task.exec_mode)||''} path=${(p.decision&&p.decision.path)||'—'} fast=${p.fast||false} direct=${p.direct_llm} ${p.stages_ms?JSON.stringify(p.stages_ms):''} ${p.latency_ms!=null?p.latency_ms+'ms MEASURED':''}\n${(p.decision&&p.decision.reasons||[]).join(' · ')}\ncache ${p.cache} · mem ${p.memory_hits} · fw ${(p.firewall&&p.firewall.action)||'n/a'} · missão ${p.mission_id||'—'}`;
+      `rota ${(p.route||[]).join(' → ') || '—'}\nmode ${(p.task&&p.task.exec_mode)||''} path=${(p.decision&&p.decision.path)||'—'} fast=${p.fast||false} direct=${p.direct_llm} ${p.stages_ms?JSON.stringify(p.stages_ms):''} ${p.latency_ms!=null?p.latency_ms+'ms MEASURED':''}\n${(p.decision&&p.decision.reasons||[]).join(' · ')}\ncache ${p.cache} · mem ${p.memory_hits} · fw ${(p.firewall&&p.firewall.action)||'n/a'} · missão ${p.mission_id||'—'}${valLine}${critLine}`;
   }
 
   $('tool-list').innerHTML = (s.tools||[]).map(t=>`
@@ -374,6 +391,8 @@ function paint(s){
 
   paintChat(s.chat||[]);
   paintGods(s);
+  paintMissions(s);
+  paintGraph(s);
 }
 
 function phases(s){
@@ -389,8 +408,8 @@ function phases(s){
     {id:'P1', t:'Missão', st: mis.kind==='MEASURED' ? 'done' : 'blocked'},
     {id:'P1', t:'Graph', st: (g.kind==='MEASURED') ? 'partial' : 'blocked'},
     {id:'P1', t:'Router', st:'partial'},
-    {id:'P2', t:'Validator', st:'partial'},
-    {id:'P2', t:'Third Eye', st:'partial'},
+    {id:'P2', t:'Validator', st:'done'},
+    {id:'P2', t:'Third Eye', st:'done'},
     {id:'P2', t:'Factory', st:'blocked'},
     {id:'P3', t:'Mesh', st:'blocked'},
     {id:'P4', t:'UI', st: (p.decision || mis.active || (g.edges||[]).length) ? 'partial' : 'partial'}
@@ -561,6 +580,90 @@ function send(text){
 }
 $('form').onsubmit=ev=>{ev.preventDefault(); send($('inp').value)};
 document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>send(b.dataset.q));
+
+// Mission management
+function paintMissions(s){
+  const mi=s.mission||{};
+  const a=mi.active;
+  const recent=mi.recent||[];
+  const box=$('mis-list');
+  if(!box) return;
+  if(!recent.length){
+    box.innerHTML='<div class="d">sem missões — usa "missão: objectivo" no chat</div>';
+    return;
+  }
+  box.innerHTML=recent.slice(0,8).map(m=>{
+    const st=m.status||'?';
+    const cls=st==='active'?'ok':st==='paused'?'warn':st==='done'?'':'';
+    const goal=(m.goal||'').slice(0,60);
+    return `<div class="item"><div class="h"><b>${esc(m.id)}</b><span class="tag ${cls}">${esc(st)}</span></div>
+      <div class="d">${esc(goal)}${m.updated?' · '+new Date(m.updated).toLocaleTimeString('pt-PT'):''}</div></div>`;
+  }).join('');
+}
+$('mis-create').onclick=()=>{
+  const goal=prompt('Objectivo da missão:');
+  if(goal) send('missão: '+goal);
+};
+$('mis-pause').onclick=()=>send('pausa missão');
+$('mis-resume').onclick=()=>{
+  // Resume = reactivate the paused mission
+  const mi=S&&S.mission||{};
+  const recent=mi.recent||[];
+  const paused=recent.find(m=>m.status==='paused');
+  if(paused){
+    fetch('/api/gods/'+encodeURIComponent('master')+'/activate',{method:'POST'});
+    send('missão: '+paused.goal);
+  } else {
+    send('missão actual');
+  }
+};
+$('mis-done').onclick=()=>send('conclui missão');
+$('mis-cancel').onclick=()=>send('cancela missão');
+
+// Graph visualization
+function paintGraph(s){
+  const g=s.graph||{};
+  const jobs=s.jobs||[];
+  const edges=g.edges||[];
+  const box=$('graph-viz');
+  if(!box) return;
+  if(!edges.length && !jobs.length){
+    box.innerHTML='<div class="d">sem tarefas com dependências — usa "depois: tarefa" no chat</div>';
+    return;
+  }
+  // Build adjacency
+  const nodes=new Map();
+  jobs.forEach(j=>nodes.set(j.id,j));
+  const children=new Map();
+  edges.forEach(e=>{
+    if(!children.has(e.from)) children.set(e.from,[]);
+    children.get(e.from).push(e.to);
+  });
+  // Topological sort (simple)
+  const visited=new Set();
+  const order=[];
+  function visit(id){
+    if(visited.has(id)) return;
+    visited.add(id);
+    (children.get(id)||[]).forEach(visit);
+    order.push(id);
+  }
+  nodes.forEach((_,id)=>visit(id));
+  // Render
+  const statusColor={queued:'var(--muted)',assigned:'var(--warn)',running:'var(--opp)',completed:'var(--ok)',failed:'var(--crit)',killed:'var(--crit)'};
+  box.innerHTML=order.slice(0,12).map(id=>{
+    const j=nodes.get(id);
+    if(!j) return '';
+    const st=j.status||'?';
+    const color=statusColor[st]||'var(--muted)';
+    const deps=edges.filter(e=>e.to===id).map(e=>e.from);
+    const kind=j.kind||'?';
+    const text=(j.text||'').slice(0,40);
+    return `<div class="item" style="border-left:3px solid ${color}">
+      <div class="h"><b>${esc(id)}</b><span style="color:${color}">${esc(st)}</span></div>
+      <div class="d">${esc(kind)} · ${esc(text)}${deps.length?' · deps: '+deps.join(', '):''}</div></div>`;
+  }).join('');
+}
 
 function connect(){
   const es=new EventSource('/api/stream');

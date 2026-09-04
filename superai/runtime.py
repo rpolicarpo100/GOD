@@ -9,6 +9,8 @@ from typing import Any
 
 from . import aios, benchmark, evolution, executive, mission, observer, plane, providers, queue as tq, resources, routing, tokens as ti
 from .brain import analyze, cache_lookup, cache_store, context_pack, evaluate
+from .validator import validate
+from .thirdeye import criticize
 from .config import ROOT, cfg
 from .events import bus
 from .governor import gov
@@ -463,6 +465,16 @@ def _format_result(task: dict, pipeline: dict, tool_results: list[dict], scores:
             f"TOKEN_EFF {scores['TOKEN_EFFICIENCY']}  OVERALL {scores['OVERALL']}/100"
         )
         lines.append(f"LLM usado: {scores['llm_used']} · tokens LLM: {scores['tokens_actual']}")
+    val = pipeline.get("validation")
+    if val:
+        vc = val.get("n_passed", 0)
+        vt = val.get("n_checks", 0)
+        lines.append(f"Validator: {vc}/{vt} checks passed (confidence {val.get('confidence', 0)})")
+    crit = pipeline.get("critique")
+    if crit:
+        ci = crit.get("n_issues", 0)
+        ct = crit.get("n_findings", 0)
+        lines.append(f"Third Eye: {crit.get('overall', '?')} · {ct} findings, {ci} issues")
     lines.append("")
     via = task.get("via") or (pipeline.get("route") or ["?"])[-1]
     lines.append(f"Via {via}. Não inventei providers nem preços. Incerteza é reportada.")
@@ -686,6 +698,13 @@ def handle(text: str, from_worker: bool = False) -> dict:
                 lines.append(f"  [{a['level']}] {a['code']}: {a['msg']}")
         else:
             lines.append("Sem alertas.")
+        # Show last Third Eye criticism if available
+        p = _last_pipeline
+        if p and p.get("critique"):
+            from .thirdeye import format_criticism
+            lines.append("")
+            lines.append("ÚLTIMA CRÍTICA (Third Eye 2.0):")
+            lines.append(format_criticism(p["critique"]))
         _say("brain", "\n".join(lines))
         _broadcast()
         return {"ok": True, "via": "observer"}
@@ -905,6 +924,8 @@ def handle(text: str, from_worker: bool = False) -> dict:
             if res.get("status") != "success":
                 bus.emit("TOOL_FAILED", "WARNING", f"{step['tool']}: {res.get('errors')}")
         scores = evaluate(task, tool_results, llm_used=False, tokens_actual=0)
+        validation = validate(task, tool_results)
+        critique = criticize(pipeline, task, tool_results, scores)
         ti.record(
             task_id=task["task_id"],
             estimated=task["estimated_tokens"],
@@ -925,6 +946,8 @@ def handle(text: str, from_worker: bool = False) -> dict:
         store.save_task(task)
         bus.emit("TASK_COMPLETED", "INFO", f"{task['task_id']} overall {scores['OVERALL']} via tools")
         pipeline["scores"] = scores
+        pipeline["validation"] = validation
+        pipeline["critique"] = critique
         _mark(pipeline, "tools")
         with _lock:
             _set_pipe(pipeline)
@@ -945,10 +968,14 @@ def handle(text: str, from_worker: bool = False) -> dict:
         }
         tool_results = [{"tool": "state", "status": "success", "confidence": 1.0, "findings": [findings], "errors": [], "evidence": ["snapshot local"]}]
         scores = evaluate(task, tool_results, False, 0)
+        validation = validate(task, tool_results)
+        critique = criticize(pipeline, task, tool_results, scores)
         ti.record(task_id=task["task_id"], estimated=0, actual=0, status="ok", via="state")
         task["status"] = "done"
         task["via"] = "state"
         store.save_task(task)
+        pipeline["validation"] = validation
+        pipeline["critique"] = critique
         with _lock:
             _set_pipe(pipeline)
         _say("brain", _format_result(task, pipeline, tool_results, scores, None))
@@ -1045,6 +1072,8 @@ def handle(text: str, from_worker: bool = False) -> dict:
     )
     tool_results = [{"tool": f"llm:{res.get('adapter')}", "status": "success", "confidence": 0.5, "findings": [{"text": res.get("text")}], "errors": [], "evidence": [f"adapter={res.get('adapter')} model={res.get('model')}"]}]
     scores = evaluate(task, tool_results, True, toks)
+    validation = validate(task, tool_results, llm_text=str(res.get("text") or ""))
+    critique = criticize(pipeline, task, tool_results, scores)
     speech = _format_result(task, pipeline, tool_results, scores, None)
     files = _extract_files(str(res.get("text") or ""))
     if files:
@@ -1059,6 +1088,8 @@ def handle(text: str, from_worker: bool = False) -> dict:
     task["status"] = "done"
     task["via"] = "llm"
     store.save_task(task)
+    pipeline["validation"] = validation
+    pipeline["critique"] = critique
     with _lock:
         _set_pipe(pipeline)
     _say("brain", speech, replace_prefix="Um momento")

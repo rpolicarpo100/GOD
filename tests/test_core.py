@@ -922,5 +922,229 @@ class God20P1(unittest.TestCase):
             self.assertEqual(s["kind"], "UNKNOWN")
 
 
+class Validator(unittest.TestCase):
+    def test_math_validation_passes(self):
+        from superai.validator import validate
+
+        task = analyze("calcula 2+2*3")
+        r = execute("calculator", {"expr": "2+2*3"})
+        v = validate(task, [r])
+        self.assertTrue(v["passed"])
+        self.assertEqual(v["kind"], "MEASURED")
+        self.assertEqual(v["n_checks"], 2)  # math_result + math_verification
+        self.assertEqual(v["n_passed"], 2)
+
+    def test_math_validation_fails_on_error(self):
+        from superai.validator import validate
+
+        task = analyze("calcula algo")
+        r = execute("calculator", {"expr": "hello"})
+        v = validate(task, [r])
+        self.assertFalse(v["passed"])
+        self.assertEqual(v["n_checks"], 2)
+        self.assertEqual(v["n_passed"], 1)  # math_verification passes (nothing to verify)
+
+    def test_json_validation(self):
+        from superai.validator import validate
+
+        task = analyze("parse este json")
+        r = execute("json", {"text": '{"a":1,"b":2}'})
+        v = validate(task, [r])
+        self.assertTrue(v["passed"])
+        self.assertEqual(v["n_checks"], 1)
+        self.assertIn("dict", v["checks"][0]["notes"][0])
+
+    def test_git_validation(self):
+        from superai.validator import validate
+
+        task = analyze("git status")
+        r = execute("git", {"args": ["status"]})
+        v = validate(task, [r])
+        self.assertTrue(v["passed"])
+        self.assertEqual(v["n_checks"], 1)
+        self.assertIn("exit=0", v["checks"][0]["notes"][0])
+
+    def test_llm_empty_fails(self):
+        from superai.validator import validate
+
+        task = analyze("quem és tu")
+        r = {"tool": "llm:groq", "status": "success", "findings": [{"text": ""}], "errors": [], "evidence": []}
+        v = validate(task, [r], llm_text="")
+        self.assertFalse(v["passed"])
+        self.assertIn("empty", v["checks"][0]["notes"][0])
+
+    def test_llm_nonempty_passes(self):
+        from superai.validator import validate
+
+        task = analyze("quem és tu")
+        r = {"tool": "llm:groq", "status": "success", "findings": [{"text": "Sou a GOD."}], "errors": [], "evidence": []}
+        v = validate(task, [r], llm_text="Sou a GOD.")
+        self.assertTrue(v["passed"])
+        self.assertIn("length=10", v["checks"][0]["notes"][0])
+
+    def test_coding_cross_validation(self):
+        from superai.validator import validate
+
+        task = analyze("cria um website com html")
+        r = {"tool": "llm:groq", "status": "success", "findings": [{"text": "Aqui:\n```html\n<!DOCTYPE html>\n<html><body><h1>Hi</h1></body></html>\n```"}], "errors": [], "evidence": []}
+        v = validate(task, [r], llm_text="Aqui:\n```html\n<!DOCTYPE html>\n<html><body><h1>Hi</h1></body></html>\n```")
+        self.assertTrue(v["passed"])
+        self.assertEqual(v["n_checks"], 2)  # llm_response + coding_structure
+
+    def test_validation_in_pipeline(self):
+        from superai.runtime import handle, snapshot
+
+        r = handle("calcula 7*8")
+        self.assertIn(r.get("via"), ("tools", "cache"))
+        p = snapshot().get("last_pipeline") or {}
+        v = p.get("validation")
+        if r.get("via") == "tools":
+            self.assertIsNotNone(v)
+            self.assertTrue(v["passed"])
+            self.assertEqual(v["kind"], "MEASURED")
+        # cache hits don't have validation (no tool execution)
+
+    def test_fs_write_validation(self):
+        from superai.validator import validate
+
+        task = analyze("cria um ficheiro")
+        r = execute("fs.write", {"slug": "valtest", "path": "index.html", "text": "<h1>test</h1>"})
+        v = validate(task, [r])
+        self.assertTrue(v["passed"])
+        self.assertIn("bytes=", v["checks"][0]["notes"][0])
+
+    def test_state_validation(self):
+        from superai.validator import validate
+
+        task = analyze("estado")
+        r = {"tool": "state", "status": "success", "findings": [{"mode": "OFFLINE", "providers": []}], "errors": [], "evidence": ["snapshot"]}
+        v = validate(task, [r])
+        self.assertTrue(v["passed"])
+        self.assertIn("mode=OFFLINE", v["checks"][0]["notes"][0])
+
+
+class ThirdEye(unittest.TestCase):
+    def test_criticism_passes_for_good_task(self):
+        from superai.thirdeye import criticize
+
+        task = analyze("calcula 2+2")
+        pipeline = {
+            "fast": True,
+            "cache": "miss",
+            "skipped_heavy": ["vector", "memory"],
+            "stages_ms": {"cache": 1.0},
+            "latency_ms": 20.0,
+            "decision": {"path": "tools"},
+        }
+        tool_results = [{"tool": "calculator", "status": "success", "findings": [{"result": 4}], "errors": [], "evidence": []}]
+        scores = {"OVERALL": 97, "tokens_actual": 0, "llm_used": False}
+        c = criticize(pipeline, task, tool_results, scores)
+        self.assertEqual(c["kind"], "MEASURED")
+        self.assertEqual(c["overall"], "OK")
+        self.assertEqual(c["n_issues"], 0)
+        self.assertGreater(c["n_findings"], 0)
+
+    def test_criticism_warns_on_slow_fast(self):
+        from superai.thirdeye import criticize
+
+        task = analyze("calcula 1+1")
+        pipeline = {
+            "fast": True,
+            "cache": "miss",
+            "skipped_heavy": ["vector", "memory"],
+            "stages_ms": {"cache": 1.0, "tools": 200.0},
+            "latency_ms": 300.0,
+            "decision": {"path": "tools"},
+        }
+        tool_results = [{"tool": "calculator", "status": "success", "findings": [{"result": 2}], "errors": [], "evidence": []}]
+        scores = {"OVERALL": 97, "tokens_actual": 0, "llm_used": False}
+        c = criticize(pipeline, task, tool_results, scores)
+        self.assertEqual(c["overall"], "ISSUES")
+        self.assertGreater(c["n_issues"], 0)
+        # Should warn about slow FAST task
+        issues = [f for f in c["findings"] if f["severity"] == "WARNING"]
+        self.assertTrue(any("latency" in f["check"] for f in issues))
+
+    def test_criticism_warns_on_blocked_deterministic(self):
+        from superai.thirdeye import criticize
+
+        task = analyze("calcula 2+2")
+        task["via"] = "blocked"
+        pipeline = {
+            "fast": True,
+            "cache": "miss",
+            "latency_ms": 10.0,
+            "decision": {"path": "no_provider"},
+        }
+        scores = {"OVERALL": 40, "tokens_actual": 0, "llm_used": False}
+        c = criticize(pipeline, task, [], scores)
+        issues = [f for f in c["findings"] if f["severity"] == "WARNING"]
+        self.assertTrue(any("Deterministic" in f["msg"] for f in issues))
+
+    def test_criticism_ok_for_cache_hit(self):
+        from superai.thirdeye import criticize
+
+        task = analyze("calcula 2+2")
+        pipeline = {
+            "fast": True,
+            "cache": "hit",
+            "latency_ms": 5.0,
+            "decision": {"path": "tools"},
+        }
+        scores = {"OVERALL": 97, "tokens_actual": 0, "llm_used": False}
+        c = criticize(pipeline, task, [], scores)
+        self.assertEqual(c["overall"], "OK")
+        cache_findings = [f for f in c["findings"] if f["check"] == "cache_usage"]
+        self.assertTrue(any("saved LLM" in f["msg"] for f in cache_findings))
+
+    def test_criticism_in_pipeline(self):
+        from superai.runtime import handle, snapshot
+
+        r = handle("calcula 77+33")
+        p = snapshot().get("last_pipeline") or {}
+        crit = p.get("critique")
+        if r.get("via") == "cache":
+            # Cache hits don't run tools, so no critique
+            self.assertIsNone(crit)
+        else:
+            self.assertIsNotNone(crit)
+            self.assertEqual(crit["kind"], "MEASURED")
+            self.assertIn(crit["overall"], ("OK", "ISSUES"))
+
+    def test_format_criticism(self):
+        from superai.thirdeye import format_criticism
+
+        critique = {
+            "overall": "OK",
+            "task_id": "T-test",
+            "task_type": "math",
+            "exec_mode": "FAST",
+            "via": "tools",
+            "latency_ms": 20.0,
+            "n_findings": 2,
+            "n_issues": 0,
+            "findings": [
+                {"check": "latency", "severity": "OK", "msg": "FAST latency 20ms"},
+                {"check": "scores", "severity": "OK", "msg": "Overall 97/100"},
+            ],
+            "recommendations": [],
+        }
+        out = format_criticism(critique)
+        self.assertIn("THIRD EYE", out)
+        self.assertIn("OK", out)
+        self.assertIn("20ms", out)
+
+    def test_criticism_recommends_on_low_score(self):
+        from superai.thirdeye import criticize
+
+        task = analyze("explica algo complexo")
+        pipeline = {"latency_ms": 100.0, "decision": {"path": "llm"}}
+        scores = {"OVERALL": 30, "tokens_actual": 100, "llm_used": True}
+        c = criticize(pipeline, task, [], scores)
+        self.assertGreater(len(c["recommendations"]), 0)
+        recs = c["recommendations"]
+        self.assertTrue(any("quality" in r["type"] for r in recs))
+
+
 if __name__ == "__main__":
     unittest.main()
