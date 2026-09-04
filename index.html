@@ -197,6 +197,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
       <button class="chip" data-q="kernel">Kernel</button>
       <button class="chip" data-q="quem és tu em duas frases">Quem és</button>
       <button class="chip" data-q="roadmap">Roadmap</button>
+      <button class="chip" data-q="cria uma landing page de um café em Lisboa, só HTML e CSS">Cria um site</button>
     </div>
   </div>
   <div class="msgs" id="msgs"></div>
@@ -301,6 +302,7 @@ function paint(s){
     <div class="d">workers ${(s.workers||[]).map(w=>w.id+(w.alive?'✓':'✗')+' '+w.location).join(', ')||'nenhum'}</div>
     <div class="d">fila queued ${qq.queued||0} running ${qq.running||0} done ${qq.completed||0}</div>
     ${(s.jobs||[]).slice(0,6).map(j=>`<div class="d">job ${esc(j.id)} ${esc(j.kind)} ${esc(j.status)}</div>`).join('')}
+    ${(s.projects&&s.projects.length)? `<div class="d">sites ${s.projects.map(p=>`<a href="${esc(p.preview)}" target="_blank" rel="noopener">${esc(p.slug)}</a>`).join(' · ')}</div>`: '<div class="d">sites: nenhum em data/projects</div>'}
     ${(s.away&&s.away.length)? `<div class="d">enquanto a UI esteve fora: ${s.away.length} job(s)</div>`:''}
     ${((s.eye&&s.eye.alerts)||[]).map(a=>`<div class="d">olho [${esc(a.level)}] ${esc(a.code)} — ${esc(a.msg)}</div>`).join('')}
     <div class="d">useful_work/token ${s.eye && s.eye.metrics && s.eye.metrics.useful_work_per_token != null ? s.eye.metrics.useful_work_per_token : 'n/a (0 tok LLM)'} · avg ${s.eye && s.eye.metrics ? s.eye.metrics.avg_overall : '—'}</div>
@@ -400,11 +402,14 @@ function paintFlow(s){
     <text x="8" y="140" font-size="10" fill="#8d8b86" font-family="ui-sans-serif,system-ui">PC control → SQLite/Qdrant → worker local · GPU não exigida · dourado = última rota</text>
   </svg>`;
 }
+function linkify(s){
+  return s.replace(/\/preview\/[a-z0-9-]{1,40}\//g, m=>`<a href="${m}" target="_blank" rel="noopener">${m}</a>`);
+}
 function paintChat(msgs){
   const box=$('msgs');
   if(msgs.length===chatLen && box.children.length) return;
   chatLen=msgs.length;
-  box.innerHTML = msgs.map(m=>`<div class="msg ${m.role}"><div class="who">${m.role==='brain'?'GOD':'tu'}</div>${esc(m.text)}</div>`).join('');
+  box.innerHTML = msgs.map(m=>`<div class="msg ${m.role}"><div class="who">${m.role==='brain'?'GOD':'tu'}</div>${linkify(esc(m.text))}</div>`).join('');
   box.scrollTop = box.scrollHeight;
 }
 

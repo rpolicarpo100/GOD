@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import unicodedata
 import csv
 import io
 import json
@@ -13,6 +14,18 @@ from typing import Any, Callable
 from lxml import etree
 
 from .config import DATA, ROOT
+
+PROJECTS = DATA / "projects"
+PROJECTS.mkdir(parents=True, exist_ok=True)
+_WRITE_MAX = 80_000
+
+
+def project_slug(text: str) -> str:
+    n = unicodedata.normalize("NFD", str(text or ""))
+    n = "".join(c for c in n if unicodedata.category(c) != "Mn")
+    s = re.sub(r"[^a-z0-9]+", "-", n.lower()).strip("-")[:40]
+    return s or "site"
+
 from .governor import gov
 from .util import now_iso
 
@@ -235,6 +248,54 @@ def tool_python(args: dict) -> dict:
     }
 
 
+def tool_fs_write(args: dict) -> dict:
+    rel = str(args.get("path") or "").strip().lstrip("/")
+    body = args.get("text")
+    if body is None:
+        body = args.get("content") or ""
+    body = str(body)
+    slug = project_slug(args.get("slug") or "site")
+    if not rel:
+        return _err("fs.write sem path")
+    if ".." in Path(rel).parts:
+        return _err("path recusado")
+    p = PROJECTS / slug / rel
+    ok, why = gov.allow_write(p)
+    if not ok:
+        return _err(why)
+    if len(body) > _WRITE_MAX:
+        return _err(f"ficheiro > {_WRITE_MAX} chars")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(body, encoding="utf-8")
+    return _ok(
+        findings=[{"path": str(p), "bytes": p.stat().st_size, "preview": f"/preview/{slug}/"}],
+        evidence=[f"write {p} {p.stat().st_size}B"],
+    )
+
+
+def tool_fs_mkdir(args: dict) -> dict:
+    slug = project_slug(args.get("slug") or "")
+    if not slug or slug == "site" and not str(args.get("slug") or "").strip():
+        return _err("slug vazio")
+    p = PROJECTS / slug
+    ok, why = gov.allow_path(p)
+    if not ok:
+        return _err(why)
+    if p.resolve().parent != PROJECTS.resolve():
+        return _err("mkdir só em data/projects")
+    p.mkdir(parents=True, exist_ok=True)
+    return _ok(findings=[{"path": str(p), "preview": f"/preview/{slug}/"}], evidence=[f"mkdir {p}"])
+
+
+def tool_project_list(args: dict) -> dict:
+    items = []
+    if PROJECTS.exists():
+        for d in sorted(PROJECTS.iterdir()):
+            if d.is_dir() and not d.name.startswith("."):
+                items.append({"slug": d.name, "index": (d / "index.html").is_file(), "preview": f"/preview/{d.name}/"})
+    return _ok(findings=items, evidence=[f"projects n={len(items)}"])
+
+
 TOOLS: dict[str, dict] = {
     "calculator": {
         "fn": tool_calculator,
@@ -307,6 +368,30 @@ TOOLS: dict[str, dict] = {
         "latency": "medium",
         "risk": "high",
         "permissions": "sandbox",
+    },
+    "fs.write": {
+        "fn": tool_fs_write,
+        "capabilities": ["filesystem", "site"],
+        "cost": 0,
+        "latency": "low",
+        "risk": "medium",
+        "permissions": "write-projects",
+    },
+    "fs.mkdir": {
+        "fn": tool_fs_mkdir,
+        "capabilities": ["filesystem", "site"],
+        "cost": 0,
+        "latency": "low",
+        "risk": "low",
+        "permissions": "write-projects",
+    },
+    "project.list": {
+        "fn": tool_project_list,
+        "capabilities": ["site"],
+        "cost": 0,
+        "latency": "low",
+        "risk": "low",
+        "permissions": "read",
     },
 }
 

@@ -18,7 +18,7 @@ TYPE_RULES = [
     ("python", r"\b(python|executa(r)? este c[oó]digo|corre este)\b"),
     ("regex", r"\b(regex|express[aã]o regular)\b"),
     ("research", r"\b(pesquisa|search|github|paper|alternativ|osint|web)\b"),
-    ("coding", r"\b(c[oó]digo|refactor|implement|debug|arquitect|lint|teste)\b"),
+    ("coding", r"\b(c[oó]digo|refactor|implement|debug|arquitect|lint|teste|website|landing|html|css|\bsite\b|p[aá]gina web|cria(r)? (um |uma )?(app|site|p[aá]gina))\b"),
 ]
 
 

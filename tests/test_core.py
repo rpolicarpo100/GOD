@@ -479,5 +479,48 @@ class OSKernel(unittest.TestCase):
         self.assertEqual(r.get("via"), "os")
 
 
+class SiteBuilder(unittest.TestCase):
+    def test_coding_type_for_site(self):
+        self.assertEqual(analyze("cria um site simples de café")["type"], "coding")
+
+    def test_write_ok(self):
+        r = execute("fs.write", {"slug": "utest-site", "path": "index.html", "text": "<h1>utest</h1>"})
+        self.assertEqual(r["status"], "success", r.get("errors"))
+        from superai.config import DATA
+        self.assertEqual((DATA / "projects" / "utest-site" / "index.html").read_text(), "<h1>utest</h1>")
+
+    def test_deny_py_env_core(self):
+        r = execute("fs.write", {"slug": "utest-site", "path": "evil.py", "text": "print(1)"})
+        self.assertEqual(r["status"], "error")
+        r2 = execute("fs.write", {"slug": "utest-site", "path": ".env", "text": "x=1"})
+        self.assertEqual(r2["status"], "error")
+        r3 = execute("fs.write", {"slug": "utest-site", "path": "../x.html", "text": "no"})
+        self.assertEqual(r3["status"], "error")
+        ok, _ = gov.allow_write(Path("/home/user/super-ai/superai/brain.py"))
+        self.assertFalse(ok)
+        ok2, _ = gov.allow_write(Path("/home/user/super-ai/.env"))
+        self.assertFalse(ok2)
+
+    def test_extract_publish_preview(self):
+        from fastapi import HTTPException
+        from superai.runtime import _extract_files, _publish_files
+        from server import preview_site
+
+        files = _extract_files("```html index.html\n<h1>Hi</h1>\n```")
+        self.assertEqual(files[0][0], "index.html")
+        pub = _publish_files("Café Demo", files)
+        self.assertIn("index.html", pub["written"], pub)
+        self.assertEqual(pub["preview"], "/preview/cafe-demo/")
+        resp = preview_site("cafe-demo", "index.html")
+        self.assertTrue(str(resp.path).endswith("index.html"))
+        with self.assertRaises(HTTPException) as cm:
+            preview_site("cafe-demo", "../x.html")
+        self.assertEqual(cm.exception.status_code, 400)
+        with self.assertRaises(HTTPException) as cm2:
+            preview_site("not-a-real-slug-zz", "index.html")
+        self.assertEqual(cm2.exception.status_code, 404)
+
+
+
 if __name__ == "__main__":
     unittest.main()

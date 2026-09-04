@@ -10,3 +10,4 @@ god_deploy
 .env
 node_modules/
 .venv/
+data/projects/

@@ -121,6 +121,7 @@ def snapshot() -> dict:
             "github_ref": "main",
             "plane_in_product": False,
         },
+        "projects": _list_projects(),
         "unverified": [
             "embeddings neurais (em uso: HashingVectorizer, não FastEmbed/Ollama)",
             "SearXNG",
@@ -256,6 +257,8 @@ def _llm_prompt(text: str, merged: list[dict]) -> str:
         "Se não souberes, diz. Distingue facto, estimativa, hipótese e opinião. Prefere simples e verificável. "
         "Solução primeiro; detalhes depois. Grelha Objectivo/Análise/Solução só se o pedido for complexo. "
         "Não tens pesquisa web (SearXNG ausente) nem embeddings neurais. "
+        "Se criares um site, emite ficheiros em fences com path: ```html index.html … ``` "
+        "Só HTML/CSS/JS em data/projects — não alteras o núcleo GOD. "
         "Prioridade: Verdade → Precisão → Segurança → Utilidade → Eficiência → Simplicidade."
     ]
     mem: list[str] = []
@@ -267,6 +270,72 @@ def _llm_prompt(text: str, merged: list[dict]) -> str:
         parts.append("Memória:\n" + "\n".join(f"- {x}" for x in mem))
     parts.append("USER: " + text)
     return "\n\n".join(parts)
+
+
+def _list_projects() -> list[dict]:
+    from .tools import PROJECTS
+
+    out = []
+    if PROJECTS.exists():
+        for d in sorted(PROJECTS.iterdir()):
+            if d.is_dir() and not d.name.startswith("."):
+                out.append({"slug": d.name, "index": (d / "index.html").is_file(), "preview": f"/preview/{d.name}/"})
+    return out[:20]
+
+
+def _slug(text: str) -> str:
+    from .tools import project_slug
+
+    return project_slug(text)
+
+
+def _extract_files(text: str) -> list[tuple[str, str]]:
+    """Fences ```lang path\\nbody```. Never invent a path outside the fence."""
+    out: list[tuple[str, str]] = []
+    for m in re.finditer(r"```([^\n]*)\n([\s\S]*?)```", text or ""):
+        header = (m.group(1) or "").strip().split()
+        body = m.group(2) or ""
+        path = None
+        if len(header) >= 2:
+            path = header[1].lstrip("/")
+        else:
+            first = body.splitlines()[0].strip() if body.splitlines() else ""
+            if first.startswith(("<!-- file:", "# file:", "file:")):
+                path = first.split(":", 1)[-1].replace("-->", "").strip().lstrip("/")
+                body = "\n".join(body.splitlines()[1:])
+        lang = (header[0] if header else "").lower()
+        if not path:
+            if lang in ("html", "htm") and not any(p == "index.html" for p, _ in out):
+                path = "index.html"
+            elif lang == "css" and not any(p.endswith(".css") for p, _ in out):
+                path = "styles.css"
+            elif lang in ("js", "javascript") and not any(p.endswith(".js") for p, _ in out):
+                path = "app.js"
+        if path and ".." not in Path(path).parts:
+            out.append((path, body.strip() + "\n"))
+        if len(out) >= 8:
+            break
+    return out
+
+
+def _publish_files(title: str, files: list[tuple[str, str]]) -> dict:
+    from .tools import execute as tool_exec
+
+    slug = _slug(title)
+    written = []
+    errors = []
+    for rel, body in files:
+        r = tool_exec("fs.write", {"slug": slug, "path": rel, "text": body})
+        if r.get("status") == "success":
+            written.append(rel)
+        else:
+            errors.extend(r.get("errors") or ["write fail"])
+    return {
+        "slug": slug,
+        "written": written,
+        "errors": errors,
+        "preview": f"/preview/{slug}/" if written else None,
+    }
 
 
 def _llm_text(tool_results: list[dict]) -> str | None:
@@ -724,7 +793,8 @@ def handle(text: str, from_worker: bool = False) -> dict:
 
     pipeline["route"].append(gw["active"].upper())
     bus.emit("MODEL_STARTED", "INFO", gw["active"])
-    res = routing.complete(_llm_prompt(text, merged), max_tokens=256)
+    max_tok = 1024 if task.get("type") == "coding" else 256
+    res = routing.complete(_llm_prompt(text, merged), max_tokens=max_tok)
     if res.get("status") != "success":
         bus.emit("MODEL_FAILED", "WARNING", str(res.get("error")))
         scores = evaluate(task, [], False, 0)
@@ -770,6 +840,13 @@ def handle(text: str, from_worker: bool = False) -> dict:
     tool_results = [{"tool": f"llm:{res.get('adapter')}", "status": "success", "confidence": 0.5, "findings": [{"text": res.get("text")}], "errors": [], "evidence": [f"adapter={res.get('adapter')} model={res.get('model')}"]}]
     scores = evaluate(task, tool_results, True, toks)
     speech = _format_result(task, pipeline, tool_results, scores, None)
+    files = _extract_files(str(res.get("text") or ""))
+    if files:
+        pub = _publish_files(task.get("title") or text, files)
+        if pub.get("preview"):
+            speech += f"\n\nSite gravado em data/projects/{pub['slug']}/ · abre {pub['preview']}"
+        if pub.get("errors"):
+            speech += "\nWrite: " + "; ".join(pub["errors"][:4])
     cache_store(text, {"summary": speech, "scores": scores}, scores["OVERALL"])
     _index_task(task, text, scores)
     task["status"] = "done"

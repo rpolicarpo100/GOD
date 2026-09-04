@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .config import cfg
+from .config import DATA, cfg
 
 
 class Governor:
@@ -39,6 +39,23 @@ class Governor:
         for d in self.deny_names():
             if d.lower() in name or d.lower() in str(p).lower():
                 return False, f"governor bloqueia {d}"
+        return True, "ok"
+
+    def allow_write(self, path: Path) -> tuple[bool, str]:
+        """Só data/projects. Sem .py (não é auto-modificação do núcleo)."""
+        ok, why = self.allow_path(path)
+        if not ok:
+            return ok, why
+        p = path.expanduser().resolve()
+        root = (DATA / "projects").resolve()
+        root.mkdir(parents=True, exist_ok=True)
+        if p == root:
+            return False, "não escrever na raiz de projects"
+        if root not in p.parents:
+            return False, "write só em data/projects"
+        allowed = {".html", ".css", ".js", ".svg", ".json", ".md", ".txt", ".csv"}
+        if p.suffix.lower() not in allowed:
+            return False, f"extensão {p.suffix or '(vazia)'} não permitida"
         return True, "ok"
 
     def allow_python(self, code: str) -> tuple[bool, str]:

@@ -7,6 +7,8 @@ from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
+
+from superai.config import DATA
 from pydantic import BaseModel
 
 from superai import aios, benchmark, compute, evolution, observer, queue as tq, routing, tokens as ti
@@ -93,6 +95,32 @@ def _startup():
 @app.get("/")
 def index():
     return FileResponse(ROOT / "index.html")
+
+
+@app.get("/preview/{slug}")
+@app.get("/preview/{slug}/")
+@app.get("/preview/{slug}/{path:path}")
+def preview_site(slug: str, path: str = ""):
+    """Sites gerados em data/projects. Sem segundo uvicorn. Sem path traversal."""
+    import re as _re
+
+    if not _re.fullmatch(r"[a-z0-9-]{1,40}", slug or ""):
+        raise HTTPException(400, "slug inválido")
+    root = (DATA / "projects" / slug).resolve()
+    base = (DATA / "projects").resolve()
+    if base not in root.parents and root != base:
+        raise HTTPException(400, "fora de projects")
+    rel = (path or "index.html").lstrip("/") or "index.html"
+    if ".." in Path(rel).parts:
+        raise HTTPException(400, "path recusado")
+    target = (root / rel).resolve()
+    if root not in target.parents and target != root:
+        raise HTTPException(400, "path recusado")
+    if target.is_dir():
+        target = target / "index.html"
+    if not target.is_file():
+        raise HTTPException(404, "ficheiro inexistente")
+    return FileResponse(target)
 
 
 @app.get("/api/state")
