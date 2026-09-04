@@ -330,7 +330,16 @@ function paint(s){
     <div class="d">useful_work/token ${s.eye && s.eye.metrics && s.eye.metrics.useful_work_per_token != null ? s.eye.metrics.useful_work_per_token : 'n/a (0 tok LLM)'} · avg ${s.eye && s.eye.metrics ? s.eye.metrics.avg_overall : '—'}</div>
     ${(() => { const t=s.token||{}; const u=t.usage||{}; const c=t.cost||{}; const f=t.forecast||{}; const b=t.budget||{}; return `
     <div class="d">TOKEN MEASURED actual=${u.sum_actual??0} llm=${u.llm_calls??0} · ESTIMATED sum=${u.sum_estimated??0}</div>
-    <div class="d">COST ${esc(c.kind||'UNKNOWN')} — ${esc(c.reason||'sem source')}</div>
+    <div class="d">COST API ${esc(c.kind||'UNKNOWN')} — ${esc(c.reason||'sem source')}</div>
+    ${(() => { const sp=(s.token&&s.token.cost_split)||{}; const sub=sp.subscription||{}; const api=sp.api||{}; const inf=sp.infrastructure||{}; return `
+    <div class="d">SUBSCRIPTION ${esc(sub.kind||'USER_STATED')} ${sub.amount_eur??'—'} ${esc(sub.currency||'EUR')} · ${esc(sub.item||'')} · oficial ${sub.official_usd_monthly??'—'} USD/mês · ${esc(sub.source||'')}</div>
+    <div class="d">API ${esc(api.kind||'UNKNOWN')} — ${esc(api.reason||'')}</div>
+    <div class="d">INFRA ${esc(inf.kind||'UNKNOWN')} — ${esc(inf.reason||'')}</div>
+    <div class="d">não somar os três · sum=${sp.sum_eur==null?'null':sp.sum_eur} ${esc(sp.sum_kind||'UNKNOWN')}</div>`; })()}
+    ${(() => { const n=s.pc_node||{}; const cap=n.caps||{}; return `
+    <div class="d">PC NODE ${esc(n.kind||'UNKNOWN')} ${esc(n.cpu||'')} · ${n.cores??'—'}c · ${n.ram_gb??'—'}GB · GPU ${esc(n.gpu||'')} required=false</div>
+    <div class="d">caps GOD ≤${cap.ram_gb_max??'—'}GB RAM · ≤${cap.cores_max??'—'} cores · gpu_for_llm=${cap.gpu_for_llm} · ${esc(cap.note||'nunca totalidade')}</div>
+    <div class="d">este processo ≠ esse PC: ${n.this_process_is_not_that_pc}</div>`; })()}
     <div class="d">FORECAST ${esc(f.status||f.kind||'UNKNOWN')} ${esc(f.reason||'')}</div>
     <div class="d">budget daily ${b.daily ? b.daily.used_measured+'/'+b.daily.limit : '—'} hard=${b.daily && b.daily.hard}</div>`; })()}
     ${pend? `<div class="d">PENDENTE ${esc(pend.id)} ${esc(pend.title)}</div>

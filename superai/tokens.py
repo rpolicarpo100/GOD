@@ -450,11 +450,47 @@ def _recommendations(u: dict) -> list[dict]:
     return out
 
 
+def cost_split() -> dict:
+    """Três baldes. Subscrição ≠ API ≠ infra. Nunca somar."""
+    c = cfg.get("cost") or {}
+    sub = c.get("subscription") or {}
+    api = c.get("api") or {}
+    infra = c.get("infrastructure") or {}
+    return {
+        "subscription": {
+            "kind": sub.get("kind") or "USER_STATED",
+            "amount_eur": sub.get("amount_eur"),
+            "currency": sub.get("currency") or "EUR",
+            "item": sub.get("item"),
+            "official_usd_monthly": sub.get("official_usd_monthly"),
+            "official_usd_annual_monthly": sub.get("official_usd_annual_monthly"),
+            "source": sub.get("official_source"),
+            "note": sub.get("official_note"),
+            "not_api": True,
+            "not_measured_tokens": True,
+        },
+        "api": {
+            "kind": api.get("kind") or UNKNOWN,
+            "cost": None,
+            "reason": "€/1M não aplicado ao usage Groq/Cerebras deste processo. Tabela Claude (claude.com/pricing) é catálogo, não factura Groq.",
+        },
+        "infrastructure": {
+            "kind": infra.get("kind") or UNKNOWN,
+            "cost": None,
+            "reason": "este sandbox ≠ PC i5-4590; electricidade/disco não medidos",
+        },
+        "sum_eur": None,
+        "sum_kind": UNKNOWN,
+        "note": "não somar USER_STATED + UNKNOWN. 22€ não é consumo de tokens.",
+    }
+
+
 def snapshot() -> dict:
     return {
         "usage": usage_summary(),
         "budget": budget_status(),
         "cost": pricing(),
+        "cost_split": cost_split(),
         "forecast": forecast(),
         "anomalies": anomalies(),
         "efficiency": efficiency(),

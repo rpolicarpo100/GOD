@@ -294,6 +294,35 @@ class TokenIntel(unittest.TestCase):
         self.assertEqual(p["kind"], UNKNOWN)
         self.assertIsNone(p.get("cost"))
 
+    def test_cost_split_does_not_mix_subscription_and_api(self):
+        from superai.tokens import UNKNOWN, cost_split
+
+        s = cost_split()
+        self.assertEqual(s["subscription"]["kind"], "USER_STATED")
+        self.assertEqual(s["subscription"]["amount_eur"], 22)
+        self.assertEqual(s["subscription"]["official_usd_monthly"], 20)
+        self.assertIn("claude.com/pricing", s["subscription"]["source"] or "")
+        self.assertTrue(s["subscription"]["not_api"])
+        self.assertEqual(s["api"]["kind"], UNKNOWN)
+        self.assertIsNone(s["api"]["cost"])
+        self.assertIsNone(s["sum_eur"])
+        self.assertEqual(s["sum_kind"], UNKNOWN)
+
+    def test_pc_node_declared_not_this_host(self):
+        from superai.resources import declared_node, host
+
+        n = declared_node()
+        h = host()
+        self.assertEqual(n["kind"], "USER_DECLARED")
+        self.assertEqual(n["ram_gb"], 24)
+        self.assertEqual(n["cores"], 4)
+        self.assertFalse(n["gpu_required"])
+        self.assertEqual(n["caps"]["ram_gb_max"], 12.0)
+        self.assertEqual(n["caps"]["cores_max"], 2)
+        self.assertFalse(n["caps"]["gpu_for_llm"])
+        self.assertTrue(n["this_process_is_not_that_pc"])
+        self.assertNotEqual(h.get("ram_mb"), 24 * 1024)
+
     def test_record_zero_actual_on_cache(self):
         from superai.tokens import MEASURED, record
 

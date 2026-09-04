@@ -5,6 +5,8 @@ import os
 import shutil
 from pathlib import Path
 
+from .config import cfg
+
 
 def _mem() -> dict:
     tot = avail = None
@@ -31,6 +33,38 @@ def _gpu() -> dict:
     if shutil.which("nvidia-smi"):
         return {"present": True, "required": False, "note": "nvidia-smi found — optional"}
     return {"present": False, "required": False, "note": "sem GPU — arquitectura não exige"}
+
+
+def declared_node() -> dict:
+    """PC do utilizador (foto). Nunca confundir com host() deste processo."""
+    n = cfg.get("pc_node") or {}
+    if not n:
+        return {"kind": "UNKNOWN", "reason": "sem pc_node na config"}
+    ram_gb = n.get("ram_gb")
+    cores = n.get("cores")
+    caps = n.get("caps") or {}
+    rf = float(caps.get("ram_fraction_max") or 0.5)
+    cf = float(caps.get("cpu_fraction_max") or 0.5)
+    return {
+        "kind": n.get("kind") or "USER_DECLARED",
+        "cpu": n.get("cpu"),
+        "cores": cores,
+        "ram_gb": ram_gb,
+        "gpu": n.get("gpu"),
+        "gpu_required": False,
+        "board": n.get("board"),
+        "nic": n.get("nic"),
+        "disk": n.get("disk"),
+        "caps": {
+            "ram_gb_max": round(ram_gb * rf, 1) if ram_gb else None,
+            "cores_max": max(1, int(cores * cf)) if cores else None,
+            "ram_fraction_max": rf,
+            "cpu_fraction_max": cf,
+            "gpu_for_llm": bool(caps.get("gpu_for_llm")),
+            "note": caps.get("note") or "nunca a totalidade",
+        },
+        "this_process_is_not_that_pc": True,
+    }
 
 
 def host() -> dict:

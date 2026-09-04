@@ -107,6 +107,7 @@ def snapshot() -> dict:
         "experiments": exps,
         "chat": chat,
         "host": resources.host(),
+        "pc_node": resources.declared_node(),
         "queue": tq.stats(),
         "workers": tq.list_workers(),
         "jobs": tq.jobs(12),
@@ -138,7 +139,8 @@ def snapshot() -> dict:
             "Redis",
             "Docker / Qdrant :6333 (embedded local sim)",
             "OmniRoute npm :20128" + (" up" if gw["omniroute"]["available"] else " down — DirectAdapter"),
-            "preços de modelos (cost=UNKNOWN — sem source verificada)",
+            "API €/1M (cost=UNKNOWN — não aplicar tabela Claude a Groq)",
+            "este processo ≠ PC i5-4590 24GB (USER_DECLARED)",
             "Langfuse / LiteLLM (ausentes; core interno)",
         ],
         "counts": {
