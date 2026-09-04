@@ -220,6 +220,22 @@ class Queue(unittest.TestCase):
         self.assertGreaterEqual(st["completed"], 1)
         tq.unregister_worker("t-claim-test")
 
+    def test_claim_respects_inflight_cap(self):
+        from superai import queue as tq
+
+        tq.register_worker("t-inflight", "t-inflight", "control", ["chat"])
+        a = tq.enqueue("chat", "inflight-unique-aaa-1", None, "LOCAL_WORKER")
+        b = tq.enqueue("chat", "inflight-unique-bbb-2", None, "LOCAL_WORKER")
+        self.assertFalse(a.get("deduped"))
+        self.assertFalse(b.get("deduped"))
+        c1 = tq.claim("t-inflight")
+        self.assertIsNotNone(c1)
+        c2 = tq.claim("t-inflight")
+        self.assertIsNone(c2)
+        tq.cancel(c1["id"])
+        tq.cancel(b["id"])
+        tq.unregister_worker("t-inflight")
+
 
 class CacheHitFormat(unittest.TestCase):
     def test_second_math_does_not_crash(self):
@@ -303,6 +319,8 @@ class TokenIntel(unittest.TestCase):
         self.assertEqual(s["subscription"]["official_usd_monthly"], 20)
         self.assertIn("claude.com/pricing", s["subscription"]["source"] or "")
         self.assertTrue(s["subscription"]["not_api"])
+        self.assertTrue(s["subscription"]["includes_vat"])
+        self.assertFalse(s["subscription"]["official_vat_included"])
         self.assertEqual(s["api"]["kind"], UNKNOWN)
         self.assertIsNone(s["api"]["cost"])
         self.assertIsNone(s["sum_eur"])
@@ -321,7 +339,24 @@ class TokenIntel(unittest.TestCase):
         self.assertEqual(n["caps"]["cores_max"], 2)
         self.assertFalse(n["caps"]["gpu_for_llm"])
         self.assertTrue(n["this_process_is_not_that_pc"])
+        self.assertFalse(n["local_llm"])
         self.assertNotEqual(h.get("ram_mb"), 24 * 1024)
+        self.assertIsNotNone(h.get("disk_free_mb"))
+        self.assertEqual(h.get("disk_kind"), "MEASURED")
+
+    def test_layout_not_applied_to_this_sandbox(self):
+        from superai.resources import inflight_cap, layout
+
+        L = layout()
+        self.assertFalse(L["applied_here"])
+        self.assertFalse(L["pc"]["gpu_for_llm"])
+        self.assertFalse(L["local_llm"]["allowed"])
+        self.assertEqual(L["pc"]["cores_god_max"], 2)
+        self.assertEqual(L["pc"]["ram_gb_god_max"], 12.0)
+        inf = inflight_cap()
+        self.assertEqual(inf["applied"], 1)
+        self.assertEqual(inf["applied_kind"], "MEASURED")
+        self.assertEqual(inf["declared_pc_target"], 2)
 
     def test_record_zero_actual_on_cache(self):
         from superai.tokens import MEASURED, record

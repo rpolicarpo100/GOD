@@ -110,7 +110,21 @@ def enqueue(kind: str, text: str, payload: dict | None = None, location: str = "
     return job
 
 
+def worker_inflight(wid: str) -> int:
+    with store._conn() as c:
+        n = c.execute(
+            "SELECT COUNT(*) FROM jobs WHERE worker_id=? AND status IN ('assigned','running')",
+            (wid,),
+        ).fetchone()[0]
+    return int(n)
+
+
 def claim(worker_id: str) -> dict | None:
+    from .resources import inflight_cap
+
+    cap = int((inflight_cap() or {}).get("applied") or 1)
+    if worker_inflight(worker_id) >= cap:
+        return None
     with store._lock, store._conn() as c:
         r = c.execute(
             "SELECT * FROM jobs WHERE status='queued' ORDER BY COALESCE(priority,0) DESC, ts ASC LIMIT 1"

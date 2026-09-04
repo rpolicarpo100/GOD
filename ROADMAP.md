@@ -45,6 +45,8 @@ flowchart LR
 | F11 | Sites locais `/preview` | **FEITO** | `data/projects` + Governor write |
 | F12 | GOD Builder (perfis, 1 handle) | **FEITO** | `superai/gods.py` |
 | F13 | Repair MEASURED + memória por perfil + rollback | **FEITO** | `superai/repair.py` · `kinds=` · `history/` |
+| F14 | Isolamento cache/Qdrant por `god_id` | **FEITO** | post-filter payload |
+| F15 | Custo 3 baldes + PC i5-4590 caps 50% | **FEITO** | 22€ IVA incluído USER_STATED ≠ API UNKNOWN. layout `applied_here=false` |
 
 ## Não adicionar agora
 
@@ -55,7 +57,7 @@ flowchart LR
 
 ## A fazer (quando houver evidência)
 
-1. Push GitHub com deploy key nesta sessão.
-2. Plane só com `workspace_slug` + issues criadas.
-3. Preços só com `source` verificável.
-4. Isolamento vectorial Qdrant por `god_id` + cache namespaced — **FEITO** nesta fatia.
+1. Push GitHub (PAT no `.env` gitignored; nunca no git).
+2. Plane só com `PLANE_API_KEY` + `workspace_slug` + issues da API. `GODSX` é USER_DECLARED — **não** há adapter.
+3. Preços API só com `source` verificável. 22€ IVA incluído ≠ tokens.
+4. Este sandbox ≠ PC i5-4590. Caps 12GB / 2 cores / GPU não-LLM aplicam-se **quando** ela correr aí.

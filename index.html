@@ -332,7 +332,7 @@ function paint(s){
     <div class="d">TOKEN MEASURED actual=${u.sum_actual??0} llm=${u.llm_calls??0} · ESTIMATED sum=${u.sum_estimated??0}</div>
     <div class="d">COST API ${esc(c.kind||'UNKNOWN')} — ${esc(c.reason||'sem source')}</div>
     ${(() => { const sp=(s.token&&s.token.cost_split)||{}; const sub=sp.subscription||{}; const api=sp.api||{}; const inf=sp.infrastructure||{}; return `
-    <div class="d">SUBSCRIPTION ${esc(sub.kind||'USER_STATED')} ${sub.amount_eur??'—'} ${esc(sub.currency||'EUR')} · ${esc(sub.item||'')} · oficial ${sub.official_usd_monthly??'—'} USD/mês · ${esc(sub.source||'')}</div>
+    <div class="d">SUBSCRIPTION ${esc(sub.kind||'USER_STATED')} ${sub.amount_eur??'—'} ${esc(sub.currency||'EUR')} IVA ${sub.includes_vat?'incluído':'?'} · lista ${sub.official_usd_monthly??'—'} USD/mês IVA ${sub.official_vat_included?'incluído':'não incluído'} · ${esc(sub.source||'')}</div>
     <div class="d">API ${esc(api.kind||'UNKNOWN')} — ${esc(api.reason||'')}</div>
     <div class="d">INFRA ${esc(inf.kind||'UNKNOWN')} — ${esc(inf.reason||'')}</div>
     <div class="d">não somar os três · sum=${sp.sum_eur==null?'null':sp.sum_eur} ${esc(sp.sum_kind||'UNKNOWN')}</div>`; })()}

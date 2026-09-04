@@ -466,6 +466,8 @@ def cost_split() -> dict:
             "official_usd_annual_monthly": sub.get("official_usd_annual_monthly"),
             "source": sub.get("official_source"),
             "note": sub.get("official_note"),
+            "includes_vat": bool(sub.get("includes_vat")),
+            "official_vat_included": bool(sub.get("official_vat_included")),
             "not_api": True,
             "not_measured_tokens": True,
         },

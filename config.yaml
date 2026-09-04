@@ -35,11 +35,21 @@ cost:
     official_usd_monthly: 20
     official_usd_annual_monthly: 17
     official_source: https://claude.com/pricing
-    official_note: "lista 2026-09-04: Pro 20 USD/mês ou 17 USD/mês anual. IVA não incluído."
+    includes_vat: true
+    official_vat_included: false
+    official_note: "lista 2026-09-04: Pro 20 USD/mês ou 17 USD/mês anual. IVA não incluído na lista. 22 EUR USER_STATED inclui IVA. Não converter USD→EUR (câmbio não medido)."
   api:
     kind: UNKNOWN
   infrastructure:
     kind: UNKNOWN
+
+# Plane: project id dito pelo utilizador. Sem chave neste .env → sem adapter.
+plane:
+  kind: USER_DECLARED
+  project_id: GODSX
+  workspace_slug: null
+  in_product: false
+  reason: "GODSX USER_DECLARED. Sem PLANE_API_KEY sondada. Sem issues da API. Não fingir board."
 
 # Máquina do utilizador (foto 2026-09-04). NÃO é este sandbox.
 pc_node:
