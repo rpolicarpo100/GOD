@@ -421,6 +421,10 @@ def catalog() -> list[dict]:
 def execute(name: str, args: dict) -> dict:
     if name not in TOOLS:
         return _err(f"ferramenta inexistente: {name}")
+    from . import gods
+
+    if not gods.allow_tool(name):
+        return _err(f"GOD {gods.active_id()} não tem a ferramenta {name}")
     try:
         res = TOOLS[name]["fn"](args)
     except Exception as e:

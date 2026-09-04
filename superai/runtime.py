@@ -14,6 +14,7 @@ from .events import bus
 from .governor import gov
 from .memory_vec import vectors
 from .store import store
+from . import gods
 from .tools import catalog
 from .util import now_iso, uid
 
@@ -114,12 +115,19 @@ def snapshot() -> dict:
         "token": ti.snapshot(),
         "os": aios.snapshot(),
         "god": {
-            "name": "GOD",
+            "name": (gods.active() or {}).get("name") or "GOD",
             "pronoun": "ela",
             "github_url": "https://github.com/rpolicarpo100/GOD",
             "github_deployed": True,
             "github_ref": "main",
             "plane_in_product": False,
+            "active": gods.active(),
+            "profiles": gods.list_gods(),
+            "swarm": False,
+            "desktop": False,
+            "marketplace": False,
+            "budget_eur": None,
+            "budget_kind": "UNKNOWN",
         },
         "projects": _list_projects(),
         "unverified": [
@@ -289,6 +297,9 @@ def _llm_prompt(text: str, merged: list[dict], dialogue: list[str] | None = None
         "Usa o diálogo recente se o pedido for anafórico (isto, isso, e o CSS, continua). "
         "Prioridade: Verdade → Precisão → Segurança → Utilidade → Eficiência → Simplicidade."
     ]
+    ov = gods.prompt_overlay()
+    if ov:
+        parts.append(ov)
     if dialogue:
         parts.append("Diálogo:\n" + "\n".join(dialogue[:4]))
     mem: list[str] = []
@@ -824,7 +835,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
     pipeline["route"].append(gw["active"].upper())
     bus.emit("MODEL_STARTED", "INFO", gw["active"])
     max_tok = 1024 if task.get("type") == "coding" else 256
-    res = routing.complete(_llm_prompt(text, merged), max_tokens=max_tok)
+    res = routing.complete(_llm_prompt(text, merged, _dialogue(4, current=text)), max_tokens=max_tok)
     if res.get("status") != "success":
         bus.emit("MODEL_FAILED", "WARNING", str(res.get("error")))
         scores = evaluate(task, [], False, 0)
@@ -899,6 +910,7 @@ def set_params(patch: dict) -> dict:
 
 
 def boot() -> None:
+    gods.ensure()
     if not _chat:
         mode, reason = resolve_mode()
         _say(

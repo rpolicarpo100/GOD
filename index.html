@@ -93,6 +93,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
 .ph b.partial{color:var(--warn);border-color:rgba(255,209,102,.35)}
 .flowbox{flex:0 0 auto}
 .flowbox svg{width:100%;height:148px;display:block}
+.params select,.params input[type=text],.params textarea{width:100%;background:var(--bg3);border:1px solid var(--line2);border-radius:8px;padding:6px 8px;font-size:12px;margin:0 0 6px;color:var(--text)}
+.params textarea{resize:vertical;min-height:44px;font-family:inherit}
+.caps{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 8px}
+.caps label{font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:3px 6px;display:flex;gap:4px;align-items:center}
 </style>
 </head>
 <body>
@@ -134,6 +138,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;heigh
       <button class="seg" data-v="normal">Normal</button>
     </div>
     <div class="toggle" id="t-gov"><span>Governor estrito</span><div class="knob" id="k-gov"></div></div>
+    <div class="k" style="margin-top:10px">GOD Builder</div>
+    <select id="god-sel"></select>
+    <input type="text" id="god-name" placeholder="nome" maxlength="80"/>
+    <textarea id="god-purpose" placeholder="propósito" maxlength="400"></textarea>
+    <textarea id="god-person" placeholder="personalidade" maxlength="400"></textarea>
+    <div class="caps" id="god-caps"></div>
+    <div class="row">
+      <button class="seg" id="god-save" type="button">Guardar</button>
+      <button class="seg" id="god-new" type="button">+ Novo</button>
+      <button class="seg" id="god-go" type="button">Activar</button>
+    </div>
+    <p class="note">Um handle. O perfil muda prompt e ferramentas reais. Sem swarm, sem Desktop, cost UNKNOWN.</p>
     <div class="k" style="margin-top:10px">Roadmap ela</div>
     <div class="ph" id="road-ph"></div>
     <p class="note" id="road-note">CACHE → MEM → TOOLS → OS → ROUTER → HUMANO. LLM last. Sem provider ela recusa — não inventa.</p>
@@ -333,6 +349,7 @@ function paint(s){
     </div>`).join('');
 
   paintChat(s.chat||[]);
+  paintGods(s);
 }
 
 function phases(s){
@@ -440,6 +457,86 @@ document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>send(b.dataset.q));
 function connect(){
   const es=new EventSource('/api/stream');
   es.addEventListener('snapshot', e=>paint(JSON.parse(e.data)));
+  es.addEventListener('event', ()=>{});
+  es.onerror=()=>{ es.close(); setTimeout(connect,1500); fetch('/api/state').then(r=>r.json()).then(paint).catch(()=>{}); };
+}
+connect();
+$('inp').focus();
+</script>
+</body>
+</html>
+ot', e=>paint(JSON.parse(e.data)));
+  es.addEventListener('event', ()=>{});
+  es.onerror=()=>{ es.close(); setTimeout(connect,1500); fetch('/api/state').then(r=>r.json()).then(paint).catch(()=>{}); };
+}
+connect();
+$('inp').focus();
+</script>
+</body>
+</html>
+>i.value);
+  return {
+    id: $('god-sel').value || undefined,
+    name: $('god-name').value.trim(),
+    purpose: $('god-purpose').value.trim(),
+    personality: $('god-person').value.trim(),
+    capabilities: caps,
+    models: 'auto'
+  };
+}
+$('god-sel').onchange=()=>{
+  const id=$('god-sel').value;
+  godEditing=id;
+  fetch('/api/gods/'+encodeURIComponent(id)).then(r=>r.json()).then(g=>{
+    $('god-name').value=g.name||'';
+    $('god-purpose').value=g.purpose||'';
+    $('god-person').value=g.personality||'';
+    const caps=new Set(g.capabilities||[]);
+    document.querySelectorAll('#god-caps input').forEach(i=>{ i.checked = caps.has(i.value); });
+  });
+};
+$('god-save').onclick=()=>{
+  const body=godPayload();
+  if(!body.name) return;
+  fetch('/api/gods',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(r=>r.json()).then(()=>{ godEditing=null; });
+};
+$('god-new').onclick=()=>{
+  godEditing='new';
+  $('god-sel').value='';
+  $('god-name').value='';
+  $('god-purpose').value='';
+  $('god-person').value='';
+  document.querySelectorAll('#god-caps input').forEach(i=>i.checked=true);
+  $('god-name').focus();
+};
+$('god-go').onclick=()=>{
+  const id=$('god-sel').value;
+  if(!id) return;
+  fetch('/api/gods/'+encodeURIComponent(id)+'/activate',{method:'POST'}).then(()=>{ godEditing=null; });
+};
+
+function send(text){
+  text=(text||'').trim();
+  if(!text) return;
+  fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+  $('inp').value='';
+}
+$('form').onsubmit=ev=>{ev.preventDefault(); send($('inp').value)};
+document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>send(b.dataset.q));
+
+function connect(){
+  const es=new EventSource('/api/stream');
+  es.addEventListener('snapshot', e=>paint(JSON.parse(e.data)));
+  es.addEventListener('event', ()=>{});
+  es.onerror=()=>{ es.close(); setTimeout(connect,1500); fetch('/api/state').then(r=>r.json()).then(paint).catch(()=>{}); };
+}
+connect();
+$('inp').focus();
+</script>
+</body>
+</html>
+ot', e=>paint(JSON.parse(e.data)));
   es.addEventListener('event', ()=>{});
   es.onerror=()=>{ es.close(); setTimeout(connect,1500); fetch('/api/state').then(r=>r.json()).then(paint).catch(()=>{}); };
 }

@@ -79,6 +79,17 @@ class NiceIn(BaseModel):
     priority: int = 0
 
 
+class GodIn(BaseModel):
+    id: str | None = None
+    name: str
+    purpose: str = ""
+    personality: str = ""
+    capabilities: list[str] | None = None
+    rules: str = ""
+    memory: bool = True
+    models: str = "auto"
+
+
 def _worker_auth(authorization: str | None) -> None:
     if not WORKER_TOKEN:
         return
@@ -191,6 +202,50 @@ def token_models():
 @app.post("/api/params")
 def params(body: ParamsIn):
     return set_params(body.patch)
+
+
+@app.get("/api/gods")
+def api_gods():
+    from superai import gods
+
+    return {"active": gods.active(), "list": gods.list_gods()}
+
+
+@app.get("/api/gods/{gid}")
+def api_god(gid: str):
+    from superai import gods
+
+    g = gods.get(gid)
+    if not g:
+        raise HTTPException(404, "GOD inexistente")
+    return g
+
+
+@app.post("/api/gods")
+def api_gods_save(body: GodIn):
+    from superai import gods
+    from superai.runtime import _broadcast
+
+    payload = body.model_dump()
+    if not payload.get("id"):
+        payload.pop("id", None)
+    r = gods.save(payload)
+    if not r.get("ok"):
+        raise HTTPException(400, r.get("error") or "save fail")
+    _broadcast()
+    return r
+
+
+@app.post("/api/gods/{gid}/activate")
+def api_gods_activate(gid: str):
+    from superai import gods
+    from superai.runtime import _broadcast
+
+    r = gods.activate(gid)
+    if not r.get("ok"):
+        raise HTTPException(404, r.get("error") or "not found")
+    _broadcast()
+    return r
 
 
 @app.post("/api/chat")
