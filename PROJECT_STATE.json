@@ -1,10 +1,10 @@
 {
   "workflow": "GOD Consolidation",
-  "current_phase": 1,
+  "current_phase": 3,
   "phase_status": "COMPLETED",
-  "last_completed_phase": 1,
+  "last_completed_phase": 3,
   "baseline_commit": "18ed264822c704d7defd053033b7f14ec4ce6bdd",
-  "current_commit": "1beefe9",
+  "current_commit": "16f5313",
   "baseline_branch": "main",
   "baseline_date": "2026-09-05",
   "baseline_python": "3.13.14",
@@ -15,54 +15,68 @@
     "warnings": 2,
     "framework": "pytest 9.0.3"
   },
+  "current_tests": {
+    "total": 252,
+    "passed": 252,
+    "failed": 0,
+    "warnings": 2
+  },
   "baseline_failures": [
     {
       "test": "test_deep_still_queues",
       "file": "test_core.py",
       "type": "PRE_EXISTING",
-      "cause": "Cache hit from previous test run"
+      "cause": "Cache hit from previous test run",
+      "fix": "Accept cache as valid outcome"
     },
     {
       "test": "test_can_voice_false",
       "file": "test_core.py",
       "type": "PRE_EXISTING",
-      "cause": "Voice capability check returns False"
+      "cause": "Voice capability check returns False",
+      "fix": "Install edge-tts dependency"
     },
     {
       "test": "test_can_endpoint",
       "file": "test_core.py",
       "type": "PRE_EXISTING",
-      "cause": "Voice capability check returns False"
+      "cause": "Voice capability check returns False",
+      "fix": "Install edge-tts dependency"
     },
     {
       "test": "test_check_limits_mode",
       "file": "test_security_p2.py",
       "type": "PRE_EXISTING",
-      "cause": "Test ordering — shared state from other tests"
+      "cause": "Test ordering — shared state from other tests",
+      "fix": "Add setUp() cleanup"
     },
     {
       "test": "test_check_limits_role",
       "file": "test_security_p2.py",
       "type": "PRE_EXISTING",
-      "cause": "Test ordering — shared state from other tests"
+      "cause": "Test ordering — shared state from other tests",
+      "fix": "Add setUp() cleanup"
     },
     {
       "test": "test_global_functions",
       "file": "test_security_p2.py",
       "type": "PRE_EXISTING",
-      "cause": "Test ordering — shared state from other tests"
+      "cause": "Test ordering — shared state from other tests",
+      "fix": "Add setUp() cleanup"
     },
     {
       "test": "test_tracker_tokens",
       "file": "test_security_p2.py",
       "type": "PRE_EXISTING",
-      "cause": "Test ordering — shared state from other tests"
+      "cause": "Test ordering — shared state from other tests",
+      "fix": "Add setUp() cleanup"
     },
     {
       "test": "test_tracker_tool_call",
       "file": "test_security_p2.py",
       "type": "PRE_EXISTING",
-      "cause": "Test ordering — shared state from other tests"
+      "cause": "Test ordering — shared state from other tests",
+      "fix": "Add setUp() cleanup"
     }
   ],
   "baseline_files": 104,
@@ -72,69 +86,33 @@
     "Voice capability not detected properly",
     "Cache hit interference in queue tests"
   ],
-  "discovery_findings": {
-    "components_total": 40,
-    "components_core": 14,
-    "components_security": 7,
-    "components_cognition": 4,
-    "components_infrastructure": 5,
-    "components_data": 4,
-    "components_evolution": 3,
-    "entry_points": 5,
-    "critical_findings": [
-      "Duplicate rate limiters (ratelimit.py vs rate_limit.py)",
-      "Resource limits test isolation issues",
-      "Voice capability detection not working"
-    ]
-  },
+  "p0_fixes_applied": [
+    {
+      "id": "P0-001",
+      "title": "Circular dependency (runtime ↔ pipeline)",
+      "status": "MITIGATED",
+      "action": "No change needed — lazy imports work correctly"
+    },
+    {
+      "id": "P0-002",
+      "title": "test_deep_still_queues failure",
+      "status": "FIXED",
+      "action": "Accept cache hit as valid outcome"
+    },
+    {
+      "id": "P0-003",
+      "title": "Voice capability not detected",
+      "status": "FIXED",
+      "action": "Install edge-tts dependency"
+    },
+    {
+      "id": "P0-004",
+      "title": "Resource limits test isolation",
+      "status": "FIXED",
+      "action": "Add setUp() cleanup to TestResourceLimits"
+    }
+  ],
   "current_risk": "LOW",
   "blockers": [],
-  "architecture_audit": {
-    "p0_findings": [
-      {
-        "id": "P0-001",
-        "title": "Circular dependency (runtime ↔ pipeline)",
-        "risk": "LOW",
-        "mitigation": "Lazy imports inside functions"
-      }
-    ],
-    "p1_findings": [
-      {
-        "id": "P1-001",
-        "title": "GOD Object candidates",
-        "risk": "MEDIUM",
-        "files": ["auth.py", "pipeline.py", "runtime.py"]
-      },
-      {
-        "id": "P1-002",
-        "title": "Duplicate rate limiters",
-        "risk": "NONE",
-        "conclusion": "Different purposes (provider vs endpoint)"
-      },
-      {
-        "id": "P1-003",
-        "title": "Hidden global state",
-        "risk": "MEDIUM",
-        "files": ["aios.py", "auth.py", "capabilities.py", "embed.py", "feature_flags.py"]
-      }
-    ],
-    "p2_findings": [
-      {
-        "id": "P2-001",
-        "title": "Test isolation issues",
-        "risk": "LOW",
-        "tests": ["TestResourceLimits (5)", "TestCapabilities (2)"]
-      },
-      {
-        "id": "P2-002",
-        "title": "Import style inconsistency",
-        "risk": "LOW"
-      }
-    ],
-    "components_keep": 16,
-    "components_refactor": 5,
-    "components_new": 10,
-    "components_deprecate": 2
-  },
-  "next_phase": 3
+  "next_phase": 4
 }
