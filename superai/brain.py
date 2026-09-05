@@ -165,7 +165,7 @@ def cache_lookup(text: str, ns: str = "") -> dict | None:
     from .memory_vec import vectors
     if not vectors.available():
         return None
-    results = vectors.search("cache", text, k=1, min_score=0.85)
+    results = vectors.search("cache", text, k=1, min_score=0.75)
     if not results:
         return None
     r = results[0]
