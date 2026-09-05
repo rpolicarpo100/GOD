@@ -304,7 +304,7 @@ button{cursor:pointer}
 .chat-h .t{font-size:8px;letter-spacing:.15em;text-transform:uppercase;color:var(--accent);font-weight:600}
 .chat-h .a{font-size:9px;color:var(--dim);transition:transform .25s}
 .chat-b{height:0;overflow:hidden;transition:height .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
-.chat-b.open{height:190px}
+.chat-b.open{height:320px}
 .chat-msgs{flex:1;overflow-y:auto;padding:6px 16px;display:flex;flex-direction:column;gap:4px}
 .m{max-width:72%;padding:6px 10px;border-radius:10px;font-size:11px;line-height:1.5;white-space:pre-wrap}
 .m.user{align-self:flex-end;background:rgba(139,108,199,.07);border:1px solid rgba(139,108,199,.15)}
@@ -328,6 +328,68 @@ button{cursor:pointer}
   transition:opacity .15s;
 }
 .chat-in button:hover{opacity:.85}
+
+/* ═══════════════════════════════
+   MARKDOWN + CODE
+   ═══════════════════════════════ */
+.m.brain{white-space:normal;word-wrap:break-word}
+.m.brain h1,.m.brain h2,.m.brain h3{margin:6px 0 3px;font-weight:600}
+.m.brain h1{font-size:14px;color:var(--accent)}
+.m.brain h2{font-size:12px;color:var(--accent)}
+.m.brain h3{font-size:11px;color:var(--muted)}
+.m.brain p{margin:3px 0}
+.m.brain strong{color:var(--text);font-weight:600}
+.m.brain em{color:var(--muted);font-style:italic}
+.m.brain a{color:var(--info);text-decoration:none;border-bottom:1px solid rgba(108,200,240,.2)}
+.m.brain a:hover{border-color:var(--info)}
+.m.brain ul,.m.brain ol{margin:3px 0 3px 16px;font-size:11px}
+.m.brain li{margin:1px 0}
+.m.brain blockquote{border-left:2px solid var(--accent);padding:2px 8px;margin:4px 0;color:var(--muted);font-size:10px}
+.m.brain table{border-collapse:collapse;margin:4px 0;font-size:10px;width:100%}
+.m.brain th,.m.brain td{padding:2px 6px;border:1px solid var(--line);text-align:left}
+.m.brain th{color:var(--accent);font-weight:600}
+
+/* Inline code */
+.m.brain code:not(.code-block){
+  font-family:var(--mono);font-size:10px;padding:1px 4px;
+  background:rgba(139,108,199,.08);border:1px solid rgba(139,108,199,.12);
+  border-radius:4px;color:var(--accent);
+}
+
+/* Code block */
+.code-wrap{
+  position:relative;margin:5px 0;border-radius:8px;overflow:hidden;
+  border:1px solid var(--line);background:var(--bg);
+}
+.code-header{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:3px 8px;background:rgba(139,108,199,.04);border-bottom:1px solid var(--line);
+}
+.code-lang{font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.code-copy{
+  font-size:8px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);
+  background:transparent;color:var(--dim);cursor:pointer;transition:all .15s;
+}
+.code-copy:hover{color:var(--text);border-color:var(--line2)}
+.code-block{
+  font-family:var(--mono);font-size:10px;line-height:1.6;
+  padding:8px 10px;overflow-x:auto;white-space:pre;color:var(--text);
+  display:block;
+}
+.code-block::-webkit-scrollbar{height:3px}
+
+/* Syntax highlighting — pure CSS colors */
+.syn-k{color:#c792ea}/* keyword */
+.syn-s{color:#c3e88d}/* string */
+.syn-c{color:#546e7a}/* comment */
+.syn-n{color:#f78c6c}/* number */
+.syn-f{color:#82aaff}/* function */
+.syn-t{color:#ffcb6b}/* type */
+.syn-o{color:#89ddff}/* operator */
+.syn-p{color:#7a7494}/* punctuation */
+.syn-r{color:#f07178}/* regex */
+.syn-d{color:#546e7a}/* decorator */
+.syn-b{color:#ff5370}/* builtin */
 
 /* ═══════════════════════════════
    RESPONSIVE
@@ -492,6 +554,164 @@ const fmtN=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':String
 const lc={INFO:'i',NOTICE:'i',WARNING:'w',CRITICAL:'c',SECURITY:'c',OPPORTUNITY:'i',EVOLUTION:'e'};
 const pn={home:'GOD · Home',intel:'GOD · Intelligence',mem:'GOD · Memory',comp:'GOD · Compute',tok:'GOD · Tokens',evo:'GOD · Evolution',act:'GOD · Activity',set:'GOD · Settings'};
 let S=null,cLen=0,cOpen=false,flagsDone=false,coreSt='idle';
+
+// ═══════════════════════════════
+// MARKDOWN RENDERER (pure JS, no deps)
+// ═══════════════════════════════
+function highlight(code,lang){
+  if(!lang)return esc(code);
+  const L=lang.toLowerCase();
+  // Escape first
+  let h=esc(code);
+  // Remove shebang
+  h=h.replace(/^#!.*\n/,'');
+  if(L==='py'||L==='python'){
+    // Comments
+    h=h.replace(/(#[^\n]*)/g,'<span class="syn-c">$1</span>');
+    // Strings (triple-quoted, single, double)
+    h=h.replace(/("""[\s\S]*?"""|'''[\s\S]*?''')/g,'<span class="syn-s">$1</span>');
+    h=h.replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g,'<span class="syn-s">$1</span>');
+    // Keywords
+    h=h.replace(/\b(def|class|if|elif|else|for|while|return|import|from|as|try|except|finally|with|yield|async|await|raise|pass|break|continue|and|or|not|in|is|lambda|None|True|False|self|global|nonlocal)\b/g,'<span class="syn-k">$1</span>');
+    // Decorators
+    h=h.replace(/(@\w+)/g,'<span class="syn-d">$1</span>');
+    // Numbers
+    h=h.replace(/\b(\d+\.?\d*)\b/g,'<span class="syn-n">$1</span>');
+    // Builtins
+    h=h.replace(/\b(print|len|range|int|str|float|list|dict|set|tuple|type|isinstance|hasattr|getattr|setattr|super|enumerate|zip|map|filter|sorted|reversed|min|max|sum|abs|any|all|open|input|id)\b(?=\s*\()/g,'<span class="syn-b">$1</span>');
+  }else if(L==='js'||L==='javascript'||L==='ts'||L==='typescript'){
+    // Comments
+    h=h.replace(/(\/\/[^\n]*)/g,'<span class="syn-c">$1</span>');
+    h=h.replace(/(\/\*[\s\S]*?\*\/)/g,'<span class="syn-c">$1</span>');
+    // Strings
+    h=h.replace(/(`(?:[^`\\]|\\.)*`)/g,'<span class="syn-s">$1</span>');
+    h=h.replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g,'<span class="syn-s">$1</span>');
+    // Keywords
+    h=h.replace(/\b(const|let|var|function|class|if|else|for|while|do|switch|case|break|continue|return|import|from|export|default|try|catch|finally|throw|new|typeof|instanceof|void|delete|in|of|async|await|yield|null|undefined|true|false|this|super|extends|static|get|set)\b/g,'<span class="syn-k">$1</span>');
+    // TypeScript types
+    if(L==='ts'||L==='typescript'){
+      h=h.replace(/\b(string|number|boolean|any|void|never|unknown|object|interface|type|enum|namespace|abstract|implements|readonly|private|protected|public|as|is|keyof|infer)\b/g,'<span class="syn-t">$1</span>');
+    }
+    // Numbers
+    h=h.replace(/\b(\d+\.?\d*)\b/g,'<span class="syn-n">$1</span>');
+    // Builtins
+    h=h.replace(/\b(console|document|window|fetch|setTimeout|setInterval|clearTimeout|clearInterval|Promise|Array|Object|Map|Set|JSON|Math|Date|RegExp|Error|Symbol|BigInt|parseInt|parseFloat|require|module|process|globalThis)\b(?!\s*:)/g,'<span class="syn-b">$1</span>');
+  }else if(L==='json'){
+    // Keys
+    h=h.replace(/("[\w]+")\s*:/g,'<span class="syn-f">$1</span>:');
+    // Strings
+    h=h.replace(/:\s*("(?:[^"\\]|\\.)*")/g,': <span class="syn-s">$1</span>');
+    // Numbers
+    h=h.replace(/:\s*(\d+\.?\d*)/g,': <span class="syn-n">$1</span>');
+    // Booleans/null
+    h=h.replace(/:\s*(true|false|null)\b/g,': <span class="syn-k">$1</span>');
+  }else if(L==='bash'||L==='sh'||L==='shell'||L==='zsh'){
+    // Comments
+    h=h.replace(/(#[^\n]*)/g,'<span class="syn-c">$1</span>');
+    // Strings
+    h=h.replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g,'<span class="syn-s">$1</span>');
+    // Keywords
+    h=h.replace(/\b(if|then|else|elif|fi|for|while|do|done|case|esac|function|return|in|select|until|local|export|source|alias|unalias|cd|ls|grep|awk|sed|cat|echo|printf|read|test|exit|set|unset|shift|eval|exec|trap|kill|wait|sleep|mkdir|rmdir|rm|cp|mv|chmod|chown|sudo|apt|pip|npm|git|docker|curl|wget)\b/g,'<span class="syn-k">$1</span>');
+    // Variables
+    h=h.replace(/(\$\w+|\$\{[^}]+\})/g,'<span class="syn-t">$1</span>');
+    // Numbers
+    h=h.replace(/\b(\d+)\b/g,'<span class="syn-n">$1</span>');
+  }else if(L==='html'||L==='xml'){
+    // Tags
+    h=h.replace(/(&lt;\/?)([\w-]+)/g,'$1<span class="syn-k">$2</span>');
+    // Attributes
+    h=h.replace(/([\w-]+)(=)/g,'<span class="syn-f">$1</span>$2');
+    // Strings
+    h=h.replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/g,'<span class="syn-s">$1</span>');
+    // Comments
+    h=h.replace(/(&lt;!--[\s\S]*?--&gt;)/g,'<span class="syn-c">$1</span>');
+  }else if(L==='css'){
+    // Properties
+    h=h.replace(/([\w-]+)\s*:/g,'<span class="syn-f">$1</span>:');
+    // Values
+    h=h.replace(/:\s*([^;}\n]+)/g,': <span class="syn-s">$1</span>');
+    // Selectors (simplified)
+    h=h.replace(/([.#][\w-]+)/g,'<span class="syn-k">$1</span>');
+    // Comments
+    h=h.replace(/(\/\*[\s\S]*?\*\/)/g,'<span class="syn-c">$1</span>');
+  }else if(L==='sql'){
+    // Keywords
+    h=h.replace(/\b(SELECT|FROM|WHERE|AND|OR|NOT|IN|INSERT|INTO|VALUES|UPDATE|SET|DELETE|CREATE|DROP|ALTER|TABLE|INDEX|VIEW|JOIN|LEFT|RIGHT|INNER|OUTER|ON|GROUP|BY|ORDER|HAVING|LIMIT|OFFSET|UNION|ALL|DISTINCT|AS|IS|NULL|TRUE|FALSE|LIKE|BETWEEN|EXISTS|CASE|WHEN|THEN|ELSE|END|COUNT|SUM|AVG|MIN|MAX|PRIMARY|KEY|FOREIGN|REFERENCES|CONSTRAINT|DEFAULT|AUTO_INCREMENT|SERIAL|VARCHAR|INTEGER|TEXT|BOOLEAN|TIMESTAMP|DATE|FLOAT|REAL|BIGINT|SMALLINT)\b/gi,'<span class="syn-k">$1</span>');
+    // Strings
+    h=h.replace(/('(?:[^'\\]|\\.)*')/g,'<span class="syn-s">$1</span>');
+    // Numbers
+    h=h.replace(/\b(\d+\.?\d*)\b/g,'<span class="syn-n">$1</span>');
+  }
+  return h;
+}
+
+function renderMd(text){
+  if(!text)return'';
+  // Escape HTML
+  let h=esc(text);
+  // Code blocks: ```lang\n...\n```
+  h=h.replace(/```(\w*)\n([\s\S]*?)```/g,(m,lang,code)=>{
+    const highlighted=highlight(decodeHtml(code),lang);
+    const langLabel=lang||'code';
+    return`<div class="code-wrap"><div class="code-header"><span class="code-lang">${langLabel}</span><button class="code-copy" onclick="copyCode(this)">Copiar</button></div><code class="code-block">${highlighted}</code></div>`;
+  });
+  // Inline code: `...`
+  h=h.replace(/`([^`\n]+)`/g,'<code>$1</code>');
+  // Headers
+  h=h.replace(/^### (.+)$/gm,'<h3>$1</h3>');
+  h=h.replace(/^## (.+)$/gm,'<h2>$1</h2>');
+  h=h.replace(/^# (.+)$/gm,'<h1>$1</h1>');
+  // Bold
+  h=h.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+  // Italic
+  h=h.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g,'<em>$1</em>');
+  // Blockquotes
+  h=h.replace(/^&gt; (.+)$/gm,'<blockquote>$1</blockquote>');
+  // Unordered lists
+  h=h.replace(/^[\-\*] (.+)$/gm,'<li>$1</li>');
+  // Ordered lists
+  h=h.replace(/^\d+\. (.+)$/gm,'<li>$1</li>');
+  // Wrap consecutive <li> in <ul>
+  h=h.replace(/((?:<li>.*<\/li>\s*)+)/g,'<ul>$1</ul>');
+  // Links
+  h=h.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank">$1</a>');
+  // Horizontal rule
+  h=h.replace(/^---$/gm,'<hr style="border:none;border-top:1px solid var(--line);margin:4px 0">');
+  // Tables (basic)
+  h=h.replace(/^\|(.+)\|$/gm,(m,content)=>{
+    const cells=content.split('|').map(c=>c.trim());
+    const isSep=cells.every(c=>/^[-:]+$/.test(c));
+    if(isSep)return'';
+    const tag=cells.some(c=>/^[:]/.test(c))?'th':'td';
+    const row=cells.map(c=>`<${tag}>${c.replace(/^:|:$/g,'')}</${tag}>`).join('');
+    return`<tr>${row}</tr>`;
+  });
+  h=h.replace(/((?:<tr>[\s\S]*?<\/tr>\s*)+)/g,'<table>$1</table>');
+  // Paragraphs (double newline)
+  h=h.replace(/\n\n/g,'</p><p>');
+  // Single newlines (but not inside code blocks)
+  h=h.replace(/\n/g,'<br>');
+  return h;
+}
+
+function decodeHtml(html){
+  return html.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'");
+}
+
+function copyCode(btn){
+  const code=btn.closest('.code-wrap').querySelector('.code-block');
+  const text=code.textContent;
+  navigator.clipboard.writeText(text).then(()=>{
+    btn.textContent='Copiado ✓';
+    setTimeout(()=>{btn.textContent='Copiar';},1500);
+  }).catch(()=>{
+    // Fallback
+    const ta=document.createElement('textarea');
+    ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    btn.textContent='Copiado ✓';
+    setTimeout(()=>{btn.textContent='Copiar';},1500);
+  });
+}
 
 // Clock
 const tick=()=>$('clock').textContent=new Intl.DateTimeFormat('pt-PT',{timeZone:'Europe/Lisbon',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date());
@@ -812,7 +1032,8 @@ function pChat(s){
   cLen=msgs.length;
   $('chat-m').innerHTML=msgs.map(m=>{
     const ts=m.ts?new Date(m.ts).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'}):'';
-    return `<div class="m ${m.role}"><div class="w">${m.role==='brain'?'GOD':'You'}</div>${esc(m.text)}${ts?`<div class="ts">${ts}</div>`:''}</div>`;
+    const content=m.role==='brain'?renderMd(m.text):esc(m.text);
+    return `<div class="m ${m.role}"><div class="w">${m.role==='brain'?'GOD':'You'}</div>${content}${ts?`<div class="ts">${ts}</div>`:''}</div>`;
   }).join('')+'<div class="typing" id="typing-indicator" style="display:none"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
   $('chat-m').scrollTop=$('chat-m').scrollHeight;
   if(msgs.length&&!cOpen){cOpen=true;$('chat-b').classList.add('open');$('chat-a').style.transform='rotate(180deg)';}

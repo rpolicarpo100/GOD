@@ -2,96 +2,37 @@
 
 ---
 
-## CURRENT (v4) ✅
+## CURRENT (v5)
 
-**GOD CORE + Living Interface + Event-Driven + Personality**
+**Chat Enhancement + Interactive System Map + Advanced Monitoring**
 
-### GOD CORE ✅
-- [x] Organic breathing orb (4 layers, cubic-bezier)
-- [x] 8 states (idle/ready/listening/thinking/tools/responding/error/offline)
-- [x] Event-driven via SSE (11 events)
-- [x] Personality messages in Portuguese
-- [x] Auto-return to ready after 3 seconds
-- [x] Interactive hover effect (scale)
+### v5.0 — Chat Enhancement
+- [ ] Code syntax highlighting (pure CSS, no deps)
+- [ ] Markdown rendering (inline, no deps)
+- [ ] Code block copy button
+- [ ] Rich message formatting
 
-### Intelligence ✅
-- [x] SSE-driven GOD CORE states
-- [x] Latency sparkline (SVG, last N requests)
-- [x] Provider health display
-- [x] Active model display
-- [x] Route visualization
-
-### Performance ✅
-- [x] Performance history (SQLite, last 10 requests)
-- [x] Latency stats (avg/min/max)
-- [x] MEASURED/ESTIMATED/TARGET separation
-- [x] Resource Governor modes (ECO/NORMAL/PERFORMANCE)
-
-### Voice ✅
-- [x] TTS via edge-tts
-- [x] Capability distinction (TTS/STT/Input/Duplex)
-- [x] Voice badge shows TTS status
-
-### Nodes ✅
-- [x] Node Registry (capability-based)
-- [x] Local node auto-registered
-- [x] Node visualization in UI
-- [x] API: GET/POST/DELETE /api/system/nodes
-
-### Proactive Messages ✅
-- [x] Budget exceeded alert
-- [x] Quality drop alert
-- [x] PC overload alert
-- [x] Provider gap alert
-- [x] Budget recovery message
-
-### UI ✅
-- [x] Sidebar navigation (8 pages)
-- [x] KPIs with real data
-- [x] System Map
-- [x] Nodes panel
-- [x] Providers panel
-- [x] Performance panel (sparkline + stats)
-- [x] Activity Feed (live)
-- [x] Chat with quick actions + timestamps
-- [x] Typing indicator
-- [x] Responsive (mobile/tablet/desktop)
-- [x] prefers-reduced-motion
-- [x] No WebGL/Canvas/Three.js
-- [x] Performance optimized
-
-### Truth Model ✅
-- [x] Classification system (IMPLEMENTED/TESTED/ENABLED/ACTIVE/MEASURED/ESTIMATED/TARGET/UNKNOWN/BLOCKED/MISSING)
-- [x] All capabilities audited
-- [x] Documentation consistent
-
----
-
-## NEXT (v4.1)
-
-**Chat Enhancement**
-
-- [ ] Code syntax highlighting
-- [ ] Markdown rendering
-- [ ] File upload support
-
-**System Map Enhancement**
-
-- [ ] Interactive nodes (click to see details)
-- [ ] Connection lines between modules
-- [ ] Data flow visualization
+### v5.1 — Interactive System Map
+- [ ] Click nodes to see details
+- [ ] SVG connection lines between modules
+- [ ] Data flow visualization (animated dots)
 - [ ] Worker topology view
 
-**Advanced Monitoring**
-
+### v5.2 — Advanced Monitoring
 - [ ] Alert history with acknowledgement
 - [ ] Performance baselines
 - [ ] Anomaly detection visualization
 - [ ] Resource prediction
 
+### v5.3 — Chat Polish
+- [ ] File upload support
+- [ ] Message reactions (👍/👎)
+- [ ] Edit last message
+- [ ] Search messages
+
 ---
 
-## FUTURE (v5)
+## NEXT (v6)
 
 **Advanced Visualization**
 
@@ -120,12 +61,25 @@
 - [ ] Screen reader optimization
 - [ ] Keyboard shortcuts overlay
 
-**Future Devices**
+---
 
-- [ ] Samsung A23 integration
-- [ ] Audio input/output
-- [ ] Camera access
-- [ ] Context awareness
+## COMPLETED (v4) ✅
+
+**GOD CORE + Living Interface + Event-Driven + Personality**
+
+- GOD CORE organic orb (4 layers, cubic-bezier, 8 states)
+- Event-driven via SSE (11 events)
+- Personality messages in Portuguese
+- Interactive hover effect
+- Latency sparkline (SVG)
+- Performance panel + stats
+- Resource Governor (ECO/NORMAL/PERFORMANCE)
+- Voice distinction (TTS/STT)
+- Node Registry (capability-based)
+- Proactive messages (5 alert types)
+- Truth Model (IMPLEMENTED/TESTED/ENABLED/ACTIVE/MEASURED/ESTIMATED/TARGET/UNKNOWN/BLOCKED/MISSING)
+- Chat timestamps + Typing indicator
+- All 164 tests passing
 
 ---
 
@@ -167,5 +121,7 @@ v4.4 — Truth Model + Documentation consistency
 v4.5 — Chat timestamps + Typing indicator
 v4.6 — Performance panel + Sparkline + Telemetry
 v4.7 — GOD CORE hover effect + Visual polish
-v5.0 — Chat enhancement + Interactive system map
+v5.0 — Chat code highlighting + Markdown rendering
+v5.1 — Interactive system map
+v5.2 — Advanced monitoring + Alert history
 ```
