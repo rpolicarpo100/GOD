@@ -520,6 +520,57 @@ button{cursor:pointer}
 .pred-val{font-family:var(--mono);font-size:9px;min-width:35px;text-align:right}
 
 /* ═══════════════════════════════
+   SYSTEM INTELLIGENCE
+   ═══════════════════════════════ */
+
+/* Provider comparison matrix */
+.prov-matrix{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;margin:8px 0}
+.prov-card{
+  padding:8px;border-radius:8px;background:var(--glass);border:1px solid var(--line);
+  transition:border-color .2s;cursor:pointer;
+}
+.prov-card:hover{border-color:var(--line2)}
+.prov-card .pc-name{font-weight:600;font-size:10px;margin-bottom:4px}
+.prov-card .pc-stat{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);padding:1px 0}
+.prov-card .pc-stat .val{font-family:var(--mono);color:var(--text)}
+.prov-card .pc-bar{height:3px;background:var(--bg);border-radius:99px;overflow:hidden;margin-top:4px}
+.prov-card .pc-bar .fill{height:100%;border-radius:99px;transition:width .5s ease}
+
+/* Token cost breakdown */
+.cost-ring{position:relative;width:100px;height:100px;margin:8px auto}
+.cost-ring svg{width:100%;height:100%}
+.cost-legend{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin:6px 0}
+.cost-item{display:flex;align-items:center;gap:3px;font-size:9px;color:var(--muted)}
+.cost-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
+/* Evolution timeline */
+.evo-timeline{position:relative;padding-left:20px;margin:8px 0}
+.evo-timeline::before{content:'';position:absolute;left:8px;top:0;bottom:0;width:1px;background:var(--line2)}
+.evo-event{
+  position:relative;padding:4px 0 4px 12px;font-size:10px;
+}
+.evo-event::before{
+  content:'';position:absolute;left:-14px;top:8px;width:8px;height:8px;
+  border-radius:50%;border:2px solid var(--accent);background:var(--deep);
+}
+.evo-event.applied::before{background:var(--ok);border-color:var(--ok)}
+.evo-event.pending::before{background:var(--warn);border-color:var(--warn)}
+.evo-event .ee-title{font-weight:500;color:var(--text)}
+.evo-event .ee-meta{font-size:8px;color:var(--dim);margin-top:1px}
+
+/* Memory knowledge graph */
+.mem-graph{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.mem-node{
+  padding:6px 10px;border-radius:8px;background:var(--glass);border:1px solid var(--line);
+  font-size:10px;cursor:pointer;transition:all .2s;
+}
+.mem-node:hover{border-color:var(--line2);background:var(--surface)}
+.mem-node .mn-name{font-weight:500}
+.mem-node .mn-count{font-size:8px;color:var(--dim)}
+.mem-node .mn-bar{height:2px;background:var(--bg);border-radius:99px;overflow:hidden;margin-top:3px}
+.mem-node .mn-bar .fill{height:100%;border-radius:99px;background:var(--accent)}
+
+/* ═══════════════════════════════
    RESPONSIVE
    ═══════════════════════════════ */
 @media(max-width:700px){
@@ -614,12 +665,14 @@ button{cursor:pointer}
         <div class="pg-sec"><div class="t">Active Model</div><div id="i-model"></div></div>
         <div class="pg-sec"><div class="t">Last Route</div><div id="i-route"></div></div>
       </div>
-      <div class="pg-sec"><div class="t">Providers</div><div id="i-prov"></div></div>
+      <div class="pg-sec"><div class="t">Provider Comparison</div><div id="prov-matrix" class="prov-matrix"></div></div>
+      <div class="pg-sec"><div class="t">Token Cost Breakdown</div><div id="token-cost"></div></div>
     </div></div>
 
     <!-- ═══ MEMORY ═══ -->
     <div class="page" id="p-mem"><div class="pg">
       <div class="pg-grid" id="m-kpis"></div>
+      <div class="pg-sec"><div class="t">Memory Knowledge Graph</div><div id="mem-graph" class="mem-graph"></div></div>
       <div class="pg-sec"><div class="t">Memory Store</div><div id="m-det"></div></div>
     </div></div>
 
@@ -641,6 +694,7 @@ button{cursor:pointer}
     <div class="page" id="p-evo"><div class="pg">
       <div class="pg-grid" id="e-kpis"></div>
       <div class="pg-sec"><div class="t">Pipeline</div><div id="e-pipe"></div></div>
+      <div class="pg-sec"><div class="t">Evolution Timeline</div><div id="evo-timeline"></div></div>
       <div class="pg-sec"><div class="t">Experiments</div><div id="e-list"></div></div>
     </div></div>
 
@@ -995,6 +1049,98 @@ function clearSearch(){
   });
 }
 
+// ═══════════════════════════════
+// SYSTEM INTELLIGENCE
+// ═══════════════════════════════
+
+// Provider comparison matrix
+function pProvidersMatrix(s){
+  const ps=s.providers||[];
+  const el=$('prov-matrix');
+  if(!el)return;
+  if(!ps.length){el.innerHTML='<div class="empty">Sem providers</div>';return;}
+  el.innerHTML=ps.map(p=>{
+    const models=(p.models||[]).length;
+    const latency=p.latency_ms||0;
+    const maxLatency=2000;
+    const latencyPct=Math.min(Math.round(latency/maxLatency*100),100);
+    const statusColor=p.available?'var(--ok)':'var(--dim)';
+    return`<div class="prov-card">
+      <div class="pc-name">${esc(p.name)}</div>
+      <div class="pc-stat"><span>Status</span><span class="val" style="color:${statusColor}">${p.available?'Up':'Down'}</span></div>
+      <div class="pc-stat"><span>Models</span><span class="val">${models}</span></div>
+      <div class="pc-stat"><span>Latency</span><span class="val">${latency?latency+'ms':'—'}</span></div>
+      <div class="pc-bar"><div class="fill" style="width:${latencyPct}%;background:${latencyPct>80?'var(--crit)':latencyPct>50?'var(--warn)':'var(--ok)'}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// Token cost breakdown (SVG donut)
+function pTokenCost(s){
+  const td=s.token||{},u=td.usage||{};
+  const el=$('token-cost');
+  if(!el)return;
+  const categories=[
+    {name:'LLM',value:u.llm_calls||0,color:'var(--accent)'},
+    {name:'Tools',value:u.tool_calls||0,color:'var(--info)'},
+    {name:'Cache',value:s.cache?.hits||0,color:'var(--ok)'},
+    {name:'Session',value:u.session_tokens||0,color:'var(--evo)'},
+  ];
+  const total=categories.reduce((a,b)=>a+b.value,0);
+  if(!total){el.innerHTML='<div class="empty">Sem dados</div>';return;}
+  // SVG donut
+  const size=100,cx=50,cy=50,r=35,sw=8;
+  let offset=0;
+  const paths=categories.filter(c=>c.value>0).map(c=>{
+    const pct=c.value/total;
+    const dash=pct*2*Math.PI*r;
+    const path=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${c.color}" stroke-width="${sw}" stroke-dasharray="${dash} ${2*Math.PI*r-dash}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})"/>`;
+    offset+=dash;
+    return path;
+  }).join('');
+  const svg=`<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${paths}<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" fill="var(--text)" font-size="12" font-weight="600">${fmtN(total)}</text></svg>`;
+  const legend=categories.filter(c=>c.value>0).map(c=>`<div class="cost-item"><div class="cost-dot" style="background:${c.color}"></div>${c.name}: ${fmtN(c.value)}</div>`).join('');
+  el.innerHTML=`<div class="cost-ring">${svg}</div><div class="cost-legend">${legend}</div>`;
+}
+
+// Evolution timeline
+function pEvoTimeline(s){
+  const ex=s.experiments||[];
+  const el=$('evo-timeline');
+  if(!el)return;
+  if(!ex.length){el.innerHTML='<div class="empty">Sem evoluções</div>';return;}
+  el.innerHTML=`<div class="evo-timeline">${ex.slice(0,8).map(e=>{
+    const ts=e.ts?new Date(e.ts).toLocaleDateString('pt-PT',{day:'2-digit',month:'short'}):'';
+    return`<div class="evo-event ${e.status}">
+      <div class="ee-title">${esc(e.title||e.id)}</div>
+      <div class="ee-meta">${ts} · ${esc(e.status)}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+// Memory knowledge graph
+function pMemGraph(s){
+  const m=s.memory||{};
+  const el=$('mem-graph');
+  if(!el)return;
+  const nodes=[
+    {name:'Session',count:m.session||0,max:100},
+    {name:'Semantic',count:m.semantic||0,max:500},
+    {name:'Projects',count:m.project||0,max:50},
+    {name:'Cache',count:s.cache?.entries||0,max:200},
+  ];
+  const total=nodes.reduce((a,b)=>a+b.count,0);
+  if(!total){el.innerHTML='<div class="empty">Sem memória</div>';return;}
+  el.innerHTML=nodes.map(n=>{
+    const pct=Math.min(Math.round(n.count/n.max*100),100);
+    return`<div class="mem-node">
+      <div class="mn-name">${n.name}</div>
+      <div class="mn-count">${n.count}</div>
+      <div class="mn-bar"><div class="fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+}
+
 // Clock
 const tick=()=>$('clock').textContent=new Intl.DateTimeFormat('pt-PT',{timeZone:'Europe/Lisbon',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date());
 setInterval(tick,1000);tick();
@@ -1054,6 +1200,7 @@ function setCore(st,label){
 function paint(s){
   S=s;pStatus(s);pCore(s);pKPI(s);pSmap(s);pNodes(s);pFeed(s);pPerf(s);
   pIntel(s);pMem(s);pComp(s);pTok(s);pEvo(s);pAct(s);pCfg(s);pProf(s);pChat(s);
+  pProvidersMatrix(s);pTokenCost(s);pEvoTimeline(s);pMemGraph(s);
 }
 
 function pStatus(s){

@@ -30,11 +30,11 @@
 - [x] Search messages (🔍 button, highlight matches)
 - [ ] File upload support
 
-### v5.4 — System Intelligence
-- [ ] Provider comparison matrix
-- [ ] Token cost breakdown
-- [ ] Evolution timeline
-- [ ] Memory knowledge graph
+### v5.4 — System Intelligence ✅
+- [x] Provider comparison matrix (Intelligence page)
+- [x] Token cost breakdown (SVG donut chart)
+- [x] Evolution timeline (vertical timeline with status)
+- [x] Memory knowledge graph (Memory page)
 
 ---
 
