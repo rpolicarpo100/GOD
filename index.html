@@ -770,25 +770,25 @@ body.font-small{font-size:11px}
         <div class="kpis" id="kpis"></div>
 
     <div class="home-grid">
-      <div class="panel">
+      <div class="panel" data-panel-id="system-map">
         <div class="panel-h"><div class="panel-t">System Map</div></div>
         <div class="panel-b" style="position:relative"><div class="smap" id="smap"></div><svg class="smap-lines" id="smap-lines"></svg></div>
       </div>
-      <div class="panel">
+      <div class="panel" data-panel-id="nodes">
         <div class="panel-h"><div class="panel-t">Nodes</div></div>
         <div class="panel-b"><div id="nodes"></div></div>
       </div>
     </div>
 
     <div class="home-grid" style="margin-top:10px">
-      <div class="panel">
+      <div class="panel" data-panel-id="activity">
         <div class="panel-h">
           <div class="panel-t">Activity</div>
           <div style="display:flex;align-items:center;gap:3px"><div class="sd on" style="animation:orb-breathe 2s infinite"></div><span style="font-size:8px;color:var(--dim);letter-spacing:.06em">LIVE</span></div>
         </div>
         <div class="panel-b"><div class="feed" id="feed"></div></div>
       </div>
-      <div class="panel">
+      <div class="panel" data-panel-id="performance">
         <div class="panel-h"><div class="panel-t">Performance</div></div>
         <div class="panel-b"><div id="perf-panel"></div></div>
       </div>
@@ -845,6 +845,15 @@ body.font-small{font-size:11px}
     <!-- ═══ SETTINGS ═══ -->
     <div class="page" id="p-set"><div class="pg">
       <div class="pg-grid" id="s-cfg"></div>
+      <div class="pg-sec"><div class="t">Layout</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="tag" onclick="togglePanelVisibility('system-map')">System Map</button>
+          <button class="tag" onclick="togglePanelVisibility('nodes')">Nodes</button>
+          <button class="tag" onclick="togglePanelVisibility('activity')">Activity</button>
+          <button class="tag" onclick="togglePanelVisibility('performance')">Performance</button>
+          <button class="tag warn" onclick="resetLayout()">Reset Layout</button>
+        </div>
+      </div>
       <div class="pg-sec"><div class="t">Feature Flags</div><div id="s-flags"></div></div>
       <div class="pg-sec"><div class="t">Profiles</div><div id="s-prof"></div></div>
     </div></div>
@@ -2067,6 +2076,48 @@ function cycleFontSize(){
     fontSize=fs;
     if(fs!=='normal')document.body.classList.add('font-'+fs);
   }
+})();
+
+// ═══════════════════════════════
+// v6.2 — LAYOUT SAVE/RESTORE
+// ═══════════════════════════════
+const defaultLayout={hiddenPanels:[]};
+
+function getLayout(){
+  try{
+    const saved=localStorage.getItem('god-layout');
+    return saved?JSON.parse(saved):{...defaultLayout};
+  }catch(e){return{...defaultLayout};}
+}
+
+function saveLayout(layout){
+  localStorage.setItem('god-layout',JSON.stringify(layout));
+}
+
+function resetLayout(){
+  localStorage.removeItem('god-layout');
+  location.reload();
+}
+
+function togglePanelVisibility(panelId){
+  const layout=getLayout();
+  const idx=layout.hiddenPanels.indexOf(panelId);
+  if(idx>=0)layout.hiddenPanels.splice(idx,1);
+  else layout.hiddenPanels.push(panelId);
+  saveLayout(layout);
+  applyLayout(layout);
+}
+
+function applyLayout(layout){
+  document.querySelectorAll('.panel[data-panel-id]').forEach(p=>{
+    const id=p.dataset.panelId;
+    p.style.display=layout.hiddenPanels.includes(id)?'none':'';
+  });
+}
+
+// Apply saved layout on load
+(function(){
+  applyLayout(getLayout());
 })();
 </script>
 </body>

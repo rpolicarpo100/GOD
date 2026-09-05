@@ -18,10 +18,11 @@
 - [x] Focus indicators (focus-visible outline)
 - [x] A11y controls in header
 
-### v6.2 — Detachable Panels
-- [ ] Detachable panels (pop-out)
-- [ ] Custom layout save/restore (localStorage)
-- [ ] Panel resize handles
+### v6.2 — Layout Save/Restore ✅
+- [x] Save current layout to localStorage
+- [x] Restore layout on load
+- [x] Reset to default layout (Settings page)
+- [x] Panel visibility toggle (Settings page)
 
 ### v6.3 — Task Dependency Graph
 - [ ] SVG task dependency graph

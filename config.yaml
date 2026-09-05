@@ -47,7 +47,7 @@ feature_flags_meta:
     enabled_by: auto
     reason: pricing CALCULATED, free tier first
   debug_trace:
-    disabled_at: '2026-09-05T14:50:35.189693+00:00'
+    disabled_at: '2026-09-05T14:51:55.849496+00:00'
     disabled_by: system
     reason: test cleanup
   extended_metrics:
@@ -63,7 +63,7 @@ feature_flags_meta:
     enabled_by: auto
     reason: protect free tier quotas
   semantic_cache:
-    disabled_at: '2026-09-05T14:50:35.209901+00:00'
+    disabled_at: '2026-09-05T14:51:55.879784+00:00'
     disabled_by: system
     reason: test cleanup
 governor:
