@@ -85,9 +85,12 @@
 
 ## NOT IMPLEMENTED
 
-### P0.9 — Remote Worker Authentication
-- Worker token check exists but only active when SUPERAI_WORKER_TOKEN env is set
-- **Status: PARTIAL** — needs enhancement for token validation
+### P0.9 — Remote Worker Authentication ✅
+- Remote workers (location=remote) ALWAYS require SUPERAI_WORKER_TOKEN
+- If token not configured, remote workers are rejected (403)
+- Local workers (location=local) always allowed without token
+- Worker heartbeat/claim/complete check worker location from DB
+- 4 new security tests for worker auth
 
 ### P1.2 — Verified Outcome (integrated into evidence.py)
 - TaskOutcome with verification states implemented
@@ -112,9 +115,9 @@
 ## TESTS
 
 ```
-Total:  198 PASS
+Total:  202 PASS
 Original: 164 PASS
-Security:  34 PASS
+Security:  38 PASS
 Failures:  0
 Skipped:   0
 ```
