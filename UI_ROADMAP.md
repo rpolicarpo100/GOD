@@ -2,54 +2,55 @@
 
 ---
 
+## CURRENT (v6)
+
+**Advanced Visualization + Multi-Window + Accessibility**
+
+### v6.0 — Mood Indicator + Keyboard Shortcuts ✅
+- [x] Mood indicator based on system state (happy/focused/thinking/stressed/sleepy/error)
+- [x] Keyboard shortcuts overlay (? key)
+- [x] Command palette (Ctrl+K) with search + arrow navigation
+- [x] Quick nav with number keys (1-7)
+
+### v6.1 — Accessibility
+- [ ] High contrast mode toggle
+- [ ] Font size controls (+/-)
+- [ ] Screen reader optimizations
+- [ ] Focus indicators
+
+### v6.2 — Detachable Panels
+- [ ] Detachable panels (pop-out)
+- [ ] Custom layout save/restore (localStorage)
+- [ ] Panel resize handles
+
+### v6.3 — Task Dependency Graph
+- [ ] SVG task dependency graph
+- [ ] Interactive node selection
+- [ ] Data flow visualization
+- [ ] Worker topology view
+
+---
+
 ## COMPLETED (v5) ✅
 
 **Chat Enhancement + Interactive System Map + Advanced Monitoring + System Intelligence**
 
-### v5.0 — Chat Enhancement ✅
-- [x] Code syntax highlighting (pure CSS, no deps) — 9 languages
-- [x] Markdown rendering (inline, no deps) — headers, bold, italic, lists, links, tables, blockquotes
-- [x] Code block copy button
-- [x] Rich message formatting
-
-### v5.1 — Interactive System Map ✅
-- [x] Click nodes to see details (click → popup with capabilities)
-- [x] SVG connection lines between modules
-- [x] Data flow visualization (animated dots)
-- [x] Worker topology view
-
-### v5.2 — Advanced Monitoring ✅
-- [x] Alert history with acknowledgement (Activity page)
-- [x] Performance baselines (rolling avg comparison)
-- [x] Anomaly detection visualization (IQR method, red dots on sparkline)
-- [x] Resource prediction (linear extrapolation, trend indicator)
-
-### v5.3 — Chat Polish ✅
-- [x] Message reactions (👍/👎 + custom emoji)
-- [x] Edit last message (click ✎, Enter to save, Esc to cancel)
-- [x] Search messages (🔍 button, highlight matching messages)
-- [x] File upload support (📎 button, text/image preview, 1MB max)
-
-### v5.4 — System Intelligence ✅
-- [x] Provider comparison matrix (Intelligence page)
-- [x] Token cost breakdown (SVG donut chart)
-- [x] Evolution timeline (vertical timeline with status)
-- [x] Memory knowledge graph (Memory page)
-
----
-
-## NEXT (v6)
-
-**Advanced Visualization + Multi-Window + Accessibility**
-
-- [ ] Task dependency graph (SVG, interactive)
-- [ ] Detachable panels
-- [ ] Custom layout save/restore
-- [ ] High contrast mode
-- [ ] Font size controls
-- [ ] Keyboard shortcuts overlay
-- [ ] Mood indicator based on system state
-- [ ] File upload support
+- Code syntax highlighting (9 languages)
+- Markdown rendering (headers, bold, italic, lists, links, tables, blockquotes)
+- Code block copy button
+- Interactive system map with node details
+- SVG connection lines + animated data flow
+- Alert history with acknowledgement
+- Performance baselines + anomaly detection (IQR)
+- Resource prediction (linear extrapolation)
+- Chat reactions (👍/👎 + custom emoji)
+- Edit last message + search messages
+- File upload support (📎, 1MB max, text preview)
+- Provider comparison matrix
+- Token cost breakdown (SVG donut)
+- Evolution timeline
+- Memory knowledge graph
+- All 164 tests passing
 
 ---
 
@@ -117,4 +118,5 @@ v5.2 — Advanced monitoring + Alert history
 v5.3 — Chat polish + Reactions + Edit + Search
 v5.4 — System Intelligence + Provider Matrix + Token Cost
 v5.5 — File upload support
+v6.0 — Mood indicator + Keyboard shortcuts
 ```

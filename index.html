@@ -602,6 +602,75 @@ button{cursor:pointer}
 /* ═══════════════════════════════
    RESPONSIVE
    ═══════════════════════════════ */
+
+/* Mood indicator */
+.mood-indicator{
+  position:fixed;bottom:50px;right:16px;z-index:100;
+  display:flex;align-items:center;gap:6px;padding:6px 10px;
+  background:var(--deep);border:1px solid var(--line);border-radius:20px;
+  font-size:10px;transition:all .3s ease;cursor:pointer;
+}
+.mood-indicator:hover{border-color:var(--line2);background:var(--glass)}
+.mood-emoji{font-size:14px;transition:transform .3s ease}
+.mood-label{color:var(--muted);font-size:9px;letter-spacing:.04em}
+.mood-indicator[data-mood="happy"] .mood-emoji{animation:mood-bounce 2s ease-in-out infinite}
+.mood-indicator[data-mood="stressed"] .mood-emoji{animation:mood-shake .5s ease-in-out infinite}
+.mood-indicator[data-mood="sleepy"] .mood-emoji{opacity:.6;animation:mood-sleep 3s ease-in-out infinite}
+@keyframes mood-bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@keyframes mood-shake{0%,100%{transform:rotate(0)}25%{transform:rotate(-5deg)}75%{transform:rotate(5deg)}}
+@keyframes mood-sleep{0%,100%{opacity:.6}50%{opacity:.3}}
+
+/* Keyboard shortcuts overlay */
+.shortcuts-overlay{
+  position:fixed;inset:0;z-index:1000;background:rgba(3,4,10,.85);
+  display:none;align-items:center;justify-content:center;
+  backdrop-filter:blur(4px);
+}
+.shortcuts-overlay.show{display:flex}
+.shortcuts-panel{
+  background:var(--deep);border:1px solid var(--line);border-radius:16px;
+  padding:24px;max-width:420px;width:90%;max-height:80vh;overflow-y:auto;
+}
+.shortcuts-title{
+  font-size:12px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--accent);font-weight:600;margin-bottom:16px;
+}
+.shortcut-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:6px 0;border-bottom:1px solid var(--line);
+}
+.shortcut-row:last-child{border-bottom:none}
+.shortcut-desc{font-size:11px;color:var(--muted)}
+.shortcut-keys{display:flex;gap:3px}
+.shortcut-key{
+  font-family:var(--mono);font-size:9px;padding:2px 6px;
+  background:var(--glass);border:1px solid var(--line);border-radius:4px;
+  color:var(--text);min-width:20px;text-align:center;
+}
+
+/* Command palette (Ctrl+K) */
+.cmd-palette{
+  position:fixed;top:20%;left:50%;transform:translateX(-50%);z-index:1000;
+  width:400px;max-width:90%;display:none;
+  background:var(--deep);border:1px solid var(--line);border-radius:12px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);
+}
+.cmd-palette.show{display:block}
+.cmd-input{
+  width:100%;background:transparent;border:none;border-bottom:1px solid var(--line);
+  padding:12px 16px;font-size:13px;color:var(--text);outline:none;
+}
+.cmd-input::placeholder{color:var(--dim)}
+.cmd-results{max-height:200px;overflow-y:auto;padding:4px 0}
+.cmd-item{
+  display:flex;align-items:center;gap:8px;padding:8px 16px;
+  cursor:pointer;font-size:11px;transition:background .1s;
+}
+.cmd-item:hover,.cmd-item.selected{background:var(--glass)}
+.cmd-item .ci-icon{font-size:12px;width:20px;text-align:center}
+.cmd-item .ci-label{color:var(--text);flex:1}
+.cmd-item .ci-hint{font-size:9px;color:var(--dim)}
+   ═══════════════════════════════ */
 @media(max-width:700px){
   .rail{width:42px;padding:10px 0}
   .rail-btn{width:30px;height:30px;font-size:13px}
@@ -770,6 +839,37 @@ button{cursor:pointer}
     </div>
 
   </div>
+</div>
+
+<!-- Mood Indicator -->
+<div class="mood-indicator" id="mood-indicator" data-mood="happy" onclick="toggleMoodDetail()">
+  <span class="mood-emoji" id="mood-emoji">😊</span>
+  <span class="mood-label" id="mood-label">Contente</span>
+</div>
+
+<!-- Keyboard Shortcuts Overlay -->
+<div class="shortcuts-overlay" id="shortcuts-overlay" onclick="if(event.target===this)toggleShortcuts()">
+  <div class="shortcuts-panel">
+    <div class="shortcuts-title">Atalhos de Teclado</div>
+    <div class="shortcut-row"><span class="shortcut-desc">Abrir chat</span><div class="shortcut-keys"><span class="shortcut-key">Ctrl</span><span class="shortcut-key">Shift</span><span class="shortcut-key">C</span></div></div>
+    <div class="shortcut-row"><span class="shortcut-desc">Pesquisar</span><div class="shortcut-keys"><span class="shortcut-key">Ctrl</span><span class="shortcut-key">K</span></div></div>
+    <div class="shortcut-row"><span class="shortcut-desc">Enviar mensagem</span><div class="shortcut-keys"><span class="shortcut-key">Enter</span></div></div>
+    <div class="shortcut-row"><span class="shortcut-desc">Fechar / Cancelar</span><div class="shortcut-keys"><span class="shortcut-key">Esc</span></div></div>
+    <div class="shortcut-row"><span class="shortcut-desc">Home</span><div class="shortcut-keys"><span class="shortcut-key">1</span></div></div>
+    <div class="shortcut-row"><span class="shortcut-desc">Intelligence</span><div class="shortcut-keys"><span class="shortcut-key">2</span></div></div>
+    <div class="shortcut-row"><span class="shortcut-desc">Memory</span><div class="shortcut-keys"><span class="shortcut-key">3</span></div></div>
+    <div class="shortcut-row"><span class="shortcut-desc">Compute</span><div class="shortcut-keys"><span class="shortcut-key">4</span></div></div>
+    <div class="shortcut-row"><span class="shortcut-desc">Tokens</span><div class="shortcut-keys"><span class="shortcut-key">5</span></div></div>
+    <div class="shortcut-row"><span class="shortcut-desc">Evolution</span><div class="shortcut-keys"><span class="shortcut-key">6</span></div></div>
+    <div class="shortcut-row"><span class="shortcut-desc">Activity</span><div class="shortcut-keys"><span class="shortcut-key">7</span></div></div>
+    <div class="shortcut-row"><span class="shortcut-desc">Atalhos</span><div class="shortcut-keys"><span class="shortcut-key">?</span></div></div>
+  </div>
+</div>
+
+<!-- Command Palette (Ctrl+K) -->
+<div class="cmd-palette" id="cmd-palette">
+  <input class="cmd-input" id="cmd-input" placeholder="Pesquisar comandos..." oninput="filterCommands(this.value)"/>
+  <div class="cmd-results" id="cmd-results"></div>
 </div>
 
 <script>
@@ -1298,6 +1398,7 @@ function paint(s){
   S=s;pStatus(s);pCore(s);pKPI(s);pSmap(s);pNodes(s);pFeed(s);pPerf(s);
   pIntel(s);pMem(s);pComp(s);pTok(s);pEvo(s);pAct(s);pCfg(s);pProf(s);pChat(s);
   pProvidersMatrix(s);pTokenCost(s);pEvoTimeline(s);pMemGraph(s);
+  updateMood();
 }
 
 function pStatus(s){
@@ -1719,6 +1820,179 @@ function drawSparkline(data){
 // Visibility
 document.addEventListener('visibilitychange',()=>{
   // Could reduce animations when tab is hidden
+});
+
+// ═══════════════════════════════
+// v6.0 — MOOD INDICATOR
+// ═══════════════════════════════
+const moods={
+  happy:{emoji:'😊',label:'Contente',color:'var(--ok)'},
+  focused:{emoji:'🎯',label:'Focada',color:'var(--accent)'},
+  thinking:{emoji:'🤔',label:'A pensar',color:'var(--info)'},
+  stressed:{emoji:'😤',label:'Sobrecarregada',color:'var(--warn)'},
+  sleepy:{emoji:'😴',label:'Em repouso',color:'var(--dim)'},
+  error:{emoji:'😟',label:'Preocupada',color:'var(--crit)'}
+};
+
+function updateMood(){
+  const el=$('mood-indicator');
+  if(!el)return;
+  const llm=(S?.providers||[]).some(p=>p.available);
+  const al=(S?.eye?.alerts)||[];
+  const cr=al.some(a=>a.level==='CRITICAL'||a.level==='SECURITY');
+  const cpu=S?.host?.load1&&S?.host?.cpu_count?S.host.load1/S.host.cpu_count*100:0;
+  const q=S?.queue?.queued||0;
+  let mood='happy';
+  if(!llm)mood='sleepy';
+  else if(cr)mood='error';
+  else if(cpu>80||q>3)mood='stressed';
+  else if(coreSt==='thinking'||coreSt==='tools')mood='thinking';
+  else if(coreSt==='idle')mood='sleepy';
+  else mood='happy';
+  const m=moods[mood];
+  el.dataset.mood=mood;
+  $('mood-emoji').textContent=m.emoji;
+  $('mood-label').textContent=m.label;
+  $('mood-label').style.color=m.color;
+}
+
+// Update mood every 5 seconds
+setInterval(updateMood,5000);
+
+function toggleMoodDetail(){
+  // Show tooltip with mood reasoning
+  const el=$('mood-indicator');
+  const mood=el.dataset.mood;
+  const m=moods[mood];
+  const cpu=S?.host?.load1&&S?.host?.cpu_count?Math.round(S.host.load1/S.host.cpu_count*100):0;
+  const llm=(S?.providers||[]).filter(p=>p.available).length;
+  const alerts=(S?.eye?.alerts||[]).length;
+  const tip=`${m.emoji} ${m.label}\nCPU: ${cpu}% | LLM: ${llm} | Alertas: ${alerts}`;
+  el.title=tip;
+}
+
+// ═══════════════════════════════
+// v6.0 — KEYBOARD SHORTCUTS
+// ═══════════════════════════════
+let shortcutsOpen=false;
+let cmdOpen=false;
+
+function toggleShortcuts(){
+  shortcutsOpen=!shortcutsOpen;
+  $('shortcuts-overlay').classList.toggle('show',shortcutsOpen);
+}
+
+function openCmdPalette(){
+  cmdOpen=true;
+  $('cmd-palette').classList.add('show');
+  $('cmd-input').value='';
+  $('cmd-input').focus();
+  renderCommands('');
+}
+
+function closeCmdPalette(){
+  cmdOpen=false;
+  $('cmd-palette').classList.remove('show');
+}
+
+function filterCommands(q){
+  renderCommands(q);
+}
+
+function renderCommands(q){
+  const commands=[
+    {icon:'◉',label:'Home',action:()=>navTo('home')},
+    {icon:'◈',label:'Intelligence',action:()=>navTo('intel')},
+    {icon:'▣',label:'Memory',action:()=>navTo('mem')},
+    {icon:'⚡',label:'Compute',action:()=>navTo('comp')},
+    {icon:'◌',label:'Tokens',action:()=>navTo('tok')},
+    {icon:'↻',label:'Evolution',action:()=>navTo('evo')},
+    {icon:'▤',label:'Activity',action:()=>navTo('act')},
+    {icon:'⚙',label:'Settings',action:()=>navTo('set')},
+    {icon:'💬',label:'Abrir Chat',action:()=>{if(!cOpen){cOpen=true;$('chat-b').classList.add('open');$('chat-a').style.transform='rotate(180deg)';}$('chat-i').focus();}},
+    {icon:'🔍',label:'Pesquisar Chat',action:()=>toggleChatSearch()},
+    {icon:'⌨',label:'Atalhos de Teclado',action:()=>toggleShortcuts()},
+    {icon:'📊',label:'Ver Performance',action:()=>navTo('home')},
+    {icon:'🔄',label:'Actualizar Dados',action:()=>fetch('/api/state').then(r=>r.json()).then(paint)},
+  ];
+  const filtered=q?commands.filter(c=>c.label.toLowerCase().includes(q.toLowerCase())):commands;
+  $('cmd-results').innerHTML=filtered.map((c,i)=>`<div class="cmd-item${i===0?' selected':''}" onclick="closeCmdPalette();(${c.action})();"><span class="ci-icon">${c.icon}</span><span class="ci-label">${c.label}</span></div>`).join('');
+}
+
+function navTo(page){
+  document.querySelectorAll('.rail-btn').forEach(b=>{
+    if(b.dataset.p===page){
+      b.click();
+    }
+  });
+}
+
+// Global keyboard handler
+document.addEventListener('keydown',e=>{
+  // Don't handle if typing in input
+  const tag=document.activeElement?.tagName;
+  const isInput=tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT';
+  
+  // ? — toggle shortcuts
+  if(e.key==='?'&&!isInput){
+    e.preventDefault();
+    toggleShortcuts();
+    return;
+  }
+  
+  // Escape — close overlays
+  if(e.key==='Escape'){
+    if(shortcutsOpen){toggleShortcuts();return;}
+    if(cmdOpen){closeCmdPalette();return;}
+    if(editingIdx>=0){cancelEdit();return;}
+    return;
+  }
+  
+  // Ctrl+K — command palette
+  if(e.key==='k'&&e.ctrlKey){
+    e.preventDefault();
+    if(cmdOpen)closeCmdPalette();
+    else openCmdPalette();
+    return;
+  }
+  
+  // Ctrl+Shift+C — toggle chat
+  if(e.key==='C'&&e.ctrlKey&&e.shiftKey){
+    e.preventDefault();
+    cOpen=!cOpen;
+    $('chat-b').classList.toggle('open',cOpen);
+    $('chat-a').style.transform=cOpen?'rotate(180deg)':'rotate(0)';
+    if(cOpen)$('chat-i').focus();
+    return;
+  }
+  
+  // Number keys 1-7 for navigation (only when not in input)
+  if(!isInput&&!cmdOpen){
+    const navKeys={'1':'home','2':'intel','3':'mem','4':'comp','5':'tok','6':'evo','7':'act'};
+    if(navKeys[e.key]){
+      e.preventDefault();
+      navTo(navKeys[e.key]);
+      return;
+    }
+  }
+  
+  // Command palette arrow keys
+  if(cmdOpen){
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+      e.preventDefault();
+      const items=document.querySelectorAll('.cmd-item');
+      let selIdx=-1;
+      items.forEach((it,i)=>{if(it.classList.contains('selected'))selIdx=i;});
+      items.forEach(it=>it.classList.remove('selected'));
+      if(e.key==='ArrowDown')selIdx=Math.min(selIdx+1,items.length-1);
+      else selIdx=Math.max(selIdx-1,0);
+      if(items[selIdx])items[selIdx].classList.add('selected');
+    }
+    if(e.key==='Enter'){
+      const sel=document.querySelector('.cmd-item.selected');
+      if(sel)sel.click();
+    }
+  }
 });
 </script>
 </body>
