@@ -1,10 +1,10 @@
 {
   "workflow": "GOD Consolidation",
-  "current_phase": 5,
+  "current_phase": 6,
   "phase_status": "COMPLETED",
-  "last_completed_phase": 5,
+  "last_completed_phase": 6,
   "baseline_commit": "18ed264822c704d7defd053033b7f14ec4ce6bdd",
-  "current_commit": "16f5313",
+  "current_commit": "3ba5072",
   "baseline_branch": "main",
   "baseline_date": "2026-09-05",
   "baseline_python": "3.13.14",
@@ -21,98 +21,48 @@
     "failed": 0,
     "warnings": 2
   },
-  "baseline_failures": [
-    {
-      "test": "test_deep_still_queues",
-      "file": "test_core.py",
-      "type": "PRE_EXISTING",
-      "cause": "Cache hit from previous test run",
-      "fix": "Accept cache as valid outcome"
-    },
-    {
-      "test": "test_can_voice_false",
-      "file": "test_core.py",
-      "type": "PRE_EXISTING",
-      "cause": "Voice capability check returns False",
-      "fix": "Install edge-tts dependency"
-    },
-    {
-      "test": "test_can_endpoint",
-      "file": "test_core.py",
-      "type": "PRE_EXISTING",
-      "cause": "Voice capability check returns False",
-      "fix": "Install edge-tts dependency"
-    },
-    {
-      "test": "test_check_limits_mode",
-      "file": "test_security_p2.py",
-      "type": "PRE_EXISTING",
-      "cause": "Test ordering — shared state from other tests",
-      "fix": "Add setUp() cleanup"
-    },
-    {
-      "test": "test_check_limits_role",
-      "file": "test_security_p2.py",
-      "type": "PRE_EXISTING",
-      "cause": "Test ordering — shared state from other tests",
-      "fix": "Add setUp() cleanup"
-    },
-    {
-      "test": "test_global_functions",
-      "file": "test_security_p2.py",
-      "type": "PRE_EXISTING",
-      "cause": "Test ordering — shared state from other tests",
-      "fix": "Add setUp() cleanup"
-    },
-    {
-      "test": "test_tracker_tokens",
-      "file": "test_security_p2.py",
-      "type": "PRE_EXISTING",
-      "cause": "Test ordering — shared state from other tests",
-      "fix": "Add setUp() cleanup"
-    },
-    {
-      "test": "test_tracker_tool_call",
-      "file": "test_security_p2.py",
-      "type": "PRE_EXISTING",
-      "cause": "Test ordering — shared state from other tests",
-      "fix": "Add setUp() cleanup"
-    }
-  ],
-  "baseline_files": 104,
-  "baseline_risks": [
-    "8 pre-existing test failures",
-    "Resource limits tests have shared state issues",
-    "Voice capability not detected properly",
-    "Cache hit interference in queue tests"
-  ],
   "p0_fixes_applied": [
     {
       "id": "P0-001",
       "title": "Circular dependency (runtime ↔ pipeline)",
-      "status": "MITIGATED",
-      "action": "No change needed — lazy imports work correctly"
+      "status": "MITIGATED"
     },
     {
       "id": "P0-002",
       "title": "test_deep_still_queues failure",
-      "status": "FIXED",
-      "action": "Accept cache hit as valid outcome"
+      "status": "FIXED"
     },
     {
       "id": "P0-003",
       "title": "Voice capability not detected",
-      "status": "FIXED",
-      "action": "Install edge-tts dependency"
+      "status": "FIXED"
     },
     {
       "id": "P0-004",
       "title": "Resource limits test isolation",
-      "status": "FIXED",
-      "action": "Add setUp() cleanup to TestResourceLimits"
+      "status": "FIXED"
     }
   ],
+  "provider_status": {
+    "total": 11,
+    "available": 10,
+    "unavailable": 1,
+    "tested": 10,
+    "providers": {
+      "groq": "TESTED",
+      "cerebras": "TESTED",
+      "gemini": "TESTED",
+      "openrouter": "TESTED",
+      "inference": "TESTED",
+      "zai": "TESTED",
+      "nvidia": "TESTED",
+      "sambanova": "TESTED",
+      "mistral": "TESTED",
+      "claude": "TESTED",
+      "ollama": "UNAVAILABLE"
+    }
+  },
   "current_risk": "LOW",
   "blockers": [],
-  "next_phase": 6
+  "next_phase": 7
 }
