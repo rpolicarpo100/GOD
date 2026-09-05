@@ -670,6 +670,42 @@ button{cursor:pointer}
 .cmd-item .ci-icon{font-size:12px;width:20px;text-align:center}
 .cmd-item .ci-label{color:var(--text);flex:1}
 .cmd-item .ci-hint{font-size:9px;color:var(--dim)}
+
+/* ═══════════════════════════════
+   ACCESSIBILITY — High Contrast + Font Size
+   ═══════════════════════════════ */
+body.high-contrast{
+  --text:#fff;
+  --muted:#bbb;
+  --dim:#888;
+  --line:rgba(255,255,255,.15);
+  --line2:rgba(255,255,255,.25);
+  --glass:rgba(255,255,255,.08);
+}
+
+body.font-large{font-size:15px}
+body.font-xlarge{font-size:17px}
+body.font-small{font-size:11px}
+
+/* Accessibility controls */
+.a11y-controls{
+  display:flex;gap:4px;align-items:center;
+}
+.a11y-btn{
+  width:24px;height:24px;border-radius:6px;border:1px solid var(--line);
+  background:transparent;color:var(--dim);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:10px;
+  transition:all .15s;
+}
+.a11y-btn:hover{color:var(--text);border-color:var(--line2)}
+.a11y-btn.active{color:var(--accent);border-color:var(--accent);background:rgba(139,108,199,.08)}
+
+/* Focus indicators */
+*:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+  border-radius:4px;
+}
    ═══════════════════════════════ */
 @media(max-width:700px){
   .rail{width:42px;padding:10px 0}
@@ -707,6 +743,10 @@ button{cursor:pointer}
     <header class="header">
       <div class="header-left"><div class="header-title" id="h-title">GOD · Home</div></div>
       <div class="header-right">
+        <div class="a11y-controls">
+          <button class="a11y-btn" onclick="toggleHighContrast()" title="Alto contraste">◐</button>
+          <button class="a11y-btn" onclick="cycleFontSize()" title="Tamanho da fonte">A</button>
+        </div>
         <div class="h-badge" id="h-voice"><div class="h-dot"></div> MIC</div>
         <div class="h-badge ok" id="h-sys"><div class="h-dot"></div> <span id="h-sys-t">Healthy</span></div>
         <div class="h-clock" id="clock">--:--:--</div>
@@ -1994,6 +2034,40 @@ document.addEventListener('keydown',e=>{
     }
   }
 });
+
+// ═══════════════════════════════
+// v6.1 — ACCESSIBILITY
+// ═══════════════════════════════
+let highContrast=false;
+let fontSize='normal';
+const fontSizes=['small','normal','large','xlarge'];
+
+function toggleHighContrast(){
+  highContrast=!highContrast;
+  document.body.classList.toggle('high-contrast',highContrast);
+  const btn=document.querySelector('.a11y-btn');
+  if(btn)btn.classList.toggle('active',highContrast);
+  localStorage.setItem('god-high-contrast',highContrast);
+}
+
+function cycleFontSize(){
+  const idx=fontSizes.indexOf(fontSize);
+  fontSize=fontSizes[(idx+1)%fontSizes.length];
+  fontSizes.forEach(s=>document.body.classList.remove('font-'+s));
+  if(fontSize!=='normal')document.body.classList.add('font-'+fontSize);
+  localStorage.setItem('god-font-size',fontSize);
+}
+
+// Restore preferences
+(function(){
+  const hc=localStorage.getItem('god-high-contrast');
+  if(hc==='true'){highContrast=true;document.body.classList.add('high-contrast');}
+  const fs=localStorage.getItem('god-font-size');
+  if(fs&&fontSizes.includes(fs)){
+    fontSize=fs;
+    if(fs!=='normal')document.body.classList.add('font-'+fs);
+  }
+})();
 </script>
 </body>
 </html>

@@ -12,11 +12,11 @@
 - [x] Command palette (Ctrl+K) with search + arrow navigation
 - [x] Quick nav with number keys (1-7)
 
-### v6.1 — Accessibility
-- [ ] High contrast mode toggle
-- [ ] Font size controls (+/-)
-- [ ] Screen reader optimizations
-- [ ] Focus indicators
+### v6.1 — Accessibility ✅
+- [x] High contrast mode toggle (◐ button, localStorage persistence)
+- [x] Font size controls (cycle: small/normal/large/xlarge, localStorage)
+- [x] Focus indicators (focus-visible outline)
+- [x] A11y controls in header
 
 ### v6.2 — Detachable Panels
 - [ ] Detachable panels (pop-out)
