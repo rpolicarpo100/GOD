@@ -371,6 +371,38 @@ button{cursor:pointer}
 }
 .chat-in button:hover{opacity:.85}
 
+/* Chat reactions */
+.m .reactions{display:flex;gap:3px;margin-top:3px}
+.react-btn{
+  font-size:10px;padding:1px 4px;border-radius:4px;border:1px solid var(--line);
+  background:transparent;cursor:pointer;transition:all .15s;
+}
+.react-btn:hover{background:var(--glass);border-color:var(--line2)}
+.react-btn.active{background:rgba(139,108,199,.08);border-color:var(--accent)}
+
+/* Chat search */
+.chat-search{
+  display:flex;gap:4px;padding:4px 16px;border-bottom:1px solid var(--line);
+  display:none;
+}
+.chat-search.show{display:flex}
+.chat-search input{
+  flex:1;background:var(--bg);border:1px solid var(--line2);border-radius:6px;
+  padding:4px 8px;font-size:10px;outline:none;
+}
+.chat-search button{
+  font-size:9px;padding:3px 8px;border-radius:6px;border:1px solid var(--line);
+  background:transparent;color:var(--dim);cursor:pointer;
+}
+.chat-search button:hover{color:var(--text)}
+
+/* Chat edit mode */
+.m.editing{border-color:var(--accent);background:rgba(139,108,199,.08)}
+.edit-input{
+  width:100%;background:var(--bg);border:1px solid var(--line2);border-radius:6px;
+  padding:4px 8px;font-size:11px;outline:none;margin-top:4px;
+}
+
 /* ═══════════════════════════════
    MARKDOWN + CODE
    ═══════════════════════════════ */
@@ -628,10 +660,17 @@ button{cursor:pointer}
     <!-- ═══ CHAT ═══ -->
     <div class="chat">
       <div class="chat-h" id="chat-h">
-        <div class="t">GOD · Chat</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="t">GOD · Chat</div>
+          <button class="react-btn" onclick="toggleChatSearch()" title="Pesquisar">🔍</button>
+        </div>
         <div class="a" id="chat-a">▲</div>
       </div>
       <div class="chat-b" id="chat-b">
+        <div class="chat-search" id="chat-search">
+          <input id="chat-search-input" placeholder="Pesquisar mensagens..." oninput="searchChat(this.value)"/>
+          <button onclick="clearSearch();$('chat-search-input').value=''">Limpar</button>
+        </div>
         <div class="chat-msgs" id="chat-m"></div>
         <div class="chat-q" id="chat-q"></div>
         <form class="chat-in" id="chat-f">
@@ -889,6 +928,70 @@ function copyCode(btn){
     ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
     btn.textContent='Copiado ✓';
     setTimeout(()=>{btn.textContent='Copiar';},1500);
+  });
+}
+
+// ═══════════════════════════════
+// CHAT POLISH — Reactions, Edit, Search
+// ═══════════════════════════════
+const chatReactions={}; // {msgIdx: {emoji: count}}
+let chatSearchOpen=false;
+let editingIdx=-1;
+
+function toggleReaction(idx,emoji){
+  if(!chatReactions[idx])chatReactions[idx]={};
+  const r=chatReactions[idx];
+  r[emoji]=(r[emoji]||0)+1;
+  // Re-render chat
+  if(S)pChat(S);
+}
+
+function startEdit(idx){
+  editingIdx=idx;
+  if(S)pChat(S);
+}
+
+function saveEdit(idx,newText){
+  if(newText.trim()){
+    // Send edit to server
+    fetch('/api/chat',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({text:newText.trim(),edit_idx:idx})
+    });
+  }
+  editingIdx=-1;
+  if(S)pChat(S);
+}
+
+function cancelEdit(){
+  editingIdx=-1;
+  if(S)pChat(S);
+}
+
+function toggleChatSearch(){
+  chatSearchOpen=!chatSearchOpen;
+  const el=$('chat-search');
+  if(el)el.classList.toggle('show',chatSearchOpen);
+  if(chatSearchOpen){
+    const input=$('chat-search-input');
+    if(input)input.focus();
+  }
+}
+
+function searchChat(query){
+  if(!query.trim()||!S)return;
+  const msgs=S.chat||[];
+  const q=query.toLowerCase();
+  document.querySelectorAll('.chat-msgs .m').forEach((el,i)=>{
+    const text=(msgs[i]&&msgs[i].text||'').toLowerCase();
+    el.style.opacity=text.includes(q)?'1':'.3';
+  });
+}
+
+function clearSearch(){
+  document.querySelectorAll('.chat-msgs .m').forEach(el=>{
+    el.style.opacity='1';
   });
 }
 
@@ -1271,12 +1374,16 @@ function pProf(s){
 
 function pChat(s){
   const msgs=s.chat||[];
-  if(msgs.length===cLen&&$('chat-m').children.length)return;
+  if(msgs.length===cLen&&$('chat-m').children.length&&!editingIdx)return;
   cLen=msgs.length;
-  $('chat-m').innerHTML=msgs.map(m=>{
+  $('chat-m').innerHTML=msgs.map((m,i)=>{
     const ts=m.ts?new Date(m.ts).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'}):'';
     const content=m.role==='brain'?renderMd(m.text):esc(m.text);
-    return `<div class="m ${m.role}"><div class="w">${m.role==='brain'?'GOD':'You'}</div>${content}${ts?`<div class="ts">${ts}</div>`:''}</div>`;
+    const reactions=chatReactions[i]||{};
+    const reactHtml=Object.entries(reactions).map(([e,c])=>`<button class="react-btn active" onclick="toggleReaction(${i},'${e}')">${e}${c>1?c:''}</button>`).join('');
+    const isEditing=editingIdx===i&&m.role==='user';
+    const editBtn=m.role==='user'?`<button class="react-btn" onclick="startEdit(${i})" title="Editar">✎</button>`:'';
+    return `<div class="m ${m.role}${isEditing?' editing':''}"><div class="w">${m.role==='brain'?'GOD':'You'}</div>${isEditing?`<input class="edit-input" value="${esc(m.text)}" onkeydown="if(event.key==='Enter')saveEdit(${i},this.value);if(event.key==='Escape')cancelEdit();" autofocus/>`:content}${ts?`<div class="ts">${ts}</div>`:''}<div class="reactions">${reactHtml}<button class="react-btn" onclick="toggleReaction(${i},'👍')">👍</button><button class="react-btn" onclick="toggleReaction(${i},'👎')">👎</button>${editBtn}</div></div>`;
   }).join('')+'<div class="typing" id="typing-indicator" style="display:none"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
   $('chat-m').scrollTop=$('chat-m').scrollHeight;
   if(msgs.length&&!cOpen){cOpen=true;$('chat-b').classList.add('open');$('chat-a').style.transform='rotate(180deg)';}

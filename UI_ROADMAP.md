@@ -24,48 +24,31 @@
 - [x] Anomaly detection visualization (IQR method, red dots on sparkline)
 - [x] Resource prediction (linear extrapolation, trend indicator)
 
-### v5.3 — Chat Polish
+### v5.3 — Chat Polish ✅
+- [x] Message reactions (👍/👎 + any emoji)
+- [x] Edit last message (click ✎, Enter to save, Esc to cancel)
+- [x] Search messages (🔍 button, highlight matches)
 - [ ] File upload support
-- [ ] Message reactions (👍/👎)
-- [ ] Edit last message
-- [ ] Search messages
 
-### v5.3 — Chat Polish
-- [ ] File upload support
-- [ ] Message reactions (👍/👎)
-- [ ] Edit last message
-- [ ] Search messages
+### v5.4 — System Intelligence
+- [ ] Provider comparison matrix
+- [ ] Token cost breakdown
+- [ ] Evolution timeline
+- [ ] Memory knowledge graph
 
 ---
 
 ## NEXT (v6)
 
-**Advanced Visualization**
+**Advanced Visualization + Multi-Window + Accessibility**
 
 - [ ] Task dependency graph (SVG, interactive)
-- [ ] Memory knowledge graph
-- [ ] Evolution timeline
-- [ ] Provider comparison matrix
-- [ ] Token cost breakdown chart
-
-**GOD Personality**
-
-- [ ] Mood indicator based on system state
-- [ ] Contextual suggestions
-- [ ] Learning curve visualization
-
-**Multi-Window**
-
 - [ ] Detachable panels
 - [ ] Custom layout save/restore
-- [ ] Multi-monitor support
-
-**Accessibility**
-
 - [ ] High contrast mode
 - [ ] Font size controls
-- [ ] Screen reader optimization
 - [ ] Keyboard shortcuts overlay
+- [ ] Mood indicator based on system state
 
 ---
 
@@ -130,4 +113,5 @@ v4.7 — GOD CORE hover effect + Visual polish
 v5.0 — Chat code highlighting + Markdown rendering
 v5.1 — Interactive system map
 v5.2 — Advanced monitoring + Alert history
+v5.3 — Chat polish + Reactions
 ```
