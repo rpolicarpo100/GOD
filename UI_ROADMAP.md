@@ -2,19 +2,19 @@
 
 ---
 
-## CURRENT (v6)
+## COMPLETED (v6) ✅
 
-**Advanced Visualization + Multi-Window + Accessibility**
+**Accessibility + Layout + System Visualization**
 
 ### v6.0 — Mood Indicator + Keyboard Shortcuts ✅
-- [x] Mood indicator based on system state (happy/focused/thinking/stressed/sleepy/error)
+- [x] Mood indicator based on system state (😊🎯🤔😤😴😟)
 - [x] Keyboard shortcuts overlay (? key)
 - [x] Command palette (Ctrl+K) with search + arrow navigation
 - [x] Quick nav with number keys (1-7)
 
 ### v6.1 — Accessibility ✅
-- [x] High contrast mode toggle (◐ button, localStorage persistence)
-- [x] Font size controls (cycle: small/normal/large/xlarge, localStorage)
+- [x] High contrast mode toggle (◐ button, localStorage)
+- [x] Font size controls (cycle: small/normal/large/xlarge)
 - [x] Focus indicators (focus-visible outline)
 - [x] A11y controls in header
 
@@ -32,26 +32,35 @@
 
 ---
 
+## NEXT (v7)
+
+**Advanced Features + Polish**
+
+- [ ] Export data (JSON/CSV)
+- [ ] Session history
+- [ ] Custom themes
+- [ ] Dashboard widgets
+- [ ] Real-time collaboration indicators
+
+---
+
 ## COMPLETED (v5) ✅
 
 **Chat Enhancement + Interactive System Map + Advanced Monitoring + System Intelligence**
 
 - Code syntax highlighting (9 languages)
-- Markdown rendering (headers, bold, italic, lists, links, tables, blockquotes)
-- Code block copy button
+- Markdown rendering
 - Interactive system map with node details
 - SVG connection lines + animated data flow
 - Alert history with acknowledgement
 - Performance baselines + anomaly detection (IQR)
 - Resource prediction (linear extrapolation)
-- Chat reactions (👍/👎 + custom emoji)
-- Edit last message + search messages
-- File upload support (📎, 1MB max, text preview)
+- Chat reactions + edit + search
+- File upload support (📎, 1MB max)
 - Provider comparison matrix
 - Token cost breakdown (SVG donut)
 - Evolution timeline
 - Memory knowledge graph
-- All 164 tests passing
 
 ---
 
@@ -69,7 +78,7 @@
 - Voice distinction (TTS/STT)
 - Node Registry (capability-based)
 - Proactive messages (5 alert types)
-- Truth Model (IMPLEMENTED/TESTED/ENABLED/ACTIVE/MEASURED/ESTIMATED/TARGET/UNKNOWN/BLOCKED/MISSING)
+- Truth Model
 - Chat timestamps + Typing indicator
 - All 164 tests passing
 
@@ -119,5 +128,8 @@ v5.2 — Advanced monitoring + Alert history
 v5.3 — Chat polish + Reactions + Edit + Search
 v5.4 — System Intelligence + Provider Matrix + Token Cost
 v5.5 — File upload support
-v6.0 — Mood indicator + Keyboard shortcuts
+v6.0 — Mood indicator + Keyboard shortcuts + Command palette
+v6.1 — Accessibility + High contrast + Font size
+v6.2 — Layout save/restore + Panel visibility
+v6.3 — System dependency graph + Data flow
 ```
