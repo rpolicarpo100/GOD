@@ -110,6 +110,8 @@ def _worker_auth(authorization: str | None) -> None:
 @app.on_event("startup")
 def _startup():
     compute.start_local_worker()
+    # Ensure worker has a fresh heartbeat
+    tq.heartbeat(compute.LOCAL_ID)
     aios.boot()
 
 

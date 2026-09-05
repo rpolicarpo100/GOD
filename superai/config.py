@@ -92,7 +92,20 @@ class Config:
         if "evolution_policy" in patch and isinstance(patch["evolution_policy"], dict):
             self._cfg.setdefault("evolution_policy", {})
             self._cfg["evolution_policy"].update(patch["evolution_policy"])
+        if "feature_flags" in patch and isinstance(patch["feature_flags"], dict):
+            self._cfg.setdefault("feature_flags", {})
+            self._cfg["feature_flags"].update(patch["feature_flags"])
+        if "feature_flags_meta" in patch and isinstance(patch["feature_flags_meta"], dict):
+            self._cfg.setdefault("feature_flags_meta", {})
+            self._cfg["feature_flags_meta"].update(patch["feature_flags_meta"])
+        self._save()
         return deepcopy(self._cfg)
+
+    def _save(self) -> None:
+        try:
+            CFG_PATH.write_text(yaml.safe_dump(self._cfg, allow_unicode=True, default_flow_style=False), encoding="utf-8")
+        except Exception:
+            pass
 
 
 cfg = Config()

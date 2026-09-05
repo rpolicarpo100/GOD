@@ -1,97 +1,105 @@
-# GOD — config verificada neste host (2026-09-04)
-# Ausente = unavailable. Não se inventa.
-
-mode: auto  # auto | token_saver | conservative | offline | normal
-
 budgets:
-  task: 8000
-  session: 50000
+  agent: 40000
   daily: 200000
   project: 2000000
-  agent: 40000
-
-governor:
-  strict: true
-  fs_root: /home/user
-  python_timeout_s: 8
-  deny_names:
-    - ".env"
-    - ".netrc"
-    - "credentials"
-    - "id_rsa"
-    - ".git-credentials"
-
-thresholds:
-  accept: 70
-  max_retries: 3
-
-# Três baldes. Nunca somar subscrição com API.
+  session: 50000
+  task: 8000
 cost:
-  subscription:
-    amount_eur: 22
-    currency: EUR
-    kind: USER_STATED
-    item: Claude Pro — versão paga mais baixa (dito pelo utilizador)
-    official_usd_monthly: 20
-    official_usd_annual_monthly: 17
-    official_source: https://claude.com/pricing
-    includes_vat: true
-    official_vat_included: false
-    official_note: "lista 2026-09-04: Pro 20 USD/mês ou 17 USD/mês anual. IVA não incluído na lista. 22 EUR USER_STATED inclui IVA. Não converter USD→EUR (câmbio não medido)."
   api:
     kind: UNKNOWN
   infrastructure:
     kind: UNKNOWN
-
-# Plane: slug/project ditos pelo utilizador. Probe em superai/plane.py. Sem issues inventadas.
-plane:
-  kind: MEASURED
-  project_id: GODSX
-  workspace_slug: godsx
-  in_product: false
-  reason: "slug godsx + identifier GODSX. GET workspace 401; GET projects 200. Issues da API. Não é o núcleo."
-
-# Máquina do utilizador (foto 2026-09-04). NÃO é este sandbox.
+  subscription:
+    amount_eur: 22
+    currency: EUR
+    includes_vat: true
+    item: Claude Pro — versão paga mais baixa (dito pelo utilizador)
+    kind: USER_STATED
+    official_note: 'lista 2026-09-04: Pro 20 USD/mês ou 17 USD/mês anual. IVA não
+      incluído na lista. 22 EUR USER_STATED inclui IVA. Não converter USD→EUR (câmbio
+      não medido).'
+    official_source: https://claude.com/pricing
+    official_usd_annual_monthly: 17
+    official_usd_monthly: 20
+    official_vat_included: false
+feature_flags:
+  allow_remote_tools: false
+  auto_evolve: false
+  cost_routing: true
+  debug_trace: true
+  extended_metrics: true
+  hardcore_mode: false
+  parallel_jobs: true
+  semantic_cache: true
+feature_flags_meta:
+  cost_routing:
+    enabled_at: '2026-09-05T09:39:18.944633+00:00'
+    enabled_by: auto
+    reason: pricing CALCULATED for all providers
+  debug_trace:
+    enabled_at: '2026-09-05T09:39:18.922639+00:00'
+    enabled_by: auto
+    reason: useful for debugging, no performance impact
+  extended_metrics:
+    enabled_at: '2026-09-05T09:39:18.932989+00:00'
+    enabled_by: auto
+    reason: extra metrics at no cost
+  parallel_jobs:
+    enabled_at: '2026-09-05T09:39:18.911774+00:00'
+    enabled_by: auto
+    reason: inflight=2 verified, queue tests pass
+  semantic_cache:
+    enabled_at: '2026-09-05T09:39:18.896519+00:00'
+    enabled_by: auto
+    reason: neural embeddings tested, paraphrases working
+governor:
+  deny_names:
+  - .env
+  - .netrc
+  - credentials
+  - id_rsa
+  - .git-credentials
+  fs_root: /home/user
+  python_timeout_s: 8
+  strict: true
+mode: auto
 pc_node:
-  kind: USER_DECLARED
-  cpu: Intel Core i5-4590 @ 3.30GHz
-  cores: 4
-  ram_gb: 24
-  gpu: NVIDIA GeForce GT 1030
-  gpu_required: false
   board: ASUS PRIME Z270-P
-  nic: Intel I217-LM
-  disk: 2TB USER_DECLARED
-  disk_gb: 2048
   caps:
-    ram_fraction_max: 0.5
     cpu_fraction_max: 0.5
     gpu_for_llm: false
     note: nunca a totalidade. GT 1030 ~2GB VRAM — LLM local grande não cabe.
-
-# Feature flags — TODAS desactivadas por default.
-# Activar só com razão documentada. Governor bloqueia HIGH RISK em strict mode.
-feature_flags:
-  semantic_cache: false
-  parallel_jobs: false
-  auto_evolve: false
-  allow_remote_tools: false
-  debug_trace: false
-  extended_metrics: false
-  cost_routing: false
-  hardcore_mode: false
-
+    ram_fraction_max: 0.5
+  cores: 4
+  cpu: Intel Core i5-4590 @ 3.30GHz
+  disk: 2TB USER_DECLARED
+  disk_gb: 2048
+  gpu: NVIDIA GeForce GT 1030
+  gpu_required: false
+  kind: USER_DECLARED
+  nic: Intel I217-LM
+  ram_gb: 24
+plane:
+  in_product: false
+  kind: MEASURED
+  project_id: GODSX
+  reason: slug godsx + identifier GODSX. GET workspace 401; GET projects 200. Issues
+    da API. Não é o núcleo.
+  workspace_slug: godsx
+thresholds:
+  accept: 70
+  max_retries: 3
 unverified_or_absent:
-  - PostgreSQL (SQLite em uso)
-  - Redis/Valkey (cache SQLite)
-  - Qdrant server :6333 (embedded local sim)
-  - embeddings neurais (HashingVectorizer 384)
-  - Ollama :11434 fechado
-  - OmniRoute :20128 fechado
-  - SearXNG
-  - Docker
-  - Plane não é núcleo (ferramenta externa; issues MEASURED se a API as der)
-  - API €/1M (cost=UNKNOWN — tabela Claude não se aplica a Groq)
-  - Langfuse / LiteLLM
-  - voz / imagem / nós laptop-mobile
-  - este processo ≠ PC i5-4590 24GB (USER_DECLARED)
+- PostgreSQL (SQLite em uso)
+- Redis/Valkey (cache SQLite)
+- Qdrant server :6333 (embedded local sim)
+- embeddings neurais (HashingVectorizer 384)
+- Ollama :11434 fechado
+- OmniRoute :20128 fechado
+- SearXNG
+- Docker
+- Plane não é núcleo (ferramenta externa; issues MEASURED se a API as der)
+- API €/1M (cost=UNKNOWN — tabela Claude não se aplica a Groq)
+- Langfuse / LiteLLM
+- voz / imagem / nós laptop-mobile
+- este processo ≠ PC i5-4590 24GB (USER_DECLARED)
