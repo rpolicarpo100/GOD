@@ -560,6 +560,10 @@ def api_flag_disable(name: str):
 # === RUNTIME PROTECTION ===
 
 
+class ResourceModeIn(BaseModel):
+    mode: str
+
+
 @app.get("/api/system/protection")
 def api_protection():
     """Relatório de protecção: GOD Object + inspecção de ficheiros."""
@@ -576,6 +580,28 @@ def api_god_object():
 def api_protection_inspect():
     """Inspecionar todos os ficheiros fonte."""
     return rp.inspect_all()
+
+
+# === RESOURCE MODE ===
+
+
+@app.get("/api/system/resource-mode")
+def api_resource_mode():
+    """Get current resource mode (ECO/NORMAL/PERFORMANCE)."""
+    from superai.governor import gov
+    return gov.resource_config()
+
+
+@app.post("/api/system/resource-mode")
+def api_set_resource_mode(body: ResourceModeIn):
+    """Set resource mode."""
+    from superai.governor import gov, RESOURCE_MODES
+    from superai.runtime import _broadcast
+    if body.mode not in RESOURCE_MODES:
+        raise HTTPException(400, f"Invalid mode. Use: {list(RESOURCE_MODES.keys())}")
+    gov.set_resource_mode(body.mode)
+    _broadcast()
+    return {"ok": True, "mode": body.mode, "config": gov.resource_config()}
 
 
 # === EVOLUTION ===

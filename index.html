@@ -523,9 +523,15 @@ function pStatus(s){
   let c='ok',l='Healthy';
   if(!llm){c='crit';l='No LLM';}else if(cr){c='crit';l='Critical';}else if(al.length){c='warn';l=al.length+' Alert';}
   $('h-sys').className='h-badge '+c;$('h-sys-t').textContent=l;
+  // Voice badge — distinguish TTS/STT
   const vb=$('h-voice');
-  if(s.voice_ready){vb.classList.add('ok');vb.innerHTML='<div class="h-dot"></div> MIC · Ready';}
-  else{vb.classList.remove('ok');vb.innerHTML='<div class="h-dot"></div> MIC';}
+  if(s.voice_ready){
+    vb.classList.add('ok');
+    vb.innerHTML='<div class="h-dot"></div> TTS · Ready';
+  }else{
+    vb.classList.remove('ok');
+    vb.innerHTML='<div class="h-dot"></div> TTS';
+  }
 }
 
 function pCore(s){
@@ -659,9 +665,12 @@ function pAct(s){
 
 function pCfg(s){
   const gov=s.governor||{},q=s.queue||{},mi=s.mission||{};
+  const resMode=gov.resource_mode||'NORMAL';
+  const resConfig=gov.resource_config||{};
   $('s-cfg').innerHTML=`
     <div class="pcard"><div class="k">Mode</div><div class="v" style="font-size:13px">${esc(s.mode||'?')}</div><div class="s">${esc((s.mode_reason||'').slice(0,40))}</div></div>
     <div class="pcard"><div class="k">Governor</div><div class="v" style="font-size:13px">${gov.strict?'Strict':'Lax'}</div></div>
+    <div class="pcard"><div class="k">Resource Mode</div><div class="v" style="font-size:13px;color:var(--accent)">${esc(resMode)}</div><div class="s">${esc((resConfig.description||'').slice(0,40))}</div></div>
     <div class="pcard"><div class="k">Queue</div><div class="v">${q.queued||0}</div><div class="s">${q.running||0} running</div></div>
     <div class="pcard"><div class="k">Missions</div><div class="v">${mi.n||0}</div><div class="s">${mi.active?esc(mi.active.id):'None'}</div></div>
   `;

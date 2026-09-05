@@ -5,6 +5,35 @@ from pathlib import Path
 from .config import DATA, cfg
 
 
+# Resource modes
+RESOURCE_MODES = {
+    "ECO": {
+        "description": "Low resource usage — avoid unnecessary LLM, prioritize cache/tools",
+        "max_concurrent": 1,
+        "allow_heavy_llm": False,
+        "prefer_cache": True,
+        "prefer_tools": True,
+        "gpu_minimal": True,
+    },
+    "NORMAL": {
+        "description": "Balanced usage — standard operation",
+        "max_concurrent": 2,
+        "allow_heavy_llm": True,
+        "prefer_cache": True,
+        "prefer_tools": False,
+        "gpu_minimal": False,
+    },
+    "PERFORMANCE": {
+        "description": "High resource usage — allow heavy tasks when needed",
+        "max_concurrent": 4,
+        "allow_heavy_llm": True,
+        "prefer_cache": False,
+        "prefer_tools": False,
+        "gpu_minimal": False,
+    },
+}
+
+
 class Governor:
     """Limits. Agents cannot disable this object via chat."""
 
@@ -26,6 +55,28 @@ class Governor:
 
     def deny_names(self) -> list[str]:
         return list(cfg.get("governor", "deny_names", default=[".env"]))
+
+    def resource_mode(self) -> str:
+        """Get current resource mode (ECO/NORMAL/PERFORMANCE)."""
+        mode = cfg.get("governor", "resource_mode", default="NORMAL")
+        if mode not in RESOURCE_MODES:
+            return "NORMAL"
+        return mode
+
+    def set_resource_mode(self, mode: str) -> bool:
+        """Set resource mode. Returns True if valid."""
+        if mode not in RESOURCE_MODES:
+            return False
+        cfg.set("governor", "resource_mode", mode)
+        return True
+
+    def resource_config(self) -> dict:
+        """Get current resource mode configuration."""
+        mode = self.resource_mode()
+        return {
+            "mode": mode,
+            **RESOURCE_MODES[mode],
+        }
 
     def allow_path(self, path: Path) -> tuple[bool, str]:
         try:

@@ -93,22 +93,34 @@ def list_voices(lang: str | None = None) -> dict:
 
 
 def health() -> dict:
-    """Check if TTS is available."""
+    """Check voice capabilities with TTS/STT distinction."""
     try:
         import edge_tts
-        return {
-            "kind": "MEASURED",
-            "available": True,
-            "backend": "edge-tts (Microsoft Edge neural voices)",
+        tts_available = True
+    except ImportError:
+        tts_available = False
+    
+    return {
+        "kind": "MEASURED",
+        "tts": {
+            "available": tts_available,
+            "backend": "edge-tts (Microsoft Edge neural voices)" if tts_available else "edge-tts not installed",
             "default_voice": VOICE_PT,
             "supported_langs": list(VOICES.keys()),
-            "ts": now_iso(),
-        }
-    except ImportError:
-        return {
-            "kind": "MEASURED",
+        },
+        "stt": {
             "available": False,
-            "backend": "edge-tts not installed",
-            "error": "pip install edge-tts",
-            "ts": now_iso(),
-        }
+            "backend": None,
+            "note": "Speech-to-text not implemented",
+        },
+        "voice_input": {
+            "available": False,
+            "note": "Microphone input not implemented",
+        },
+        "full_duplex": {
+            "available": False,
+            "note": "Requires STT + real-time processing",
+        },
+        "available": tts_available,
+        "ts": now_iso(),
+    }
