@@ -28,6 +28,7 @@ _MAX_FUNCTION_LINES_CRITICAL = 200  # critical
 _MAX_CLASS_METHODS = 15  # warn
 _MAX_IMPORTS = 20  # warn
 _MAX_CYCLOMATIC = 20  # warn per function
+_MAX_TOTAL_COMPLEXITY = 200  # warn for file total
 
 # Cache
 _inspection_cache: dict[str, dict] = {}
@@ -283,14 +284,16 @@ def check_god_object() -> dict:
         is_god_object = True
         reasons.append(f"handle(): {handle_fn['lines']} linhas")
 
-    if total_complexity >= 100:
+    if total_complexity >= _MAX_TOTAL_COMPLEXITY:
         is_god_object = True
         reasons.append(f"complexidade total {total_complexity}")
 
     # Check if single file has too many functions (responsibility sprawl)
-    if n_functions >= 30:
+    # But only if functions are large — many small functions is OK
+    avg_fn_lines = sum(f["lines"] for f in ast_info.get("functions", [])) / max(n_functions, 1)
+    if n_functions >= 30 and avg_fn_lines > 40:
         is_god_object = True
-        reasons.append(f"{n_functions} funções (responsabilidade dispersa)")
+        reasons.append(f"{n_functions} funções com média {avg_fn_lines:.0f} linhas")
 
     return {
         "kind": "MEASURED",

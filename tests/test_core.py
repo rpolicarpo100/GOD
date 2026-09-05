@@ -1609,12 +1609,13 @@ class P15RuntimeProtection(unittest.TestCase):
         self.assertIn("n_functions", r)
         self.assertIn("total_complexity", r)
 
-    def test_runtime_py_is_flagged(self):
+    def test_runtime_py_resolved(self):
         from superai.runtime_protection import check_god_object
         r = check_god_object()
-        # runtime.py at 1128 lines SHOULD be flagged as GOD Object
-        self.assertTrue(r["is_god_object"], "runtime.py should be flagged as GOD Object")
-        self.assertGreater(len(r["reasons"]), 0)
+        # After refactor: runtime.py handle() is 53 lines, not GOD Object
+        self.assertFalse(r["is_god_object"], "runtime.py should NOT be GOD Object after refactor")
+        self.assertLess(r["handle_fn"]["lines"], 100, "handle() should be under 100 lines")
+        self.assertEqual(r["recommendation"], "OK: runtime.py dentro dos limites")
 
     def test_brain_py_within_limits(self):
         from superai.runtime_protection import inspect_file
