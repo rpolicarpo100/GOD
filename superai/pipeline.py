@@ -204,44 +204,11 @@ def _record_token(task: dict, pipeline: dict, ctx: dict, *,
     )
 
 
-def run_pipeline(text: str, task: dict, from_worker: bool, *,
-                 _say, _mark, _set_pipe, _broadcast, _format_result,
-                 _llm_prompt, _dialogue, _enqueue, _lock) -> dict:
-    """Core pipeline: analysis → cache → memory → firewall → plan → tools/state/llm.
-    
-    Returns result dict. All _say/_broadcast/etc passed as callbacks to avoid circular imports.
-    """
-    from copy import deepcopy
+# ── Pipeline stages ─────────────────────────────────────────────────────────
 
-    # 1 analyzer
-    act_m = __import__('superai.mission', fromlist=['active']).active()
-    if act_m:
-        task["mission_id"] = act_m["id"]
-    task["status"] = "running"
-    store.save_task(task)
-    store.audit("user", "task", task["task_id"])
-    bus.emit("TASK_CREATED", "INFO", f"{task['task_id']} · {task['type']} · est {task['estimated_tokens']} tok")
 
-    pipeline = {
-        "task": {k: task[k] for k in ("task_id", "type", "complexity", "exec_mode", "reasoning_required", "estimated_tokens", "reasoning_budget", "privacy", "tool_requirement")},
-        "cache": "miss",
-        "memory_hits": 0,
-        "firewall": None,
-        "route": [],
-        "providers": providers.health_all(),
-        "t0": time.perf_counter(),
-    }
-    fast = (task.get("exec_mode") or "") == "FAST"
-    deep = (task.get("exec_mode") or "") == "DEEP"
-    need_mem = deep or int(task.get("complexity") or 0) >= 5
-    pipeline["fast"] = fast
-    pipeline["deep"] = deep
-    pipeline["direct_llm"] = False
-    pipeline["mission_id"] = task.get("mission_id")
-    pipeline["skipped_heavy"] = ["vector", "memory"] if not need_mem else []
-
-    # 2 cache (hash then semantic / Qdrant)
-    gid = gods.active_id()
+def _stage_cache(text, task, pipeline, need_mem, gid, _say, _mark, _set_pipe, _broadcast, _format_result, _lock):
+    """Stage 2: Cache lookup (hash + semantic)."""
     hit = cache_lookup(text, gid)
     if not hit and need_mem and cfg.get("evolution_policy", "semantic_cache", default=True) is not False and vectors.available():
         sem = vectors.search("cache", text, k=1, min_score=0.88, god_id=gid)
@@ -269,12 +236,14 @@ def run_pipeline(text: str, task: dict, from_worker: bool, *,
         _mark(pipeline, "cache")
         _broadcast()
         return {"ok": True, "via": "cache"}
-
     store.incr("cache_misses")
     bus.emit("CACHE_MISS", "INFO", task["task_id"])
     _mark(pipeline, "cache")
+    return None  # no cache hit, continue
 
-    # 3 memory — só DEEP ou complexity≥5 (P0 smart memory)
+
+def _stage_memory(text, task, pipeline, need_mem, gid, _mark):
+    """Stage 3: Memory retrieval (SQL + Qdrant)."""
     gact = gods.active()
     if (not need_mem) or gact.get("memory", True) is False:
         mem, vec_mem = [], []
@@ -292,8 +261,11 @@ def run_pipeline(text: str, task: dict, from_worker: bool, *,
     pipeline["context"] = ti.context_efficiency(raw_ctx, ctx["text"])
     pipeline["route_token"] = ti.route_advice(task)
     _mark(pipeline, "memory")
+    return merged, ctx
 
-    # 4 firewall (Token Intelligence wrap — mesma política)
+
+def _stage_firewall(task, pipeline, merged, ctx, _say, _set_pipe, _broadcast, _format_result, _lock):
+    """Stage 4: Token firewall."""
     fw = ti.gate(task, extra_tokens=ctx["tokens"])
     pipeline["firewall"] = fw
     if fw["action"] == "optimize":
@@ -314,12 +286,12 @@ def run_pipeline(text: str, task: dict, from_worker: bool, *,
             _set_pipe(pipeline)
         _say("brain", _format_result(task, pipeline, [], None, "Firewall rejeitou a chamada. Comprime, reduz âmbito, ou sobe o budget."))
         _broadcast()
-        return {"ok": True, "via": "firewall"}
+        return merged, ctx, {"ok": True, "via": "firewall"}
+    return merged, ctx, None
 
-    # 5 plan + executive decide (determinístico, não é LLM)
-    p = plan(task)
-    tool_results: list[dict] = []
-    blocked = None
+
+def _stage_decide(text, task, pipeline, p, from_worker, _mark, _set_pipe, _enqueue, _lock):
+    """Stage 5: Plan + executive decide + queue dispatch."""
     d = executive.decide(task, p, any_llm=providers.any_llm(), from_worker=from_worker)
     pipeline["decision"] = d
     pipeline["direct_llm"] = d["direct_llm"]
@@ -342,73 +314,83 @@ def run_pipeline(text: str, task: dict, from_worker: bool, *,
     if d.get("direct_llm"):
         pipeline["route"].append("DIRECT_LLM")
         pipeline["direct_llm"] = True
+    return None
 
-    # Execute tools
-    if p["steps"] and not (len(p["steps"]) == 1 and p["steps"][0].get("kind") == "status"):
-        pipeline["route"].append("DETERMINISTIC_TOOLS")
-        for step in p["steps"]:
-            if not step.get("tool"):
-                continue
-            bus.emit("TOOL_STARTED", "INFO", step["tool"])
-            store.incr("tool_calls")
-            res = aios.syscall(step["tool"], step.get("args") or {}, actor=task["task_id"])
-            tool_results.append(res)
-            if res.get("status") != "success":
-                bus.emit("TOOL_FAILED", "WARNING", f"{step['tool']}: {res.get('errors')}")
-        scores = evaluate(task, tool_results, llm_used=False, tokens_actual=0)
-        validation = validate(task, tool_results)
-        critique = criticize(pipeline, task, tool_results, scores)
-        _record_token(task, pipeline, ctx, actual=0, status="ok", via="tools", quality_score=scores.get("OVERALL"))
-        store.mem_put(f"episode:{gods.active_id()}", task["title"], {"task_id": task["task_id"], "type": task["type"], "overall": scores["OVERALL"]})
-        cache_store(text, {"summary": tool_results, "scores": scores}, scores["OVERALL"], ns=gods.active_id())
-        _index_task(task, text, scores)
-        task["status"] = "done"
-        task["via"] = "tools"
-        task["rating"] = scores
-        store.save_task(task)
-        bus.emit("TASK_COMPLETED", "INFO", f"{task['task_id']} overall {scores['OVERALL']} via tools")
-        pipeline["scores"] = scores
-        pipeline["validation"] = validation
-        pipeline["critique"] = critique
-        _mark(pipeline, "tools")
-        with _lock:
-            _set_pipe(pipeline)
-        _say("brain", _format_result(task, pipeline, tool_results, scores, None))
-        _broadcast()
-        return {"ok": True, "via": "tools"}
 
-    # State shortcut
-    if p["steps"] and p["steps"][0].get("kind") == "status":
-        pipeline["route"].append("DETERMINISTIC_STATE")
-        snap = __import__('superai.runtime', fromlist=['snapshot']).snapshot()
-        findings = {
-            "mode": snap["mode"],
-            "mode_reason": snap["mode_reason"],
-            "providers": [{k: p[k] for k in ("id", "available", "error")} for p in snap["providers"]],
-            "usage": snap["usage"],
-            "cache": snap["cache"],
-            "budgets": snap["budgets"],
-        }
-        tool_results = [{"tool": "state", "status": "success", "confidence": 1.0, "findings": [findings], "errors": [], "evidence": ["snapshot local"]}]
-        scores = evaluate(task, tool_results, False, 0)
-        validation = validate(task, tool_results)
-        critique = criticize(pipeline, task, tool_results, scores)
-        _record_token(task, pipeline, {}, actual=0, status="ok", via="state")
-        task["status"] = "done"
-        task["via"] = "state"
-        store.save_task(task)
-        pipeline["validation"] = validation
-        pipeline["critique"] = critique
-        with _lock:
-            _set_pipe(pipeline)
-        _say("brain", _format_result(task, pipeline, tool_results, scores, None))
-        _broadcast()
-        return {"ok": True, "via": "state"}
+def _stage_tools(text, task, pipeline, p, ctx, _say, _mark, _set_pipe, _broadcast, _format_result, _lock):
+    """Stage 6a: Execute deterministic tools."""
+    tool_results = []
+    pipeline["route"].append("DETERMINISTIC_TOOLS")
+    for step in p["steps"]:
+        if not step.get("tool"):
+            continue
+        bus.emit("TOOL_STARTED", "INFO", step["tool"])
+        store.incr("tool_calls")
+        res = aios.syscall(step["tool"], step.get("args") or {}, actor=task["task_id"])
+        tool_results.append(res)
+        if res.get("status") != "success":
+            bus.emit("TOOL_FAILED", "WARNING", f"{step['tool']}: {res.get('errors')}")
+    scores = evaluate(task, tool_results, llm_used=False, tokens_actual=0)
+    validation = validate(task, tool_results)
+    critique = criticize(pipeline, task, tool_results, scores)
+    _record_token(task, pipeline, ctx, actual=0, status="ok", via="tools", quality_score=scores.get("OVERALL"))
+    store.mem_put(f"episode:{gods.active_id()}", task["title"], {"task_id": task["task_id"], "type": task["type"], "overall": scores["OVERALL"]})
+    cache_store(text, {"summary": tool_results, "scores": scores}, scores["OVERALL"], ns=gods.active_id())
+    _index_task(task, text, scores)
+    task["status"] = "done"
+    task["via"] = "tools"
+    task["rating"] = scores
+    store.save_task(task)
+    bus.emit("TASK_COMPLETED", "INFO", f"{task['task_id']} overall {scores['OVERALL']} via tools")
+    pipeline["scores"] = scores
+    pipeline["validation"] = validation
+    pipeline["critique"] = critique
+    _mark(pipeline, "tools")
+    with _lock:
+        _set_pipe(pipeline)
+    _say("brain", _format_result(task, pipeline, tool_results, scores, None))
+    _broadcast()
+    return {"ok": True, "via": "tools"}
 
-    # 6 Intelligent Router → RoutingAdapter (OmniRoute se up, senão Direct)
+
+def _stage_state(task, pipeline, _say, _set_pipe, _broadcast, _format_result, _lock):
+    """Stage 6b: State shortcut (status queries)."""
+    pipeline["route"].append("DETERMINISTIC_STATE")
+    from .runtime import snapshot
+    snap = snapshot()
+    findings = {
+        "mode": snap["mode"],
+        "mode_reason": snap["mode_reason"],
+        "providers": [{k: p[k] for k in ("id", "available", "error")} for p in snap["providers"]],
+        "usage": snap["usage"],
+        "cache": snap["cache"],
+        "budgets": snap["budgets"],
+    }
+    tool_results = [{"tool": "state", "status": "success", "confidence": 1.0, "findings": [findings], "errors": [], "evidence": ["snapshot local"]}]
+    scores = evaluate(task, tool_results, False, 0)
+    validation = validate(task, tool_results)
+    critique = criticize(pipeline, task, tool_results, scores)
+    _record_token(task, pipeline, {}, actual=0, status="ok", via="state")
+    task["status"] = "done"
+    task["via"] = "state"
+    store.save_task(task)
+    pipeline["validation"] = validation
+    pipeline["critique"] = critique
+    with _lock:
+        _set_pipe(pipeline)
+    _say("brain", _format_result(task, pipeline, tool_results, scores, None))
+    _broadcast()
+    return {"ok": True, "via": "state"}
+
+
+def _stage_llm(text, task, pipeline, merged, ctx, *, _say, _mark, _set_pipe, _broadcast,
+               _format_result, _llm_prompt, _dialogue, _lock):
+    """Stage 6c: LLM routing and execution."""
     pipeline["route"].append("INTELLIGENT_ROUTER")
     gw = routing.health()
     pipeline["gateway"] = {"active": gw["active"], "omniroute": gw["omniroute"]["available"], "direct": gw["direct"]["available"]}
+
+    # No provider available
     if not gw["omniroute"]["available"] and not gw["direct"]["available"]:
         pipeline["route"].append("NO_PROVIDER")
         bus.emit("MODEL_UNAVAILABLE", "CRITICAL", "OmniRoute down e Direct sem ModelAdapter")
@@ -429,11 +411,11 @@ def run_pipeline(text: str, task: dict, from_worker: bool, *,
         _broadcast()
         return {"ok": True, "via": "blocked"}
 
+    # Call LLM
     pipeline["route"].append(gw["active"].upper())
     bus.emit("MODEL_STARTED", "INFO", gw["active"])
     max_tok = 1024 if task.get("type") == "coding" else 256
     advice = pipeline.get("route_token") or {}
-    # HARDCORE MODE: Claude como primary (premium, pago)
     hardcore = bool(re.search(r"\b(hardcore|HARDCORE)\b", text))
     if hardcore:
         pipeline["route"].append("HARDCORE_MODE")
@@ -447,6 +429,8 @@ def run_pipeline(text: str, task: dict, from_worker: bool, *,
     pipeline["llm_ms"] = res.get("latency_ms")
     pipeline["llm_adapter"] = res.get("adapter") or res.get("provider")
     _mark(pipeline, "llm")
+
+    # LLM failed
     if res.get("status") != "success":
         bus.emit("MODEL_FAILED", "WARNING", str(res.get("error")))
         scores = evaluate(task, [], False, 0)
@@ -462,6 +446,7 @@ def run_pipeline(text: str, task: dict, from_worker: bool, *,
         _broadcast()
         return {"ok": True, "via": "llm_fail"}
 
+    # LLM success
     store.incr("llm_calls")
     raw_tok = res.get("tokens")
     toks = int(raw_tok) if raw_tok is not None else 0
@@ -495,3 +480,76 @@ def run_pipeline(text: str, task: dict, from_worker: bool, *,
     _say("brain", speech, replace_prefix="Um momento")
     _broadcast()
     return {"ok": True, "via": "llm"}
+
+
+# ── Main orchestrator ───────────────────────────────────────────────────────
+
+
+def run_pipeline(text: str, task: dict, from_worker: bool, *,
+                 _say, _mark, _set_pipe, _broadcast, _format_result,
+                 _llm_prompt, _dialogue, _enqueue, _lock) -> dict:
+    """Core pipeline: analysis → cache → memory → firewall → plan → tools/state/llm.
+    
+    Returns result dict. All _say/_broadcast/etc passed as callbacks to avoid circular imports.
+    """
+    # 1 analyzer
+    act_m = __import__('superai.mission', fromlist=['active']).active()
+    if act_m:
+        task["mission_id"] = act_m["id"]
+    task["status"] = "running"
+    store.save_task(task)
+    store.audit("user", "task", task["task_id"])
+    bus.emit("TASK_CREATED", "INFO", f"{task['task_id']} · {task['type']} · est {task['estimated_tokens']} tok")
+
+    pipeline = {
+        "task": {k: task[k] for k in ("task_id", "type", "complexity", "exec_mode", "reasoning_required", "estimated_tokens", "reasoning_budget", "privacy", "tool_requirement")},
+        "cache": "miss",
+        "memory_hits": 0,
+        "firewall": None,
+        "route": [],
+        "providers": providers.health_all(),
+        "t0": time.perf_counter(),
+    }
+    fast = (task.get("exec_mode") or "") == "FAST"
+    deep = (task.get("exec_mode") or "") == "DEEP"
+    need_mem = deep or int(task.get("complexity") or 0) >= 5
+    pipeline["fast"] = fast
+    pipeline["deep"] = deep
+    pipeline["direct_llm"] = False
+    pipeline["mission_id"] = task.get("mission_id")
+    pipeline["skipped_heavy"] = ["vector", "memory"] if not need_mem else []
+
+    gid = gods.active_id()
+
+    # 2 cache
+    cache_result = _stage_cache(text, task, pipeline, need_mem, gid, _say, _mark, _set_pipe, _broadcast, _format_result, _lock)
+    if cache_result:
+        return cache_result
+
+    # 3 memory
+    merged, ctx = _stage_memory(text, task, pipeline, need_mem, gid, _mark)
+
+    # 4 firewall
+    merged, ctx, fw_result = _stage_firewall(task, pipeline, merged, ctx, _say, _set_pipe, _broadcast, _format_result, _lock)
+    if fw_result:
+        return fw_result
+
+    # 5 plan + decide
+    p = plan(task)
+    decide_result = _stage_decide(text, task, pipeline, p, from_worker, _mark, _set_pipe, _enqueue, _lock)
+    if decide_result:
+        return decide_result
+
+    # 6a tools
+    if p["steps"] and not (len(p["steps"]) == 1 and p["steps"][0].get("kind") == "status"):
+        return _stage_tools(text, task, pipeline, p, ctx, _say, _mark, _set_pipe, _broadcast, _format_result, _lock)
+
+    # 6b state
+    if p["steps"] and p["steps"][0].get("kind") == "status":
+        return _stage_state(task, pipeline, _say, _set_pipe, _broadcast, _format_result, _lock)
+
+    # 6c llm
+    return _stage_llm(text, task, pipeline, merged, ctx,
+                      _say=_say, _mark=_mark, _set_pipe=_set_pipe, _broadcast=_broadcast,
+                      _format_result=_format_result, _llm_prompt=_llm_prompt,
+                      _dialogue=_dialogue, _lock=_lock)
