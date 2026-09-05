@@ -1,9 +1,25 @@
+# GOD — Python dependencies
+# Core
 fastapi
 uvicorn[standard]
-tiktoken
-numpy
-lxml
-httpx
+pydantic
 pyyaml
+httpx
+
+# Token counting
+tiktoken
+
+# Data / ML
+numpy
 scikit-learn
+lxml
+
+# Vector memory (Qdrant embedded)
 qdrant-client
+
+# Neural embeddings (optional — fallback to HashingVectorizer)
+fastembed
+onnxruntime
+
+# Voice TTS (optional — no API key needed)
+edge-tts
