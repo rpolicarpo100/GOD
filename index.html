@@ -403,6 +403,35 @@ button{cursor:pointer}
   padding:4px 8px;font-size:11px;outline:none;margin-top:4px;
 }
 
+/* Chat file upload */
+.chat-attach{
+  display:flex;gap:4px;padding:4px 16px;border-top:1px solid var(--line);
+  display:none;align-items:center;
+}
+.chat-attach.show{display:flex}
+.chat-attach .attach-preview{
+  flex:1;font-size:9px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.chat-attach .attach-remove{
+  font-size:10px;padding:2px 6px;border-radius:4px;border:1px solid var(--line);
+  background:transparent;color:var(--dim);cursor:pointer;
+}
+.chat-attach .attach-remove:hover{color:var(--crit)}
+
+/* File message attachment */
+.m .file-attach{
+  display:flex;align-items:center;gap:6px;margin-top:4px;padding:4px 8px;
+  background:rgba(139,108,199,.04);border:1px solid var(--line);border-radius:6px;
+  font-size:9px;
+}
+.m .file-attach .fa-icon{font-size:12px}
+.m .file-attach .fa-name{color:var(--accent);font-weight:500}
+.m .file-attach .fa-size{color:var(--dim)}
+.m .file-attach .fa-content{
+  margin-top:4px;max-height:80px;overflow:auto;font-family:var(--mono);
+  font-size:8px;color:var(--muted);white-space:pre;word-break:break-all;
+}
+
 /* ═══════════════════════════════
    MARKDOWN + CODE
    ═══════════════════════════════ */
@@ -727,7 +756,13 @@ button{cursor:pointer}
         </div>
         <div class="chat-msgs" id="chat-m"></div>
         <div class="chat-q" id="chat-q"></div>
+        <div class="chat-attach" id="chat-attach">
+          <span class="attach-preview" id="attach-preview"></span>
+          <button class="attach-remove" onclick="removeAttachment()">✕</button>
+        </div>
         <form class="chat-in" id="chat-f">
+          <input type="file" id="file-input" style="display:none" onchange="handleFileSelect(event)"/>
+          <button type="button" onclick="$('file-input').click()" title="Anexar ficheiro" style="background:var(--glass);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12px">📎</button>
           <input id="chat-i" autocomplete="off" placeholder="Fala comigo..."/>
           <button type="submit">Enviar</button>
         </form>
@@ -988,7 +1023,8 @@ function copyCode(btn){
 // ═══════════════════════════════
 // CHAT POLISH — Reactions, Edit, Search
 // ═══════════════════════════════
-const chatReactions={}; // {msgIdx: {emoji: count}}
+const chatReactions={};
+const chatFiles={}; // {msgIdx: fileInfo}
 let chatSearchOpen=false;
 let editingIdx=-1;
 
@@ -1047,6 +1083,67 @@ function clearSearch(){
   document.querySelectorAll('.chat-msgs .m').forEach(el=>{
     el.style.opacity='1';
   });
+}
+
+// ═══════════════════════════════
+// FILE UPLOAD
+// ═══════════════════════════════
+let pendingFile=null;
+let pendingAttachments=[]; // array of files attached to next message
+
+function handleFileSelect(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  if(file.size>1024*1024){
+    addAlert('warn','Ficheiro demasiado grande','Max 1MB');
+    return;
+  }
+  const reader=new FileReader();
+  reader.onload=()=>{
+    pendingFile={
+      name:file.name,
+      size:file.size,
+      type:file.type||'text/plain',
+      content:reader.result
+    };
+    const attach=$('chat-attach');
+    const preview=$('attach-preview');
+    if(attach&&preview){
+      preview.textContent=file.name+' ('+(file.size/1024).toFixed(1)+'KB)';
+      attach.classList.add('show');
+    }
+  };
+  const textExts=/\.(py|js|ts|json|md|txt|yaml|yml|toml|html|css|sh|sql|csv|xml|log|cfg|ini|env|rs|go|java|rb|php|c|cpp|h)$/i;
+  if(file.type.startsWith('text/')||textExts.test(file.name)){
+    reader.readAsText(file);
+  }else{
+    reader.readAsDataURL(file);
+  }
+  e.target.value='';
+}
+
+function removeAttachment(){
+  pendingFile=null;
+  const attach=$('chat-attach');
+  if(attach)attach.classList.remove('show');
+}
+
+function getFileIcon(name){
+  if(/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(name))return'🖼️';
+  if(/\.(mp3|wav|ogg|opus|flac)$/i.test(name))return'🎵';
+  if(/\.(mp4|webm|mov|avi)$/i.test(name))return'🎬';
+  if(/\.pdf$/i.test(name))return'📄';
+  if(/\.(zip|tar|gz|7z)$/i.test(name))return'📦';
+  return'📄';
+}
+
+function fileAttachHtml(file){
+  if(!file)return'';
+  const sizeKb=(file.size/1024).toFixed(1);
+  const textExts=/\.(py|js|ts|json|md|txt|yaml|yml|toml|html|css|sh|sql|csv|xml|log|cfg|ini|env|rs|go|java|rb|php|c|cpp|h)$/i;
+  const isText=file.type.startsWith('text/')||textExts.test(file.name);
+  const preview=isText?file.content.slice(0,300)+(file.content.length>300?'...':''):'';
+  return '<div class="file-attach"><span class="fa-icon">'+getFileIcon(file.name)+'</span><span class="fa-name">'+esc(file.name)+'</span><span class="fa-size">'+sizeKb+'KB</span>'+(preview?'<div class="fa-content">'+esc(preview)+'</div>':'')+'</div>';
 }
 
 // ═══════════════════════════════
@@ -1162,7 +1259,7 @@ $('chat-h').addEventListener('click',()=>{
   cOpen=!cOpen;$('chat-b').classList.toggle('open',cOpen);
   $('chat-a').style.transform=cOpen?'rotate(180deg)':'rotate(0)';
 });
-$('chat-f').addEventListener('submit',e=>{e.preventDefault();const v=$('chat-i').value.trim();if(v){fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:v})});$('chat-i').value='';}});
+$('chat-f').addEventListener('submit',e=>{e.preventDefault();const v=$('chat-i').value.trim();if(v||pendingFile){const payload={text:v||''};if(pendingFile){payload.attachment={name:pendingFile.name,size:pendingFile.size,type:pendingFile.type,content:pendingFile.content};chatFiles[S&&S.chat?S.chat.length:0]=pendingFile;}fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});$('chat-i').value='';removeAttachment();}});
 const QA=[{l:'Estado',q:'estado'},{l:'Missão',q:'missão actual'},{l:'Roadmap',q:'roadmap'},{l:'Tokens',q:'economia de tokens'},{l:'Benchmark',q:'corre benchmark'}];
 $('chat-q').innerHTML=QA.map(a=>`<button class="qb" data-q="${esc(a.q)}">${esc(a.l)}</button>`).join('');
 document.querySelectorAll('.qb').forEach(b=>b.addEventListener('click',()=>fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:b.dataset.q})})));
@@ -1530,7 +1627,8 @@ function pChat(s){
     const reactHtml=Object.entries(reactions).map(([e,c])=>`<button class="react-btn active" onclick="toggleReaction(${i},'${e}')">${e}${c>1?c:''}</button>`).join('');
     const isEditing=editingIdx===i&&m.role==='user';
     const editBtn=m.role==='user'?`<button class="react-btn" onclick="startEdit(${i})" title="Editar">✎</button>`:'';
-    return `<div class="m ${m.role}${isEditing?' editing':''}"><div class="w">${m.role==='brain'?'GOD':'You'}</div>${isEditing?`<input class="edit-input" value="${esc(m.text)}" onkeydown="if(event.key==='Enter')saveEdit(${i},this.value);if(event.key==='Escape')cancelEdit();" autofocus/>`:content}${ts?`<div class="ts">${ts}</div>`:''}<div class="reactions">${reactHtml}<button class="react-btn" onclick="toggleReaction(${i},'👍')">👍</button><button class="react-btn" onclick="toggleReaction(${i},'👎')">👎</button>${editBtn}</div></div>`;
+    const fileHtml=chatFiles[i]?fileAttachHtml(chatFiles[i]):'';
+    return `<div class="m ${m.role}${isEditing?' editing':''}"><div class="w">${m.role==='brain'?'GOD':'You'}</div>${isEditing?`<input class="edit-input" value="${esc(m.text)}" onkeydown="if(event.key==='Enter')saveEdit(${i},this.value);if(event.key==='Escape')cancelEdit();" autofocus/>`:content}${fileHtml}${ts?`<div class="ts">${ts}</div>`:''}<div class="reactions">${reactHtml}<button class="react-btn" onclick="toggleReaction(${i},'👍')">👍</button><button class="react-btn" onclick="toggleReaction(${i},'👎')">👎</button>${editBtn}</div></div>`;
   }).join('')+'<div class="typing" id="typing-indicator" style="display:none"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
   $('chat-m').scrollTop=$('chat-m').scrollHeight;
   if(msgs.length&&!cOpen){cOpen=true;$('chat-b').classList.add('open');$('chat-a').style.transform='rotate(180deg)';}

@@ -2,9 +2,9 @@
 
 ---
 
-## CURRENT (v5)
+## COMPLETED (v5) ✅
 
-**Chat Enhancement + Interactive System Map + Advanced Monitoring**
+**Chat Enhancement + Interactive System Map + Advanced Monitoring + System Intelligence**
 
 ### v5.0 — Chat Enhancement ✅
 - [x] Code syntax highlighting (pure CSS, no deps) — 9 languages
@@ -25,10 +25,10 @@
 - [x] Resource prediction (linear extrapolation, trend indicator)
 
 ### v5.3 — Chat Polish ✅
-- [x] Message reactions (👍/👎 + any emoji)
+- [x] Message reactions (👍/👎 + custom emoji)
 - [x] Edit last message (click ✎, Enter to save, Esc to cancel)
-- [x] Search messages (🔍 button, highlight matches)
-- [ ] File upload support
+- [x] Search messages (🔍 button, highlight matching messages)
+- [x] File upload support (📎 button, text/image preview, 1MB max)
 
 ### v5.4 — System Intelligence ✅
 - [x] Provider comparison matrix (Intelligence page)
@@ -49,6 +49,7 @@
 - [ ] Font size controls
 - [ ] Keyboard shortcuts overlay
 - [ ] Mood indicator based on system state
+- [ ] File upload support
 
 ---
 
@@ -113,5 +114,6 @@ v4.7 — GOD CORE hover effect + Visual polish
 v5.0 — Chat code highlighting + Markdown rendering
 v5.1 — Interactive system map
 v5.2 — Advanced monitoring + Alert history
-v5.3 — Chat polish + Reactions
+v5.3 — Chat polish + Reactions + Edit + Search
+v5.4 — System Intelligence + Provider Matrix + Token Cost
 ```
