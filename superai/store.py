@@ -411,7 +411,7 @@ class Store:
         q = "SELECT * FROM model_pricing"
         args: list[Any] = []
         if provider and model:
-            q += " WHERE provider=? AND model=?"
+            q += " WHERE provider=? AND (model=? OR model='*')"
             args = [provider, model]
         elif provider:
             q += " WHERE provider=?"

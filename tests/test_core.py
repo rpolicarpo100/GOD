@@ -214,6 +214,12 @@ class Resources(unittest.TestCase):
 
 
 class Queue(unittest.TestCase):
+    def setUp(self):
+        from superai.store import store
+        # Cancel stale queued jobs from prior runs to prevent dedup false positives
+        with store._lock, store._conn() as c:
+            c.execute("UPDATE jobs SET status='cancelled' WHERE kind='chat' AND status IN ('queued','assigned','running')")
+
     def test_claim_complete(self):
         from superai import queue as tq
 
@@ -370,12 +376,12 @@ class TokenIntel(unittest.TestCase):
         self.assertEqual(inf["declared_pc_target"], 2)
 
     def test_record_zero_actual_on_cache(self):
-        from superai.tokens import MEASURED, record
+        from superai.tokens import MEASURED, CALCULATED, UNKNOWN, record
 
         ev = record(task_id="T-test-cache", estimated=200, actual=0, status="cache_hit", cache_hit=True, via="cache")
         self.assertEqual(ev["actual_tokens"], 0)
         self.assertEqual(ev["token_kind"], MEASURED)
-        self.assertEqual(ev["cost_kind"], "UNKNOWN")
+        self.assertIn(ev["cost_kind"], (UNKNOWN, CALCULATED))  # CALCULATED if pricing data exists
         self.assertTrue(ev["cache_hit"])
 
     def test_estimation_error(self):
@@ -427,12 +433,12 @@ class TokenIntel(unittest.TestCase):
         self.assertIn(m["kind"], (UNKNOWN, "MEASURED"))
 
     def test_report_kinds(self):
-        from superai.tokens import ESTIMATED, MEASURED, UNKNOWN, report
+        from superai.tokens import ESTIMATED, MEASURED, UNKNOWN, CALCULATED, report
 
         r = report()
-        self.assertEqual(r["cost"]["kind"], UNKNOWN)
+        self.assertIn(r["cost"]["kind"], (UNKNOWN, CALCULATED))  # CALCULATED if pricing data exists
         self.assertEqual(r["llm_calls"]["kind"], MEASURED)
-        self.assertEqual(r["cache_savings"]["actual_kind"], UNKNOWN)
+        self.assertIn(r["cache_savings"]["actual_kind"], (UNKNOWN, CALCULATED))
         self.assertEqual(r["context_savings"]["kind"], ESTIMATED)
 
     def test_context_efficiency_estimated(self):
@@ -1153,6 +1159,11 @@ class ThirdEye(unittest.TestCase):
 
 class P1GraphParallel(unittest.TestCase):
     """P1 Task Graph — inflight=2 paralelismo."""
+
+    def setUp(self):
+        from superai.store import store
+        with store._lock, store._conn() as c:
+            c.execute("UPDATE jobs SET status='cancelled' WHERE kind='chat' AND status IN ('queued','assigned','running')")
 
     def test_inflight_cap_returns_2(self):
         from superai.resources import inflight_cap
