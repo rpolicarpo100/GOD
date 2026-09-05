@@ -119,9 +119,32 @@ def tick() -> dict:
     for a in snap["alerts"]:
         if a["code"] in appeared:
             bus.emit(a["code"], a["level"], a["msg"])
+            if a["level"] in ("CRITICAL", "SECURITY"):
+                _proactive_msg(a)
     if cleared:
         bus.emit("QUALITY_IMPROVEMENT", "INFO", f"alertas resolvidos: {sorted(cleared)}")
+        if "TOKEN_BUDGET_EXCEEDED" in cleared:
+            _proactive_msg({"code": "BUDGET_RECOVERED", "level": "INFO", "msg": "Budget recuperado"})
     return snap
+
+
+def _proactive_msg(alert: dict) -> None:
+    """Emit proactive GOD message for important alerts."""
+    try:
+        from .runtime import _say
+        code = alert.get("code", "")
+        msgs = {
+            "TOKEN_BUDGET_EXCEEDED": "Alerta: atingi o limite de tokens. Vou optimizar o uso.",
+            "TOKEN_BUDGET_90": "Nota: estou a 90% do budget. A optimizar.",
+            "QUALITY_DROP": "Notei que a qualidade baixou. Vou ajustar.",
+            "PC_OVERLOAD": "Sistema sob pressão. A reduzir actividade.",
+            "PROVIDER_GAP": "Sem provider disponível. A usar ferramentas locais.",
+            "BUDGET_RECOVERED": "Budget OK. Operação normal retomada.",
+        }
+        if code in msgs:
+            _say("brain", msgs[code])
+    except Exception:
+        pass
 
 
 def latest() -> dict:

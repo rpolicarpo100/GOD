@@ -379,19 +379,30 @@ button{cursor:pointer}
 
         <div class="kpis" id="kpis"></div>
 
-        <div class="home-grid">
-          <div class="panel">
-            <div class="panel-h"><div class="panel-t">System Map</div></div>
-            <div class="panel-b"><div class="smap" id="smap"></div></div>
-          </div>
-          <div class="panel">
-            <div class="panel-h">
-              <div class="panel-t">Activity</div>
-              <div style="display:flex;align-items:center;gap:3px"><div class="sd on" style="animation:orb-breathe 2s infinite"></div><span style="font-size:8px;color:var(--dim);letter-spacing:.06em">LIVE</span></div>
-            </div>
-            <div class="panel-b"><div class="feed" id="feed"></div></div>
-          </div>
+    <div class="home-grid">
+      <div class="panel">
+        <div class="panel-h"><div class="panel-t">System Map</div></div>
+        <div class="panel-b"><div class="smap" id="smap"></div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><div class="panel-t">Nodes</div></div>
+        <div class="panel-b"><div id="nodes"></div></div>
+      </div>
+    </div>
+
+    <div class="home-grid" style="margin-top:10px">
+      <div class="panel">
+        <div class="panel-h">
+          <div class="panel-t">Activity</div>
+          <div style="display:flex;align-items:center;gap:3px"><div class="sd on" style="animation:orb-breathe 2s infinite"></div><span style="font-size:8px;color:var(--dim);letter-spacing:.06em">LIVE</span></div>
         </div>
+        <div class="panel-b"><div class="feed" id="feed"></div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h"><div class="panel-t">Providers</div></div>
+        <div class="panel-b"><div id="providers"></div></div>
+      </div>
+    </div>
       </div>
     </div>
 
@@ -528,7 +539,7 @@ function setCore(st,label){
 
 // ═══ PAINT ═══
 function paint(s){
-  S=s;pStatus(s);pCore(s);pKPI(s);pSmap(s);pFeed(s);
+  S=s;pStatus(s);pCore(s);pKPI(s);pSmap(s);pNodes(s);pFeed(s);pProviders(s);
   pIntel(s);pMem(s);pComp(s);pTok(s);pEvo(s);pAct(s);pCfg(s);pProf(s);pChat(s);
 }
 
@@ -594,6 +605,29 @@ function pSmap(s){
 function pFeed(s){
   const ev=(s.events||[]).slice(0,12);
   $('feed').innerHTML=ev.length?ev.map(e=>`<div class="fr"><div class="ft">${new Date(e.ts).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</div><div class="fd ${lc[e.level]||'i'}"></div><div class="fm">${esc(e.msg||e.name)}</div></div>`).join(''):'<div class="empty">Sem actividade</div>';
+}
+
+function pNodes(s){
+  const nodes=s.nodes||{};
+  const list=nodes.nodes||[];
+  if(!list.length){$('nodes').innerHTML='<div class="empty">Nenhum node registado</div>';return;}
+  $('nodes').innerHTML=list.map(n=>{
+    const caps=(n.capabilities||[]).map(c=>`<span style="font-size:8px;padding:1px 4px;background:var(--glass);border:1px solid var(--line);border-radius:4px;margin-right:3px">${esc(c)}</span>`).join('');
+    return `<div style="padding:6px 0;border-bottom:1px solid var(--line)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-weight:500;font-size:11px">${esc(n.name)}</div>
+        <span class="tag ${n.status==='online'?'ok':'off'}">${esc(n.status)}</span>
+      </div>
+      <div style="margin-top:3px">${caps}</div>
+      <div style="font-size:9px;color:var(--dim);margin-top:2px">${esc(n.location)} · ${esc(n.id)}</div>
+    </div>`;
+  }).join('');
+}
+
+function pProviders(s){
+  const ps=s.providers||[];
+  if(!ps.length){$('providers').innerHTML='<div class="empty">Sem providers</div>';return;}
+  $('providers').innerHTML=ps.map(p=>`<div class="pv"><div class="pv-d ${p.available?'up':'down'}"></div><div class="pv-n">${esc(p.name)}</div><div class="pv-m">${(p.models||[]).slice(0,2).join(', ')}</div><span class="tag ${p.available?'ok':'off'}">${p.available?'Up':'Down'}</span></div>`).join('');
 }
 
 function pIntel(s){
