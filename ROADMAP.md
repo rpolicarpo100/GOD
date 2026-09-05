@@ -1,6 +1,6 @@
-# GOD — roadmap (2026-09-04)
+# GOD — roadmap (2026-09-05)
 
-Fonte: código em `/home/user/super-ai`.  
+Fonte: código em `/home/user/GOD`.  
 GitHub: [rpolicarpo100/GOD](https://github.com/rpolicarpo100/GOD) `main`.  
 Plane: slug `godsx` MEASURED — **não** é o núcleo.
 
@@ -72,12 +72,14 @@ flowchart LR
 - P1.5 Controlled Evolution — classify_risk() + propose_with_risk() com auto-blocking para HIGH RISK.
 - P1.5 Runtime Protection (`superai/runtime_protection.py`) — GOD Object detection + AST inspection.
 - Refactor GOD Object — runtime.py: 1129→503 linhas, handle(): 586→53 linhas. Extracted pipeline.py + shortcuts.py.
-- Providers 6/8 — Groq, Cerebras, OpenRouter, Inference.net, Z.ai, Claude (all free except Claude).
-- Provider Tiers — PRIMARY (Groq, Cerebras, Claude), SECONDARY (OpenRouter, Inference.net, Z.ai), BRAINSTORMING (pending).
+- **Providers 10/11** — Groq, Cerebras, OpenRouter, Inference.net, Z.ai, Claude, Gemini, NVIDIA NIM, SambaNova, Mistral.
+- **Provider Tiers completo** — PRIMARY (3/3), SECONDARY (6/6), BRAINSTORMING (1/2 Cohere trial).
+- **Token Pricing CALCULATED** — free tier = $0/1M, Claude = real pricing (sonnet $3/15M, opus $15/75M).
+- **Evolution melhorado** — provider performance experiments + experiments_summary() API.
+- **164/164 testes PASS** — 0 failures (was 4 pre-existing, fixed all).
 - Benchmark 5/5 — tool_math, tool_json, embed_separation, qdrant_roundtrip, llm_pong.
-- GitHub público + push por deploy key SSH (`3c0c8cb` e seguintes).
+- GitHub público + push por deploy key SSH.
 - Plane `godsx` / GODSX work-items MEASURED (`in_product=false`).
-- Caps PC i5-4590 50%. 22€ IVA USER_STATED ≠ API UNKNOWN.
 
 ## Provider Tiers
 
@@ -110,9 +112,12 @@ flowchart LR
 7. ~~**P1.5 Controlled Evolution**~~ — **FEITO**.
 8. ~~**P1.5 Runtime Protection**~~ — **FEITO**.
 9. ~~**Refactor GOD Object**~~ — **FEITO**.
-10. ~~**Providers 6/8**~~ — **FEITO** (Groq, Cerebras, OpenRouter, Inference.net, Z.ai, Claude).
-11. ~~**Provider Tiers BRAINSTORMING**~~ — **FEITO** (10/11 providers: +Gemini, NVIDIA NIM, Mistral, SambaNova).
-12. **Não** P2 Agent Factory, P3 GOD Factory, P3 mesh, Desktop, swarm, Redis/K8s por aparência.
+10. ~~**Providers 10/11**~~ — **FEITO**.
+11. ~~**Token Pricing**~~ — **FEITO** (free tier $0, Claude real pricing).
+12. ~~**164/164 testes**~~ — **FEITO** (0 failures).
+13. **Semantic cache** — embeddings para paráfrases (feature flag `semantic_cache`, MEDIUM RISK).
+14. **Cohere integration** — rerank para search results (trial key, 1000 calls/mês).
+15. **Não** P2 Agent Factory, P3 GOD Factory, P3 mesh, Desktop, swarm, Redis/K8s por aparência.
 
 ## GitHub deploy
 
