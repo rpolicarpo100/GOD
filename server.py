@@ -586,3 +586,77 @@ def api_experiments():
     """Resumo das experiências de evolução."""
     from superai.evolution import experiments_summary
     return experiments_summary()
+
+
+# === VOICE ===
+
+
+class VoiceIn(BaseModel):
+    text: str
+    lang: str = "pt"
+    voice: str | None = None
+
+
+@app.get("/api/system/voice")
+def api_voice_health():
+    """Estado do sistema de voz."""
+    from superai.voice import health
+    return health()
+
+
+@app.post("/api/system/voice/speak")
+def api_voice_speak(body: VoiceIn):
+    """Converter texto em fala (TTS)."""
+    from superai.voice import speak
+    return speak(body.text, lang=body.lang, voice=body.voice)
+
+
+@app.get("/api/system/voice/voices")
+def api_voice_list(lang: str | None = None):
+    """Listar vozes disponíveis."""
+    from superai.voice import list_voices
+    return list_voices(lang)
+
+
+@app.get("/api/system/voice/audio/{filename}")
+def api_voice_audio(filename: str):
+    """Servir ficheiro de áudio gerado."""
+    import re as _re
+    if not _re.fullmatch(r"tts_[a-z0-9_]+\.mp3", filename):
+        raise HTTPException(400, "filename inválido")
+    path = DATA / "voice" / filename
+    if not path.is_file():
+        raise HTTPException(404, "ficheiro inexistente")
+    return FileResponse(path, media_type="audio/mpeg")
+
+
+# === WEB SEARCH ===
+
+
+class SearchIn(BaseModel):
+    query: str
+    max_results: int = 5
+
+
+@app.get("/api/system/websearch")
+def api_websearch_health():
+    """Estado dos backends de pesquisa web."""
+    from superai.websearch import health
+    return health()
+
+
+@app.post("/api/system/websearch")
+def api_websearch(body: SearchIn):
+    """Pesquisar na web."""
+    from superai.websearch import search
+    return search(body.query, max_results=body.max_results)
+
+
+# === RATE LIMITING ===
+
+
+@app.get("/api/system/ratelimit")
+def api_ratelimit():
+    """Estado dos rate limiters por provider."""
+    from superai.ratelimit import status
+    return status()

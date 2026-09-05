@@ -1365,7 +1365,8 @@ class P15Capabilities(unittest.TestCase):
 
     def test_can_voice_false(self):
         from superai.capabilities import can
-        self.assertFalse(can("voice"))
+        # voice is now implemented via edge-tts
+        self.assertTrue(can("voice"))
 
     def test_can_nonexistent(self):
         from superai.capabilities import can
@@ -1484,7 +1485,7 @@ class P15Endpoints(unittest.TestCase):
         from server import api_can
         r = api_can("voice")
         self.assertEqual(r["name"], "voice")
-        self.assertFalse(r["can"])
+        self.assertTrue(r["can"])  # voice now implemented via edge-tts
 
     def test_liveness_endpoint(self):
         from server import api_liveness

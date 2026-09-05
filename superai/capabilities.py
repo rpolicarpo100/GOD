@@ -39,15 +39,21 @@ def _check_memory() -> dict:
 
 
 def _check_voice() -> dict:
-    """Voice: NOT IMPLEMENTED."""
+    """Voice: TTS via edge-tts."""
+    from .voice import health as voice_health
+    h = voice_health()
     return {
         "name": "voice",
-        "status": "not_implemented",
-        "enabled": False,
-        "verified": False,
-        "evidence": ["no TTS/STT integration found"],
-        "limitations": ["not implemented"],
-        "dependencies": [],
+        "status": "implemented" if h.get("available") else "not_implemented",
+        "enabled": h.get("available", False),
+        "verified": True,
+        "evidence": [
+            f"backend: {h.get('backend', 'none')}",
+            f"default voice: {h.get('default_voice', 'none')}",
+            f"API: POST /api/system/voice/speak",
+        ],
+        "limitations": [] if h.get("available") else ["edge-tts not installed"],
+        "dependencies": ["edge-tts"],
         "last_verified": now_iso(),
     }
 
@@ -77,19 +83,23 @@ def _check_distributed_compute() -> dict:
 
 
 def _check_local_llm() -> dict:
-    """Local LLM: Ollama down."""
+    """Local LLM: Ollama not available in sandbox."""
     health = providers.health_all()
     ollama = next((h for h in health if h["id"] == "ollama"), None)
     return {
         "name": "local_llm",
-        "status": "not_implemented",
+        "status": "blocked",
         "enabled": False,
         "verified": True,
         "evidence": [
             f"Ollama available: {ollama['available'] if ollama else False}",
-            "GT 1030 ~2GB VRAM — LLM local grande não cabe",
+            "porta 11434 fechada — sandbox sem Ollama",
+            "alternative: free-tier providers (Groq/Cerebras/Gemini) = same purpose, $0 cost",
         ],
-        "limitations": ["Ollama :11434 closed", "GT 1030 insufficient VRAM"],
+        "limitations": [
+            "BLOCKED: Ollama needs port 11434 + local GPU",
+            "Use Groq/Cerebras/Gemini instead (free, faster, no GPU)",
+        ],
         "dependencies": ["ollama"],
         "last_verified": now_iso(),
     }
