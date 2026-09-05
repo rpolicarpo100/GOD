@@ -6,7 +6,7 @@ Plane: slug `godsx` MEASURED — **não** é o núcleo.
 
 Este é o roadmap **correcto**. Não é marketing. Fluxo = código actual.
 
-**HEAD de código:** [`2d341e4`](https://github.com/rpolicarpo100/GOD/commit/2d341e4) · testes **162 OK** (164 total, 2 pré-existentes).
+**HEAD de código:** [`ac29d56`](https://github.com/rpolicarpo100/GOD/commit/ac29d56) · testes **162 OK** (164 total, 2 pré-existentes).
 
 ```mermaid
 flowchart LR
@@ -38,8 +38,8 @@ flowchart LR
 | 🟠 P1 | Executive Core | verdadeira decisão/orquestração | **FEITO** | `superai/executive.py` `decide()`. Sem classe Brain. `handle` mantém-se |
 | 🟠 P1 | Mission Engine | objectivos persistentes | **FEITO** | `superai/mission.py` SQLite. `/api/missions`. chat `missão:` / actual / conclui |
 | 🟠 P1 | Task Graph | dependências + paralelismo | **FEITO** | `queue.parent_id` + `job_is_ready`. `/api/graph`. inflight=2 (2 jobs paralelos). LLM remoto não usa CPU |
-| 🟠 P1 | Model Router | qualidade/fiabilidade/latência | **FEITO** | `routing.sort_adapters` por ok_rate (fiabilidade) + latência (secundário). HARDCORE MODE → claude primary. cost UNKNOWN |
-| 🟡 P2 | Agent Factory | agentes especializados | **NOT IMPLEMENTED** | Builder (`gods.py`) ≠ factory |
+| 🟠 P1 | Model Router | qualidade/fiabilidade/latência | **FEITO** | `routing.sort_adapters` por ok_rate (fiabilidade) + latência (secundário). HARDCORE MODE → claude primary. cost=0 (free tier) |
+| 🟡 P2 | Agent Factory | agentes especializados | **NÃO** | Ver secção "Porquê não Agent Factory" abaixo |
 | 🟡 P2 | Validator | verificar trabalho | **FEITO** | `superai/validator.py` 12 check types · 10 tests |
 | 🟡 P2 | Third Eye 2.0 | criticar decisões | **FEITO** | `superai/thirdeye.py` 10 checks MEASURED · 7 tests |
 | 🟢 P3 | GOD Factory | criar GODs especializadas | **NOT IMPLEMENTED** | perfis no mesmo handle |
@@ -82,13 +82,12 @@ flowchart LR
 2. ~~**P2 Third Eye 2.0**~~ — criticar decisões/planos com factos MEASURED. Sem LLM de crítica inventado. **FEITO** (`superai/thirdeye.py`).
 3. ~~**P1 Task Graph**~~ — dependências + paralelismo. inflight=2 (2 jobs paralelos). **FEITO** (`resources.inflight_cap`, `queue.graph`).
 4. ~~**P1 Model Router**~~ — ordenar por fiabilidade (ok_rate) + latência. HARDCORE MODE → claude primary. **FEITO** (`routing.sort_adapters`).
-5. **P1 router €** — só com `source` verificada em `model_pricing`. Até lá cost=UNKNOWN. **BLOQUEADO:** todos os modelos são free (cost=0).
-6. ~~**P4 UI**~~ — mission/graph/decision já visíveis; falta command center de missão/grafo interactivo. **FEITO** (dashboard interactivo).
-7. ~~**P1.5 System Integrity**~~ — System State + Capability Registry + Health/Readiness + Decision Trace. **FEITO** (`superai/system.py`, `capabilities.py`, `health.py`, `trace.py`).
-8. ~~**P1.5 Controlled Evolution**~~ — feature flags (8 flags, DISABLED by default) + risk classification (LOW/MEDIUM/HIGH). **FEITO** (`superai/feature_flags.py`, evolution.py `classify_risk` + `propose_with_risk`).
-9. ~~**P1.5 Runtime Protection**~~ — GOD Object anti-pattern detection + AST-based file inspection. **FEITO** (`superai/runtime_protection.py`).
-10. ~~**Refactor GOD Object**~~ — runtime.py 1129→503, handle() 586→53. Extracted `pipeline.py` + `shortcuts.py`. **FEITO**.
-11. **Não** P2 Agent Factory, P3 GOD Factory, P3 mesh, Desktop, swarm, Redis/K8s por aparência.
+5. ~~**P4 UI**~~ — mission/graph/decision já visíveis; falta command center de missão/grafo interactivo. **FEITO** (dashboard interactivo).
+6. ~~**P1.5 System Integrity**~~ — System State + Capability Registry + Health/Readiness + Decision Trace. **FEITO** (`superai/system.py`, `capabilities.py`, `health.py`, `trace.py`).
+7. ~~**P1.5 Controlled Evolution**~~ — feature flags (8 flags, DISABLED by default) + risk classification (LOW/MEDIUM/HIGH). **FEITO** (`superai/feature_flags.py`, evolution.py `classify_risk` + `propose_with_risk`).
+8. ~~**P1.5 Runtime Protection**~~ — GOD Object anti-pattern detection + AST-based file inspection. **FEITO** (`superai/runtime_protection.py`).
+9. ~~**Refactor GOD Object**~~ — runtime.py 1129→503, handle() 586→53. Extracted `pipeline.py` + `shortcuts.py`. **FEITO**.
+10. **Não** P2 Agent Factory, P3 GOD Factory, P3 mesh, Desktop, swarm, Redis/K8s por aparência.
 
 ## GitHub deploy
 
@@ -99,4 +98,72 @@ flowchart LR
 
 ## Não agora
 
-Desktop, swarm, marketplace, Redis/Postgres/Kafka por aparência, segundo `handle`, preços inventados, Plane como núcleo, classe ExecutiveBrain, motor DAG, Agent Factory, inflight>2 (nunca 4/4).
+Desktop, swarm, marketplace, Redis/Postgres/Kafka por aparência, segundo `handle`, preços inventados, Plane como núcleo, classe ExecutiveBrain, motor DAG, inflight>2 (nunca 4/4).
+
+---
+
+## Porquê não Agent Factory (P2)
+
+### O que é Agent Factory
+
+Agent Factory = criar agentes especializados que executam tarefas independentemente, com o seu próprio estado, memória e ciclo de vida. Exemplo: um agente "researcher" que faz web search, um agente "coder" que escreve código, um agente "reviewer" que valida output.
+
+### Porquê NÃO implementar
+
+**1. Arquitectura single-process é a correcta para este caso de uso.**
+
+GOD é um sistema pessoal, não um SaaS multi-tenant. Um único `handle()` que orquestra tudo é:
+- **Verificável**: qualquer request passa pelo mesmo pipeline, auditável de ponta a ponta
+- **Simples**: sem message passing, sem state isolation, sem coordenação entre agentes
+- **Determinístico**: o mesmo input produz o mesmo fluxo (tools→cache→llm)
+
+**2. GOD profiles já fornecem especialização.**
+
+`gods.py` permite criar perfis com:
+- capabilities subset (só calculator, só fs.list, etc.)
+- rules específicas (personalidade, restrições)
+- memory isolada (episode:{god_id})
+- versioning + rollback
+
+Isto é especialização sem a complexidade de multi-agent.
+
+**3. A queue já fornece paralelismo.**
+
+`queue.py` com `inflight=2` permite executar 2 jobs em paralelo. Workers remotos podem processar jobs pesados. Não precisamos de agentes independentes para isto.
+
+**4. Multi-agent adiciona complexidade sem benefício claro.**
+
+Para implementar Agent Factory precisaríamos de:
+- Message passing entre agentes (async, reliable)
+- State isolation (cada agente com o seu contexto)
+- Resource management (CPU, RAM, tokens por agente)
+- Coordination protocol (quem decide o quê?)
+- Error handling distribuído (agente A falha, agente B fica à espera)
+
+Tudo isto para quê? Para fazer o mesmo que um único `handle()` já faz, mas com mais pontos de falha.
+
+**5. O caso de uso não justifica.**
+
+GOD é uma ferramenta pessoal. O utilizador faz uma pergunta, GOD responde. Não há milhares de requests concorrentes que justifiquem multi-agent. A fila com `inflight=2` é suficiente.
+
+### Recomendações
+
+| Abordagem | Quando usar | Implementado |
+|-----------|-------------|--------------|
+| GOD profiles (`gods.py`) | Quando precisas de personalidade/capacidades diferentes | ✅ SIM |
+| Queue + workers (`queue.py`) | Quando precisas de paralelismo ou processamento remoto | ✅ SIM |
+| Pipeline stages (`pipeline.py`) | Quando precisas de separar cache/mem/llm | ✅ SIM |
+| Agent Factory | Quando tens milhares de requests concorrentes que precisam de isolamento | ❌ NÃO (não justificado) |
+
+### O que fazer em vez de Agent Factory
+
+1. **Usar GOD profiles** — criar perfis para diferentes tipos de trabalho (ex: "researcher" com web search, "coder" com python)
+2. **Usar a queue** — para trabalho pesado, enfileirar e processar em background
+3. **Usar missions** — para objectivos de longo prazo, ligar tarefas a uma missão
+4. **Não adicionar complexidade** — se funciona, não partir
+
+### Conclusão
+
+Agent Factory é uma solução à procura de um problema. GOD já tem especialização (profiles), paralelismo (queue) e pipeline modulado (stages). Adicionar multi-agent seria aumentar a complexidade sem benefício mensurável.
+
+**Recomendação final:** Não implementar Agent Factory. Usar o que já existe. Se no futuro houver um caso de uso real (ex: SaaS com milhares de users), reconsiderar então.
