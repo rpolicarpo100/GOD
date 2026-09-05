@@ -1,10 +1,10 @@
 {
-  "head": "130a5a2",
+  "head": "619d8e6",
   "branch": "main",
   "date": "2026-09-05",
   "tests": {
-    "total": 141,
-    "pass": 139,
+    "total": 164,
+    "pass": 162,
     "fail": 2,
     "fail_reason": "pre-existing env-dependent failures"
   },
@@ -15,14 +15,17 @@
     "capability_registry": "done",
     "health_readiness": "done",
     "decision_trace": "done",
-    "controlled_evolution": "todo",
-    "runtime_protection": "todo"
+    "controlled_evolution": "done",
+    "runtime_protection": "done",
+    "feature_flags": "done"
   },
   "new_files": [
     "superai/system.py",
     "superai/capabilities.py",
     "superai/health.py",
-    "superai/trace.py"
+    "superai/trace.py",
+    "superai/feature_flags.py",
+    "superai/runtime_protection.py"
   ],
   "new_endpoints": [
     "/api/system/state",
@@ -33,7 +36,28 @@
     "/api/system/liveness",
     "/api/system/readiness",
     "/api/system/diagnostics",
-    "/api/system/trace/{request_id}"
+    "/api/system/trace",
+    "/api/system/trace/{request_id}",
+    "/api/system/flags",
+    "/api/system/flags/{name}",
+    "/api/system/flags/{name}/enable",
+    "/api/system/flags/{name}/disable",
+    "/api/system/protection",
+    "/api/system/god-object",
+    "/api/system/protection/inspect"
   ],
+  "god_object": {
+    "detected": true,
+    "file": "runtime.py",
+    "lines": 1128,
+    "handle_lines": 586,
+    "complexity": 278,
+    "recommendation": "extract handle() sub-functions into separate modules"
+  },
+  "feature_flags": {
+    "total": 8,
+    "all_disabled": true,
+    "high_risk": ["auto_evolve", "hardcore_mode"]
+  },
   "blocked": ["P1 router € — all free tier"]
 }

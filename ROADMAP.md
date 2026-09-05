@@ -6,7 +6,7 @@ Plane: slug `godsx` MEASURED — **não** é o núcleo.
 
 Este é o roadmap **correcto**. Não é marketing. Fluxo = código actual.
 
-**HEAD de código P1.5:** [`e308ccb`](https://github.com/rpolicarpo100/GOD/commit/e308ccb) · testes **139 OK** (141 total, 2 pré-existentes).
+**HEAD de código P1.5:** [`619d8e6`](https://github.com/rpolicarpo100/GOD/commit/619d8e6) · testes **162 OK** (164 total, 2 pré-existentes).
 
 ```mermaid
 flowchart LR
@@ -50,6 +50,9 @@ flowchart LR
 | 🔵 P1.5 | Health & Readiness | liveness + readiness + diagnostics | **FEITO** | `superai/health.py` + 4 endpoints · 5 tests |
 | 🔵 P1.5 | Decision Trace | WHAT/WHY/WHEN/PATH | **FEITO** | `superai/trace.py` + 2 endpoints · 4 tests |
 | 🔵 P1.5 | API Endpoints | 9 novos endpoints | **FEITO** | server.py 9 endpoints · 7 tests |
+| 🔵 P1.5 | Feature Flags | 8 flags, DISABLED by default | **FEITO** | `superai/feature_flags.py` · 9 tests |
+| 🔵 P1.5 | Controlled Evolution | risk classification + human-in-the-loop | **FEITO** | evolution.py `classify_risk` + `propose_with_risk` · 5 tests |
+| 🔵 P1.5 | Runtime Protection | GOD Object detection | **FEITO** | `superai/runtime_protection.py` · 9 tests |
 
 ## Feito
 
@@ -61,10 +64,13 @@ flowchart LR
 - P2 Third Eye 2.0 (`superai/thirdeye.py`) — 10 criticism checks, 7 tests.
 - P4 UI Command Center — dashboard interactivo com missões e grafo.
 - P1.5 System State (`superai/system.py`) — consciência operacional verificável.
-- P1.5 Capability Registry (`superai/capabilities.py`) — 13 capabilities, evidence-based.
+- P1.5 Capability Registry (`superai/capabilities.py`) — 15 capabilities, evidence-based.
 - P1.5 Health & Readiness (`superai/health.py`) — liveness + readiness + diagnostics.
 - P1.5 Decision Trace (`superai/trace.py`) — WHAT/WHY/WHEN/PATH per request.
-- P1.5 API Endpoints — 9 novos endpoints (/api/system/*).
+- P1.5 API Endpoints — 16 novos endpoints (/api/system/*).
+- P1.5 Feature Flags (`superai/feature_flags.py`) — 8 flags, DISABLED by default, risk-classified.
+- P1.5 Controlled Evolution — classify_risk() + propose_with_risk() com auto-blocking para HIGH RISK.
+- P1.5 Runtime Protection (`superai/runtime_protection.py`) — GOD Object detection + AST inspection.
 - GitHub público + push por deploy key SSH (`3c0c8cb` e seguintes).
 - Plane `godsx` / GODSX work-items MEASURED (`in_product=false`).
 - Caps PC i5-4590 50%. 22€ IVA USER_STATED ≠ API UNKNOWN.
@@ -78,8 +84,8 @@ flowchart LR
 5. **P1 router €** — só com `source` verificada em `model_pricing`. Até lá cost=UNKNOWN. **BLOQUEADO:** todos os modelos são free (cost=0).
 6. ~~**P4 UI**~~ — mission/graph/decision já visíveis; falta command center de missão/grafo interactivo. **FEITO** (dashboard interactivo).
 7. ~~**P1.5 System Integrity**~~ — System State + Capability Registry + Health/Readiness + Decision Trace. **FEITO** (`superai/system.py`, `capabilities.py`, `health.py`, `trace.py`).
-8. **P1.5 Controlled Evolution** — feature flags, risk classification, controlled experiments.
-9. **P1.5 Runtime Protection** — prevenir GOD Object anti-pattern.
+8. ~~**P1.5 Controlled Evolution**~~ — feature flags (8 flags, DISABLED by default) + risk classification (LOW/MEDIUM/HIGH). **FEITO** (`superai/feature_flags.py`, evolution.py `classify_risk` + `propose_with_risk`).
+9. ~~**P1.5 Runtime Protection**~~ — GOD Object anti-pattern detection + AST-based file inspection. **FEITO** (`superai/runtime_protection.py`).
 10. **Não** P2 Agent Factory, P3 GOD Factory, P3 mesh, Desktop, swarm, Redis/K8s por aparência.
 
 ## GitHub deploy
