@@ -719,6 +719,23 @@ body.font-small{font-size:11px}
   outline-offset:2px;
   border-radius:4px;
 }
+
+/* Export dropdown */
+.export-dropdown{position:relative;display:inline-block}
+.export-menu{
+  position:absolute;top:100%;right:0;z-index:100;
+  background:var(--deep);border:1px solid var(--line);border-radius:8px;
+  min-width:160px;padding:4px 0;display:none;
+  box-shadow:0 4px 16px rgba(0,0,0,.4);
+}
+.export-menu.show{display:block}
+.export-item{
+  display:flex;align-items:center;gap:6px;padding:6px 12px;
+  font-size:10px;cursor:pointer;transition:background .1s;
+}
+.export-item:hover{background:var(--glass)}
+.export-item .ei-icon{font-size:11px}
+.export-item .ei-label{color:var(--text)}
    ═══════════════════════════════ */
 @media(max-width:700px){
   .rail{width:42px;padding:10px 0}
@@ -759,6 +776,14 @@ body.font-small{font-size:11px}
         <div class="a11y-controls">
           <button class="a11y-btn" onclick="toggleHighContrast()" title="Alto contraste">◐</button>
           <button class="a11y-btn" onclick="cycleFontSize()" title="Tamanho da fonte">A</button>
+        </div>
+        <div class="export-dropdown">
+          <button class="a11y-btn" onclick="toggleExportMenu()" title="Exportar dados">↓</button>
+          <div class="export-menu" id="export-menu">
+            <div class="export-item" onclick="exportJSON()"><span class="ei-icon">📋</span><span class="ei-label">Estado (JSON)</span></div>
+            <div class="export-item" onclick="exportPerfCSV()"><span class="ei-icon">📊</span><span class="ei-label">Performance (CSV)</span></div>
+            <div class="export-item" onclick="exportChat()"><span class="ei-icon">💬</span><span class="ei-label">Chat (JSON)</span></div>
+          </div>
         </div>
         <div class="h-badge" id="h-voice"><div class="h-dot"></div> MIC</div>
         <div class="h-badge ok" id="h-sys"><div class="h-dot"></div> <span id="h-sys-t">Healthy</span></div>
@@ -859,6 +884,9 @@ body.font-small{font-size:11px}
     <!-- ═══ SETTINGS ═══ -->
     <div class="page" id="p-set"><div class="pg">
       <div class="pg-grid" id="s-cfg"></div>
+      <div class="pg-sec"><div class="t">Session</div>
+        <div id="session-info" style="font-size:10px;color:var(--muted);line-height:1.8"></div>
+      </div>
       <div class="pg-sec"><div class="t">Layout</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="tag" onclick="togglePanelVisibility('system-map')">System Map</button>
@@ -1849,6 +1877,13 @@ function pProf(s){
     <div style="margin-bottom:6px"><div style="font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px">Activo</div><div style="font-weight:500;font-size:11px">${esc(act.name||'Default')}</div><div style="font-size:10px;color:var(--muted)">${esc((act.purpose||'').slice(0,70))}</div></div>
     ${profs.filter(p=>p.id!==act.id).slice(0,3).map(p=>`<div class="it"><div style="font-weight:500">${esc(p.name)}</div></div>`).join('')}
   `;
+  // Session info
+  updateSessionStats();
+  const si=$('session-info');
+  if(si){
+    const avgLat=sessionStats.latencyCount?Math.round(sessionStats.latencySum/sessionStats.latencyCount):0;
+    si.innerHTML='Duracao: <strong>'+getSessionDuration()+'</strong><br>Requests: <strong>'+sessionStats.requests+'</strong><br>Tokens: <strong>'+fmtN(sessionStats.tokens)+'</strong><br>Latencia media: <strong>'+avgLat+'ms</strong>';
+  }
 }
 
 function pChat(s){
@@ -2162,6 +2197,88 @@ function cycleFontSize(){
     if(fs!=='normal')document.body.classList.add('font-'+fs);
   }
 })();
+
+// ═══════════════════════════════
+// v7.0 — EXPORT DATA
+// ═══════════════════════════════
+let exportMenuOpen=false;
+
+function toggleExportMenu(){
+  exportMenuOpen=!exportMenuOpen;
+  $('export-menu').classList.toggle('show',exportMenuOpen);
+}
+
+function downloadFile(content,filename,type){
+  const blob=new Blob([content],{type});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportJSON(){
+  if(!S)return;
+  const data=JSON.stringify(S,null,2);
+  const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  downloadFile(data,'god-state-'+ts+'.json','application/json');
+  toggleExportMenu();
+}
+
+function exportPerfCSV(){
+  const perf=S?.perf||{};
+  const history=perf.history||[];
+  if(!history.length){addAlert('warn','Export','Sem dados de performance');return;}
+  const headers=['timestamp','latency_ms','type','complexity','tokens_est','ok'];
+  const rows=history.map(h=>[h.ts,h.latency_ms,h.type,h.complexity,h.tokens_est,h.ok].join(','));
+  const csv=[headers.join(','),...rows].join('\n');
+  const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  downloadFile(csv,'god-perf-'+ts+'.csv','text/csv');
+  toggleExportMenu();
+}
+
+function exportChat(){
+  const msgs=S?.chat||[];
+  if(!msgs.length){addAlert('warn','Export','Sem mensagens');return;}
+  const data=JSON.stringify(msgs,null,2);
+  const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  downloadFile(data,'god-chat-'+ts+'.json','application/json');
+  toggleExportMenu();
+}
+
+// Close export menu on outside click
+document.addEventListener('click',e=>{
+  if(exportMenuOpen&&!e.target.closest('.export-dropdown')){
+    exportMenuOpen=false;
+    $('export-menu').classList.remove('show');
+  }
+});
+
+// ═══════════════════════════════
+// v7.1 — SESSION HISTORY
+// ═══════════════════════════════
+const sessionStart=Date.now();
+let sessionStats={requests:0,tokens:0,latencySum:0,latencyCount:0};
+
+function getSessionDuration(){
+  const ms=Date.now()-sessionStart;
+  const mins=Math.floor(ms/60000);
+  const secs=Math.floor((ms%60000)/1000);
+  return mins>0?mins+'m '+secs+'s':secs+'s';
+}
+
+function updateSessionStats(){
+  if(!S)return;
+  const u=S.usage||{};
+  sessionStats.requests=u.llm_calls||0;
+  sessionStats.tokens=u.session_tokens||0;
+  const lp=S.last_pipeline||{};
+  if(lp.latency_ms!=null){
+    sessionStats.latencySum+=lp.latency_ms;
+    sessionStats.latencyCount++;
+  }
+}
 
 // ═══════════════════════════════
 // v6.2 — LAYOUT SAVE/RESTORE

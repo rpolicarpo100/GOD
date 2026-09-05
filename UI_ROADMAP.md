@@ -2,45 +2,53 @@
 
 ---
 
+## CURRENT (v7)
+
+**Export + Session + Themes + Polish**
+
+### v7.0 — Export Data ✅
+- [x] Export system state as JSON
+- [x] Export performance data as CSV
+- [x] Export chat history
+- [x] Download dropdown in header (↓ button)
+
+### v7.1 — Session History ✅
+- [x] Session duration tracking
+- [x] Session stats (requests, tokens, avg latency)
+- [x] Session info in Settings page
+
+### v7.2 — Custom Themes
+- [ ] Theme selector (3 themes)
+- [ ] Midnight (default dark)
+- [ ] Dawn (warm dark)
+- [ ] Neon (vibrant dark)
+- [ ] Theme persistence
+
+### v7.3 — Dashboard Polish
+- [ ] Widget grid layout
+- [ ] Drag-to-reorder widgets
+- [ ] Widget collapse/expand
+- [ ] Dashboard presets
+
+---
+
 ## COMPLETED (v6) ✅
 
 **Accessibility + Layout + System Visualization**
 
-### v6.0 — Mood Indicator + Keyboard Shortcuts ✅
-- [x] Mood indicator based on system state (😊🎯🤔😤😴😟)
-- [x] Keyboard shortcuts overlay (? key)
-- [x] Command palette (Ctrl+K) with search + arrow navigation
-- [x] Quick nav with number keys (1-7)
-
-### v6.1 — Accessibility ✅
-- [x] High contrast mode toggle (◐ button, localStorage)
-- [x] Font size controls (cycle: small/normal/large/xlarge)
-- [x] Focus indicators (focus-visible outline)
-- [x] A11y controls in header
-
-### v6.2 — Layout Save/Restore ✅
-- [x] Save current layout to localStorage
-- [x] Restore layout on load
-- [x] Reset to default layout (Settings page)
-- [x] Panel visibility toggle (Settings page)
-
-### v6.3 — System Dependency Graph ✅
-- [x] SVG dependency graph of system components
-- [x] Interactive node selection (click for details)
-- [x] Data flow visualization (animated dots along paths)
-- [x] Click for details popup
-
----
-
-## NEXT (v7)
-
-**Advanced Features + Polish**
-
-- [ ] Export data (JSON/CSV)
-- [ ] Session history
-- [ ] Custom themes
-- [ ] Dashboard widgets
-- [ ] Real-time collaboration indicators
+- Mood indicator (😊🎯🤔😤😴😟) based on system state
+- Keyboard shortcuts overlay (? key)
+- Command palette (Ctrl+K) with search + arrow navigation
+- Quick nav with number keys (1-7)
+- High contrast mode toggle (◐, localStorage)
+- Font size controls (cycle: small/normal/large/xlarge)
+- Focus indicators (focus-visible)
+- Layout save/restore via localStorage
+- Panel visibility toggle (Settings page)
+- SVG dependency graph (6 nodes, 7 edges)
+- Animated data flow dots
+- Interactive node details
+- All 164 tests passing
 
 ---
 
@@ -50,13 +58,9 @@
 
 - Code syntax highlighting (9 languages)
 - Markdown rendering
-- Interactive system map with node details
-- SVG connection lines + animated data flow
-- Alert history with acknowledgement
-- Performance baselines + anomaly detection (IQR)
-- Resource prediction (linear extrapolation)
-- Chat reactions + edit + search
-- File upload support (📎, 1MB max)
+- Interactive system map
+- Alert history + anomaly detection
+- Chat reactions + edit + search + file upload
 - Provider comparison matrix
 - Token cost breakdown (SVG donut)
 - Evolution timeline
@@ -68,19 +72,16 @@
 
 **GOD CORE + Living Interface + Event-Driven + Personality**
 
-- GOD CORE organic orb (4 layers, cubic-bezier, 8 states)
+- GOD CORE organic orb (8 states, breathing animations)
 - Event-driven via SSE (11 events)
 - Personality messages in Portuguese
-- Interactive hover effect
-- Latency sparkline (SVG)
-- Performance panel + stats
+- Latency sparkline + Performance panel
 - Resource Governor (ECO/NORMAL/PERFORMANCE)
 - Voice distinction (TTS/STT)
 - Node Registry (capability-based)
 - Proactive messages (5 alert types)
 - Truth Model
 - Chat timestamps + Typing indicator
-- All 164 tests passing
 
 ---
 
@@ -94,20 +95,6 @@
 6. **Accessible** — respects reduced-motion, keyboard nav
 7. **Event-driven** — React to real backend events
 8. **Truth Model** — Distinguish IMPLEMENTED/TESTED/ENABLED/ACTIVE
-
----
-
-## PERFORMANCE TARGETS (Standing)
-
-| Metric | Target | Status |
-|--------|--------|--------|
-| Idle CPU | < 3% | TARGET |
-| Active CPU | < 15% | TARGET |
-| Idle RAM | < 250MB | TARGET |
-| GPU | 0% | TARGET |
-| Animations | CSS/SVG only | ✅ ACHIEVED |
-| Bundle | < 50KB | ✅ ACHIEVED (~30KB) |
-| External deps | 0 | ✅ ACHIEVED |
 
 ---
 
@@ -132,4 +119,5 @@ v6.0 — Mood indicator + Keyboard shortcuts + Command palette
 v6.1 — Accessibility + High contrast + Font size
 v6.2 — Layout save/restore + Panel visibility
 v6.3 — System dependency graph + Data flow
+v7.0 — Export data + Download
 ```
