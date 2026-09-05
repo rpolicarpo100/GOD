@@ -1,0 +1,22 @@
+{
+  "owner-9afcefdd07440844": {
+    "id": "owner-9afcefdd07440844",
+    "username": "flowowner",
+    "role": "OWNER",
+    "password_hash": "28a8a274e294e2b77441b6be431536fa14e12941b9e97abe799aa092521edef8",
+    "password_salt": "2e4d11573334d4fc9852c7494c9a0290329007b9804e33b376ee99fd027f5202",
+    "created_at": 1788623038.7406557,
+    "last_login": 0,
+    "active": true
+  },
+  "guest-d3802e98ca5a6b73": {
+    "id": "guest-d3802e98ca5a6b73",
+    "username": "flowguest",
+    "role": "GUEST",
+    "password_hash": "e5a0d967d1e8b7702ee111818dad05c5943d6424eefd58a05e59d227ab2a205f",
+    "password_salt": "4bea82abcdc2fc7fc3c7dc28e7b35d5154313be91b2f0a97f0cb1e3411c34047",
+    "created_at": 1788623038.8091395,
+    "last_login": 1788623038.8776634,
+    "active": true
+  }
+}

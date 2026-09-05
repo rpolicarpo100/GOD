@@ -21,6 +21,7 @@ from superai.trace import get_trace, recent_traces, trace_summary, format_trace
 from superai.health import liveness, readiness, full_health
 from superai import feature_flags as ff
 from superai import runtime_protection as rp
+from superai import auth
 
 ROOT = Path(__file__).parent
 app = FastAPI(title="SUPER AI")
@@ -113,6 +114,8 @@ def _startup():
     # Ensure worker has a fresh heartbeat
     tq.heartbeat(compute.LOCAL_ID)
     aios.boot()
+    # Initialize auth system
+    auth.init()
     # Auto-enable critical feature flags
     _ensure_flags()
 
@@ -678,7 +681,128 @@ def api_websearch(body: SearchIn):
     return search(body.query, max_results=body.max_results)
 
 
-# === RATE LIMITING ===
+# === AUTHENTICATION & AUTHORIZATION ===
+
+class LoginIn(BaseModel):
+    username: str
+    password: str
+
+class CreateUserIn(BaseModel):
+    username: str
+    password: str
+    role: str = "GUEST"
+
+class ApprovalIn(BaseModel):
+    action: str
+    resource: str = ""
+    scope: str = ""
+    reason: str = ""
+    risk_level: int = 3
+    duration_seconds: int = 300
+
+class ApprovalDecisionIn(BaseModel):
+    approve: bool
+
+class OverrideIn(BaseModel):
+    action: str
+    scope: str = "*"
+    reason: str = ""
+    risk_level: int = 3
+    duration_seconds: int = 600
+
+@app.get("/api/auth/status")
+def api_auth_status():
+    """Auth system status."""
+    return auth.auth_status()
+
+@app.post("/api/auth/setup")
+def api_auth_setup(body: LoginIn):
+    """Create initial OWNER account."""
+    r = auth.create_owner(body.username, body.password)
+    if not r.get("ok"):
+        raise HTTPException(400, r.get("error"))
+    return r
+
+@app.post("/api/auth/login")
+def api_auth_login(body: LoginIn):
+    """Login and get session."""
+    r = auth.login(body.username, body.password)
+    if not r.get("ok"):
+        raise HTTPException(401, r.get("error"))
+    return r
+
+@app.post("/api/auth/logout")
+def api_auth_logout(authorization: str | None = Header(default=None)):
+    """Logout and invalidate session."""
+    session_id = authorization.replace("Bearer ", "") if authorization else None
+    return auth.logout(session_id)
+
+@app.get("/api/auth/session")
+def api_auth_session(authorization: str | None = Header(default=None)):
+    """Get current session info."""
+    session_id = authorization.replace("Bearer ", "") if authorization else None
+    session = auth.validate_session(session_id)
+    if not session:
+        raise HTTPException(401, "Sessão inválida")
+    return session
+
+@app.post("/api/auth/users")
+def api_create_user(body: CreateUserIn, authorization: str | None = Header(default=None)):
+    """Create a new user (OWNER only)."""
+    session_id = authorization.replace("Bearer ", "") if authorization else None
+    check = auth.require_permission(session_id, auth.Perm.SECURITY_MANAGE)
+    if not check.get("ok"):
+        raise HTTPException(check.get("code", 403), check.get("error"))
+    return auth.create_user(body.username, body.password, body.role)
+
+@app.get("/api/auth/users")
+def api_list_users(authorization: str | None = Header(default=None)):
+    """List users (OWNER only)."""
+    session_id = authorization.replace("Bearer ", "") if authorization else None
+    check = auth.require_permission(session_id, auth.Perm.SECURITY_MANAGE)
+    if not check.get("ok"):
+        raise HTTPException(check.get("code", 403), check.get("error"))
+    users = auth._load_users()
+    return [{"id": u["id"], "username": u["username"], "role": u["role"], "active": u["active"]} for u in users.values()]
+
+@app.get("/api/auth/audit")
+def api_audit_log(limit: int = 50, authorization: str | None = Header(default=None)):
+    """Get audit log (OWNER only)."""
+    session_id = authorization.replace("Bearer ", "") if authorization else None
+    check = auth.require_permission(session_id, auth.Perm.SECURITY_MANAGE)
+    if not check.get("ok"):
+        raise HTTPException(check.get("code", 403), check.get("error"))
+    return {"events": auth.audit_log(limit)}
+
+@app.get("/api/auth/approvals")
+def api_pending_approvals(authorization: str | None = Header(default=None)):
+    """List pending approvals (OWNER only)."""
+    session_id = authorization.replace("Bearer ", "") if authorization else None
+    check = auth.require_permission(session_id, auth.Perm.SECURITY_MANAGE)
+    if not check.get("ok"):
+        raise HTTPException(check.get("code", 403), check.get("error"))
+    return {"approvals": auth.pending_approvals()}
+
+@app.post("/api/auth/approvals/{approval_id}/decide")
+def api_decide_approval(approval_id: str, body: ApprovalDecisionIn, authorization: str | None = Header(default=None)):
+    """Approve or deny an approval (OWNER only)."""
+    session_id = authorization.replace("Bearer ", "") if authorization else None
+    check = auth.require_permission(session_id, auth.Perm.SECURITY_MANAGE)
+    if not check.get("ok"):
+        raise HTTPException(check.get("code", 403), check.get("error"))
+    return auth.decide_approval(approval_id, check["user_id"], body.approve)
+
+@app.post("/api/auth/overrides")
+def api_create_override(body: OverrideIn, authorization: str | None = Header(default=None)):
+    """Create a governor override (OWNER only)."""
+    session_id = authorization.replace("Bearer ", "") if authorization else None
+    check = auth.require_permission(session_id, auth.Perm.GOVERNOR_OVERRIDE)
+    if not check.get("ok"):
+        raise HTTPException(check.get("code", 403), check.get("error"))
+    return auth.create_override(check["user_id"], body.action, body.scope, body.reason, body.risk_level, body.duration_seconds)
+
+
+# === NODES ===
 
 
 class NodeIn(BaseModel):
