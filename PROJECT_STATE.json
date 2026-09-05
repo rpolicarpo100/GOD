@@ -1,45 +1,77 @@
 {
-  "head": "15e0b24",
-  "branch": "main",
-  "date": "2026-09-05",
-  "tests": {
-    "total": 164,
-    "pass": 162,
-    "fail": 2,
-    "fail_reason": "pre-existing env-dependent failures"
+  "workflow": "GOD Consolidation",
+  "current_phase": 0,
+  "phase_status": "COMPLETED",
+  "last_completed_phase": 0,
+  "baseline_commit": "18ed264822c704d7defd053033b7f14ec4ce6bdd",
+  "baseline_branch": "main",
+  "baseline_date": "2026-09-05",
+  "baseline_python": "3.13.14",
+  "baseline_tests": {
+    "total": 252,
+    "passed": 244,
+    "failed": 8,
+    "warnings": 2,
+    "framework": "pytest 9.0.3"
   },
-  "github": "synced",
-  "working_tree": "clean",
-  "god_object": {
-    "detected": false,
-    "resolved": true,
-    "runtime_lines": 503,
-    "handle_lines": 53,
-    "handle_complexity": 13,
-    "pipeline_stages": 7,
-    "shortcut_handlers": 11,
-    "critical_issues": 0,
-    "hard_blocks": 0
-  },
-  "p15": {
-    "system_state": "done",
-    "capability_registry": "done",
-    "health_readiness": "done",
-    "decision_trace": "done",
-    "controlled_evolution": "done",
-    "runtime_protection": "done",
-    "feature_flags": "done",
-    "god_object_refactor": "done"
-  },
-  "new_files": [
-    "superai/system.py",
-    "superai/capabilities.py",
-    "superai/health.py",
-    "superai/trace.py",
-    "superai/feature_flags.py",
-    "superai/runtime_protection.py",
-    "superai/pipeline.py",
-    "superai/shortcuts.py"
+  "baseline_failures": [
+    {
+      "test": "test_deep_still_queues",
+      "file": "test_core.py",
+      "type": "PRE_EXISTING",
+      "cause": "Cache hit from previous test run"
+    },
+    {
+      "test": "test_can_voice_false",
+      "file": "test_core.py",
+      "type": "PRE_EXISTING",
+      "cause": "Voice capability check returns False"
+    },
+    {
+      "test": "test_can_endpoint",
+      "file": "test_core.py",
+      "type": "PRE_EXISTING",
+      "cause": "Voice capability check returns False"
+    },
+    {
+      "test": "test_check_limits_mode",
+      "file": "test_security_p2.py",
+      "type": "PRE_EXISTING",
+      "cause": "Test ordering — shared state from other tests"
+    },
+    {
+      "test": "test_check_limits_role",
+      "file": "test_security_p2.py",
+      "type": "PRE_EXISTING",
+      "cause": "Test ordering — shared state from other tests"
+    },
+    {
+      "test": "test_global_functions",
+      "file": "test_security_p2.py",
+      "type": "PRE_EXISTING",
+      "cause": "Test ordering — shared state from other tests"
+    },
+    {
+      "test": "test_tracker_tokens",
+      "file": "test_security_p2.py",
+      "type": "PRE_EXISTING",
+      "cause": "Test ordering — shared state from other tests"
+    },
+    {
+      "test": "test_tracker_tool_call",
+      "file": "test_security_p2.py",
+      "type": "PRE_EXISTING",
+      "cause": "Test ordering — shared state from other tests"
+    }
   ],
-  "blocked": ["P1 router € — all free tier"]
+  "baseline_files": 104,
+  "baseline_risks": [
+    "8 pre-existing test failures",
+    "Resource limits tests have shared state issues",
+    "Voice capability not detected properly",
+    "Cache hit interference in queue tests"
+  ],
+  "current_risk": "LOW",
+  "blockers": [],
+  "next_phase": 1
 }
