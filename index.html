@@ -239,7 +239,14 @@ button{cursor:pointer}
 .panel-h{
   display:flex;align-items:center;justify-content:space-between;
   padding:7px 12px;border-bottom:1px solid var(--line);flex-shrink:0;
+  cursor:pointer;user-select:none;
 }
+.panel-h:hover{background:rgba(140,120,200,.02)}
+.panel-toggle{
+  font-size:10px;color:var(--dim);transition:transform .2s;flex-shrink:0;
+}
+.panel-toggle.collapsed{transform:rotate(-90deg)}
+.panel-b.collapsed{display:none}
 .panel-t{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);font-weight:600}
 .panel-b{flex:1;overflow-y:auto;padding:8px 12px}
 .panel-b::-webkit-scrollbar{width:3px}
@@ -842,25 +849,25 @@ body.theme-neon{
 
     <div class="home-grid">
       <div class="panel" data-panel-id="system-map">
-        <div class="panel-h"><div class="panel-t">System Map</div></div>
+        <div class="panel-h" onclick="togglePanel(this)"><div class="panel-t">System Map</div><span class="panel-toggle">▼</span></div>
         <div class="panel-b" style="position:relative"><div class="smap" id="smap"></div><svg class="smap-lines" id="smap-lines"></svg></div>
       </div>
       <div class="panel" data-panel-id="nodes">
-        <div class="panel-h"><div class="panel-t">Nodes</div></div>
+        <div class="panel-h" onclick="togglePanel(this)"><div class="panel-t">Nodes</div><span class="panel-toggle">▼</span></div>
         <div class="panel-b"><div id="nodes"></div></div>
       </div>
     </div>
 
     <div class="home-grid" style="margin-top:10px">
       <div class="panel" data-panel-id="activity">
-        <div class="panel-h">
+        <div class="panel-h" onclick="togglePanel(this)">
           <div class="panel-t">Activity</div>
           <div style="display:flex;align-items:center;gap:3px"><div class="sd on" style="animation:orb-breathe 2s infinite"></div><span style="font-size:8px;color:var(--dim);letter-spacing:.06em">LIVE</span></div>
         </div>
         <div class="panel-b"><div class="feed" id="feed"></div></div>
       </div>
       <div class="panel" data-panel-id="performance">
-        <div class="panel-h"><div class="panel-t">Performance</div></div>
+        <div class="panel-h" onclick="togglePanel(this)"><div class="panel-t">Performance</div><span class="panel-toggle">▼</span></div>
         <div class="panel-b"><div id="perf-panel"></div></div>
       </div>
     </div>
@@ -2376,7 +2383,37 @@ function applyLayout(layout){
 // Apply saved layout on load
 (function(){
   applyLayout(getLayout());
+  // Restore collapsed panels
+  const collapsed=JSON.parse(localStorage.getItem('god-collapsed-panels')||'[]');
+  collapsed.forEach(panelId=>{
+    const panel=document.querySelector('[data-panel-id="'+panelId+'"]');
+    if(panel){
+      const body=panel.querySelector('.panel-b');
+      const toggle=panel.querySelector('.panel-toggle');
+      if(body)body.classList.add('collapsed');
+      if(toggle)toggle.classList.add('collapsed');
+    }
+  });
 })();
+
+function togglePanel(header){
+  const panel=header.closest('.panel');
+  if(!panel)return;
+  const body=panel.querySelector('.panel-b');
+  const toggle=panel.querySelector('.panel-toggle');
+  if(!body)return;
+  const isCollapsed=body.classList.toggle('collapsed');
+  if(toggle)toggle.classList.toggle('collapsed',isCollapsed);
+  // Persist
+  const panelId=panel.dataset.panelId;
+  if(panelId){
+    const collapsed=JSON.parse(localStorage.getItem('god-collapsed-panels')||'[]');
+    const idx=collapsed.indexOf(panelId);
+    if(isCollapsed&&idx<0)collapsed.push(panelId);
+    else if(!isCollapsed&&idx>=0)collapsed.splice(idx,1);
+    localStorage.setItem('god-collapsed-panels',JSON.stringify(collapsed));
+  }
+}
 </script>
 </body>
 </html>

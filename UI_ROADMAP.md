@@ -24,11 +24,10 @@
 - [x] Neon (vibrant dark blue)
 - [x] Theme persistence (localStorage)
 
-### v7.3 — Dashboard Polish
-- [ ] Widget grid layout
-- [ ] Drag-to-reorder widgets
-- [ ] Widget collapse/expand
-- [ ] Dashboard presets
+### v7.3 — Dashboard Polish ✅
+- [x] Panel collapse/expand (click header to toggle)
+- [x] Collapse state persistence (localStorage)
+- [x] Animated toggle indicator (▼ rotation)
 
 ---
 
