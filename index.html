@@ -589,6 +589,19 @@ button{cursor:pointer}
 
 /* Memory knowledge graph */
 .mem-graph{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+
+/* Dependency graph */
+.dep-graph{position:relative;width:100%;min-height:220px;margin:8px 0}
+.dep-graph svg{width:100%;height:220px}
+.dep-node{
+  cursor:pointer;transition:all .2s;
+}
+.dep-node:hover{filter:brightness(1.2)}
+.dep-node rect{rx:8;ry:8;stroke-width:1.5}
+.dep-node text{font-size:9px;fill:var(--text);font-family:var(--sans);pointer-events:none}
+.dep-line{stroke:var(--line2);stroke-width:1;fill:none}
+.dep-line.active{stroke:var(--accent);stroke-width:1.5;stroke-dasharray:4 3;animation:flow-dash 2s linear infinite}
+.dep-dot{fill:var(--accent);r:2.5}
 .mem-node{
   padding:6px 10px;border-radius:8px;background:var(--glass);border:1px solid var(--line);
   font-size:10px;cursor:pointer;transition:all .2s;
@@ -803,6 +816,7 @@ body.font-small{font-size:11px}
         <div class="pg-sec"><div class="t">Active Model</div><div id="i-model"></div></div>
         <div class="pg-sec"><div class="t">Last Route</div><div id="i-route"></div></div>
       </div>
+      <div class="pg-sec"><div class="t">System Dependency Graph</div><div id="dep-graph" class="dep-graph"></div></div>
       <div class="pg-sec"><div class="t">Provider Comparison</div><div id="prov-matrix" class="prov-matrix"></div></div>
       <div class="pg-sec"><div class="t">Token Cost Breakdown</div><div id="token-cost"></div></div>
     </div></div>
@@ -1364,6 +1378,77 @@ function pEvoTimeline(s){
   }).join('')}</div>`;
 }
 
+// System dependency graph (SVG)
+function pDepGraph(s){
+  const el=$('dep-graph');
+  if(!el)return;
+  const llm=(s.providers||[]).some(p=>p.available);
+  const qd=s.qdrant||{};
+  const gov=s.governor||{};
+  // Nodes: x,y,w,h,label,color
+  const nodes=[
+    {id:'llm',x:180,y:10,w:100,h:30,label:'LLM Providers',fill:llm?'var(--accent)':'var(--dim)',status:llm?'on':'off'},
+    {id:'router',x:180,y:60,w:100,h:30,label:'Router',fill:'var(--info)',status:'on'},
+    {id:'memory',x:40,y:110,w:90,h:30,label:'Memory',fill:qd.available?'var(--accent)':'var(--dim)',status:qd.available?'on':'off'},
+    {id:'cache',x:155,y:110,w:80,h:30,label:'Cache',fill:'var(--ok)',status:'on'},
+    {id:'tools',x:260,y:110,w:80,h:30,label:'Tools',fill:'var(--evo)',status:'on'},
+    {id:'governor',x:180,y:160,w:100,h:30,label:'Governor',fill:gov.strict!=null?'var(--warn)':'var(--dim)',status:gov.strict!=null?'on':'off'},
+  ];
+  // Edges: from,to
+  const edges=[
+    {from:'llm',to:'router'},
+    {from:'router',to:'memory'},
+    {from:'router',to:'cache'},
+    {from:'router',to:'tools'},
+    {from:'memory',to:'governor'},
+    {from:'cache',to:'governor'},
+    {from:'tools',to:'governor'},
+  ];
+  // Build SVG
+  const w=400,h=200;
+  let svg=`<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}">`;
+  // Draw edges
+  edges.forEach(e=>{
+    const nFrom=nodes.find(n=>n.id===e.from);
+    const nTo=nodes.find(n=>n.id===e.to);
+    if(!nFrom||!nTo)return;
+    const x1=nFrom.x+nFrom.w/2,y1=nFrom.y+nFrom.h;
+    const x2=nTo.x+nTo.w/2,y2=nTo.y;
+    const active=nFrom.status==='on'&&nTo.status==='on';
+    // Curved path
+    const midY=(y1+y2)/2;
+    svg+=`<path d="M${x1},${y1} C${x1},${midY} ${x2},${midY} ${x2},${y2}" class="dep-line${active?' active':''}"/>`;
+    // Flow dot
+    if(active){
+      svg+=`<circle class="dep-dot"><animateMotion dur="2s" repeatCount="indefinite"><mpath href="#dep-edge-${e.from}-${e.to}"/></animateMotion></circle>`;
+      svg+=`<path id="dep-edge-${e.from}-${e.to}" d="M${x1},${y1} C${x1},${midY} ${x2},${midY} ${x2},${y2}" fill="none" stroke="none"/>`;
+    }
+  });
+  // Draw nodes
+  nodes.forEach(n=>{
+    svg+=`<g class="dep-node" data-id="${n.id}"><rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" fill="var(--glass)" stroke="${n.fill}"/><text x="${n.x+n.w/2}" y="${n.y+n.h/2}" text-anchor="middle" dominant-baseline="middle">${n.label}</text></g>`;
+  });
+  svg+=`</svg>`;
+  el.innerHTML=svg;
+  // Click handlers
+  el.querySelectorAll('.dep-node').forEach(g=>{
+    g.addEventListener('click',()=>{
+      const id=g.dataset.id;
+      const node=nodes.find(n=>n.id===id);
+      if(node){
+        // Show detail tooltip
+        const existing=el.querySelector('.smap-detail');
+        if(existing)existing.remove();
+        const detail=document.createElement('div');
+        detail.className='smap-detail show';
+        detail.innerHTML=`<div class="dt">${node.label}</div><div class="dd"><strong>${node.status==='on'?'Active':'Inactive'}</strong></div>`;
+        el.appendChild(detail);
+        setTimeout(()=>document.addEventListener('click',function close(e){if(!detail.contains(e.target)){detail.remove();document.removeEventListener('click',close);}}),100);
+      }
+    });
+  });
+}
+
 // Memory knowledge graph
 function pMemGraph(s){
   const m=s.memory||{};
@@ -1446,7 +1531,7 @@ function setCore(st,label){
 function paint(s){
   S=s;pStatus(s);pCore(s);pKPI(s);pSmap(s);pNodes(s);pFeed(s);pPerf(s);
   pIntel(s);pMem(s);pComp(s);pTok(s);pEvo(s);pAct(s);pCfg(s);pProf(s);pChat(s);
-  pProvidersMatrix(s);pTokenCost(s);pEvoTimeline(s);pMemGraph(s);
+  pProvidersMatrix(s);pTokenCost(s);pEvoTimeline(s);pMemGraph(s);pDepGraph(s);
   updateMood();
 }
 

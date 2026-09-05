@@ -24,11 +24,11 @@
 - [x] Reset to default layout (Settings page)
 - [x] Panel visibility toggle (Settings page)
 
-### v6.3 — Task Dependency Graph
-- [ ] SVG task dependency graph
-- [ ] Interactive node selection
-- [ ] Data flow visualization
-- [ ] Worker topology view
+### v6.3 — System Dependency Graph ✅
+- [x] SVG dependency graph of system components
+- [x] Interactive node selection (click for details)
+- [x] Data flow visualization (animated dots along paths)
+- [x] Click for details popup
 
 ---
 
