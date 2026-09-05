@@ -47,7 +47,7 @@ feature_flags_meta:
     enabled_by: auto
     reason: pricing CALCULATED, free tier first
   debug_trace:
-    enabled_at: '2026-09-05T12:35:33.786193+00:00'
+    enabled_at: '2026-09-05T12:59:18.918191+00:00'
     enabled_by: startup
     reason: 'auto-enable on startup: debugging utility'
   extended_metrics:
@@ -63,7 +63,7 @@ feature_flags_meta:
     enabled_by: auto
     reason: protect free tier quotas
   semantic_cache:
-    enabled_at: '2026-09-05T12:35:33.765523+00:00'
+    enabled_at: '2026-09-05T12:59:18.905707+00:00'
     enabled_by: startup
     reason: 'auto-enable on startup: neural embeddings working'
 governor:
