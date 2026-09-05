@@ -586,9 +586,9 @@ class SiteBuilder(unittest.TestCase):
         self.assertEqual(r2["status"], "error")
         r3 = execute("fs.write", {"slug": "utest-site", "path": "../x.html", "text": "no"})
         self.assertEqual(r3["status"], "error")
-        ok, _ = gov.allow_write(Path("/home/user/super-ai/superai/brain.py"))
+        ok, _ = gov.allow_write(Path("/home/user/GOD/superai/brain.py"))
         self.assertFalse(ok)
-        ok2, _ = gov.allow_write(Path("/home/user/super-ai/.env"))
+        ok2, _ = gov.allow_write(Path("/home/user/GOD/.env"))
         self.assertFalse(ok2)
 
     def test_extract_publish_preview(self):
@@ -646,7 +646,7 @@ class GodBuilder(unittest.TestCase):
         gods.activate("mini")
         denied = execute("calculator", {"expr": "1+1"})
         self.assertEqual(denied["status"], "error")
-        listed = execute("fs.list", {"path": "/home/user/super-ai"})
+        listed = execute("fs.list", {"path": "/home/user/GOD"})
         self.assertEqual(listed["status"], "success")
 
     def test_overlay_in_prompt(self):
