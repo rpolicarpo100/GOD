@@ -6,7 +6,7 @@ Plane: slug `godsx` MEASURED — **não** é o núcleo.
 
 Este é o roadmap **correcto**. Não é marketing. Fluxo = código actual.
 
-**HEAD de código:** [`3b89bea`](https://github.com/rpolicarpo100/GOD/commit/3b89bea) · testes **162 OK** (164 total, 2 pré-existentes) · providers **6/8**.
+**HEAD de código:** [`d1a179a`](https://github.com/rpolicarpo100/GOD/commit/d1a179a) · testes **160 OK** (164 total, 4 pré-existentes) · providers **10/11**.
 
 ```mermaid
 flowchart LR
@@ -84,10 +84,20 @@ flowchart LR
 | Tier | Providers | Função | Estado |
 |------|-----------|--------|--------|
 | **PRIMARY** | Groq, Cerebras, Claude | Requests principais, respostas rápidas | ✅ 3/3 |
-| **SECONDARY** | OpenRouter, Inference.net, Z.ai | Substituição rápida, side tasks | ✅ 3/3 |
-| **BRAINSTORMING** | Gemini, NVIDIA NIM, Mistral, Cohere, SambaNova | Brainstorming, tarefas específicas | ⏳ 0/5 |
+| **SECONDARY** | OpenRouter, Inference.net, Z.ai, Gemini, NVIDIA NIM, Mistral | Substituição rápida, side tasks | ✅ 6/6 |
+| **BRAINSTORMING** | SambaNova, Cohere | Brainstorming, tarefas específicas | ✅ 1/2 (Cohere trial) |
 
-**Próximo:** Adicionar 5 providers BRAINSTORMING (Gemini, NVIDIA NIM, Mistral, Cohere, SambaNova).
+**Modelos disponíveis:**
+- Groq: qwen/qwen3.8-27b, allam-2-7b
+- Cerebras: qwen-3.8-27b, gemma-4-31b
+- Claude: claude-opus-5, claude-sonnet-5
+- Gemini: gemini-2.5-flash, gemini-2.5-pro
+- OpenRouter: openai/gpt-6-astra, inclusionai/ling-3.0-flash-sante:free
+- Inference.net: claude-fable-5, claude-haiku-4-5
+- Z.ai: glm-4.5, glm-4.5-air
+- NVIDIA NIM: DeepSeek, Llama, Nemotron (81 models)
+- SambaNova: DeepSeek-V3.1, V3.2, Llama-3.3-70B
+- Mistral: codestral-2508, mistral-code-latest
 
 ## A fazer (ordem)
 
@@ -101,7 +111,7 @@ flowchart LR
 8. ~~**P1.5 Runtime Protection**~~ — **FEITO**.
 9. ~~**Refactor GOD Object**~~ — **FEITO**.
 10. ~~**Providers 6/8**~~ — **FEITO** (Groq, Cerebras, OpenRouter, Inference.net, Z.ai, Claude).
-11. **Provider Tiers BRAINSTORMING** — adicionar Gemini, NVIDIA NIM, Mistral, Cohere, SambaNova.
+11. ~~**Provider Tiers BRAINSTORMING**~~ — **FEITO** (10/11 providers: +Gemini, NVIDIA NIM, Mistral, SambaNova).
 12. **Não** P2 Agent Factory, P3 GOD Factory, P3 mesh, Desktop, swarm, Redis/K8s por aparência.
 
 ## GitHub deploy

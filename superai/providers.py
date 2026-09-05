@@ -531,6 +531,7 @@ ADAPTERS: list[Provider] = [
     OpenAICompatAdapter("zai", "Z.ai", "ZAI_API_KEY", "https://api.z.ai/api/paas/v4"),
     OpenAICompatAdapter("nvidia", "NVIDIA NIM", "NVIDIA_API_KEY", "https://integrate.api.nvidia.com/v1"),
     OpenAICompatAdapter("sambanova", "SambaNova", "SAMBANOVA_API_KEY", "https://api.sambanova.ai/v1"),
+    OpenAICompatAdapter("mistral", "Mistral AI", "MISTRAL_API_KEY", "https://api.mistral.ai/v1"),
     ClaudeAdapter(),
 ]
 
