@@ -1,5 +1,5 @@
 {
-  "head": "619d8e6",
+  "head": "15e0b24",
   "branch": "main",
   "date": "2026-09-05",
   "tests": {
@@ -10,6 +10,17 @@
   },
   "github": "synced",
   "working_tree": "clean",
+  "god_object": {
+    "detected": false,
+    "resolved": true,
+    "runtime_lines": 503,
+    "handle_lines": 53,
+    "handle_complexity": 13,
+    "pipeline_stages": 7,
+    "shortcut_handlers": 11,
+    "critical_issues": 0,
+    "hard_blocks": 0
+  },
   "p15": {
     "system_state": "done",
     "capability_registry": "done",
@@ -17,7 +28,8 @@
     "decision_trace": "done",
     "controlled_evolution": "done",
     "runtime_protection": "done",
-    "feature_flags": "done"
+    "feature_flags": "done",
+    "god_object_refactor": "done"
   },
   "new_files": [
     "superai/system.py",
@@ -25,39 +37,9 @@
     "superai/health.py",
     "superai/trace.py",
     "superai/feature_flags.py",
-    "superai/runtime_protection.py"
+    "superai/runtime_protection.py",
+    "superai/pipeline.py",
+    "superai/shortcuts.py"
   ],
-  "new_endpoints": [
-    "/api/system/state",
-    "/api/system/capabilities",
-    "/api/system/capabilities/{name}",
-    "/api/system/can/{name}",
-    "/api/system/health",
-    "/api/system/liveness",
-    "/api/system/readiness",
-    "/api/system/diagnostics",
-    "/api/system/trace",
-    "/api/system/trace/{request_id}",
-    "/api/system/flags",
-    "/api/system/flags/{name}",
-    "/api/system/flags/{name}/enable",
-    "/api/system/flags/{name}/disable",
-    "/api/system/protection",
-    "/api/system/god-object",
-    "/api/system/protection/inspect"
-  ],
-  "god_object": {
-    "detected": true,
-    "file": "runtime.py",
-    "lines": 1128,
-    "handle_lines": 586,
-    "complexity": 278,
-    "recommendation": "extract handle() sub-functions into separate modules"
-  },
-  "feature_flags": {
-    "total": 8,
-    "all_disabled": true,
-    "high_risk": ["auto_evolve", "hardcore_mode"]
-  },
   "blocked": ["P1 router € — all free tier"]
 }
