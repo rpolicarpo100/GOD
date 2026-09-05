@@ -94,6 +94,14 @@ class TestSensitiveDataDetection(unittest.TestCase):
 class TestResourceLimits(unittest.TestCase):
     """P2.2 — Resource limits."""
 
+    def setUp(self):
+        """Clean up tracker before each test."""
+        from superai import resource_limits
+        tracker = resource_limits.get_tracker()
+        # Clean up any leftover tasks
+        for task_id in list(tracker._task_usage.keys()):
+            tracker.end_task(task_id)
+
     def test_tracker_start_end(self):
         """Start and end tracking."""
         from superai import resource_limits
