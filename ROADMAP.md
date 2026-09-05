@@ -6,7 +6,7 @@ Plane: slug `godsx` MEASURED — **não** é o núcleo.
 
 Este é o roadmap **correcto**. Não é marketing. Fluxo = código actual.
 
-**HEAD de código:** [`d1a179a`](https://github.com/rpolicarpo100/GOD/commit/d1a179a) · testes **160 OK** (164 total, 4 pré-existentes) · providers **10/11**.
+**HEAD de código:** [`344d537`](https://github.com/rpolicarpo100/GOD/commit/344d537) · testes **164 OK** (164 total, 0 pré-existentes) · providers **10/11** · pricing **CALCULATED**.
 
 ```mermaid
 flowchart LR
