@@ -197,7 +197,7 @@ def health() -> dict:
 def complete(prompt: str, **kw: Any) -> dict[str, Any]:
     rec = kw.get("recommendation")
     prefer = kw.get("prefer")
-    hardcore = kw.get("hardcore", False)
+    hardcore = kw.pop("hardcore", False)
     if rec == "PREMIUM" and not prefer:
         hs = providers.health_all()
         if any(h.get("id") == "claude" and h.get("available") for h in hs):
