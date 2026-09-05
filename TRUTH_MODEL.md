@@ -37,17 +37,17 @@ Every capability, feature, and metric must be classified:
 | MEASURED | SQLite ok, Qdrant ok |
 | LIMITATION | HashingVectorizer (lexical, not FastEmbed neural) |
 
-### voice (TTS)
+### voice
 | Class | Value |
 |-------|-------|
 | IMPLEMENTED | ✅ |
 | TESTED | ✅ (test_can_voice_false) |
 | ENABLED | ✅ |
-| ACTIVE | ⚠️ (edge-tts installed, no real-time mic) |
+| TTS | ✅ AVAILABLE (edge-tts) |
+| STT | ❌ NOT IMPLEMENTED |
+| VOICE INPUT | ❌ NOT IMPLEMENTED |
+| FULL DUPLEX | ❌ NOT IMPLEMENTED |
 | MEASURED | speak("test") → 27KB MP3 |
-| STT | ❌ MISSING |
-| VOICE INPUT | ❌ MISSING |
-| FULL DUPLEX | ❌ MISSING |
 
 ### distributed_compute
 | Class | Value |
@@ -164,6 +164,22 @@ Every capability, feature, and metric must be classified:
 | ENABLED | ✅ |
 | ACTIVE | ✅ |
 | MEASURED | is_god_object: False |
+
+---
+
+## Resource Governor Modes
+
+| Mode | Description | Max Concurrent | Heavy LLM | Prefer Cache | GPU Minimal |
+|------|-------------|----------------|-----------|--------------|-------------|
+| ECO | Low resource usage | 1 | ❌ | ✅ | ✅ |
+| NORMAL | Balanced operation | 2 | ✅ | ✅ | ❌ |
+| PERFORMANCE | High resource usage | 4 | ✅ | ❌ | ❌ |
+
+**Current mode:** NORMAL (default)
+
+**API:**
+- `GET /api/system/resource-mode` — Get current mode
+- `POST /api/system/resource-mode` — Set mode (ECO/NORMAL/PERFORMANCE)
 
 ---
 
