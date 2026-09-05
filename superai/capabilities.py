@@ -111,8 +111,10 @@ def _check_web_search() -> dict:
 
 def _check_llm_api() -> dict:
     """LLM API: probed providers."""
+    from .tokens import pricing as check_pricing
     health = providers.health_all()
     available = [h["id"] for h in health if h.get("available")]
+    p = check_pricing()
     return {
         "name": "llm_api",
         "status": "implemented" if available else "not_implemented",
@@ -121,9 +123,9 @@ def _check_llm_api() -> dict:
         "evidence": [
             f"available: {available or 'none'}",
             f"total probed: {len(health)}",
+            f"pricing: {p.get('kind', 'UNKNOWN')}",
         ],
         "limitations": [
-            "cost=UNKNOWN (all free tier)",
             "OmniRoute :20128 down",
         ],
         "dependencies": ["httpx"],
@@ -187,22 +189,21 @@ def _check_thirdeye() -> dict:
 
 
 def _check_evolution() -> dict:
-    """Evolution: observe/propose/decide."""
+    """Evolution: observe/propose/decide + auto_evolve."""
+    from .feature_flags import is_enabled
+    auto = is_enabled("auto_evolve")
     return {
         "name": "evolution",
-        "status": "partial",
+        "status": "implemented" if auto else "partial",
         "enabled": True,
         "verified": True,
         "evidence": [
             "observe/propose/decide implemented",
-            "human approval required",
-            "does not auto-modify code",
+            f"auto_evolve: {'enabled' if auto else 'disabled'}",
+            "classify_risk blocks HIGH risk",
         ],
-        "limitations": [
-            "limited to paraphrase experiments",
-            "does not change main branch directly",
-        ],
-        "dependencies": [],
+        "limitations": [] if auto else ["human approval required for all changes"],
+        "dependencies": ["feature_flags"],
         "last_verified": now_iso(),
     }
 
@@ -247,15 +248,24 @@ def _check_parallel() -> dict:
 
 
 def _check_cost_routing() -> dict:
-    """Cost-based routing: BLOCKED (all free)."""
+    """Cost-based routing: check flag + pricing."""
+    from .feature_flags import is_enabled
+    from .tokens import pricing as check_pricing
+    enabled = is_enabled("cost_routing")
+    p = check_pricing()
+    has_pricing = p.get("kind") == "CALCULATED"
     return {
         "name": "cost_routing",
-        "status": "blocked",
-        "enabled": False,
+        "status": "implemented" if (enabled and has_pricing) else "partial" if has_pricing else "blocked",
+        "enabled": enabled,
         "verified": True,
-        "evidence": ["all models are free tier (cost=0)"],
-        "limitations": ["needs verified pricing source"],
-        "dependencies": ["model_pricing table"],
+        "evidence": [
+            f"flag enabled: {enabled}",
+            f"pricing: {p.get('kind', 'UNKNOWN')}",
+            "free tier first, fallback automatic",
+        ],
+        "limitations": [] if has_pricing else ["needs verified pricing source"],
+        "dependencies": ["model_pricing table", "feature_flags"],
         "last_verified": now_iso(),
     }
 

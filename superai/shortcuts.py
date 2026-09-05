@@ -47,6 +47,28 @@ def _handle_web_refusal(_say, _broadcast) -> dict:
     return {"ok": True, "via": "no_web", "blocked": True}
 
 
+def _handle_web_search(query, _say, _broadcast) -> dict:
+    """Search the web using available backends."""
+    from .websearch import search
+    r = search(query, max_results=5)
+    if r.get("status") == "success":
+        lines = [f"PESQUISA WEB ({r['backend']}) — {r['n']} resultados:"]
+        for i, res in enumerate(r["results"], 1):
+            lines.append(f"{i}. {res['title']}")
+            lines.append(f"   {res['url']}")
+            if res.get("snippet"):
+                lines.append(f"   {res['snippet'][:200]}")
+        _say("brain", "\n".join(lines))
+        _broadcast()
+        return {"ok": True, "via": "web_search", "results": r}
+    else:
+        _say("brain",
+             f"Pesquisa web falhou: {r.get('error', 'unknown')}. "
+             "Nenhum search engine disponível.")
+        _broadcast()
+        return {"ok": True, "via": "no_web", "blocked": True}
+
+
 def _handle_roadmap(_say, _broadcast, resolve_mode) -> dict:
     os_s = aios.snapshot()
     llm = providers.any_llm()
@@ -241,9 +263,11 @@ def try_shortcuts(text: str, low: str, from_worker: bool, *,
     if re.search(r"economia de tokens|token intelligence|relat[oó]rio de tokens", low):
         return True, _handle_token_report(_say, _broadcast)
 
-    # Web search refusal
+    # Web search — try actual search first, fallback to refusal
     if re.search(r"pesquisa na (web|internet)|search the web|\bsearxng\b|\bgoogle\b.*\b(pesquisa|search)", low):
-        return True, _handle_web_refusal(_say, _broadcast)
+        qm = re.search(r"(?:pesquisa na (?:web|internet)|search the web)[:\s]+(.+)", text, re.I)
+        query = qm.group(1).strip() if qm else text
+        return True, _handle_web_search(query, _say, _broadcast)
 
     # Roadmap
     if re.search(r"^\s*(roadmap|fluxo)\s*$", low) or re.search(r"\broadmap\b", low):

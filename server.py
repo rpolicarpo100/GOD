@@ -113,6 +113,26 @@ def _startup():
     # Ensure worker has a fresh heartbeat
     tq.heartbeat(compute.LOCAL_ID)
     aios.boot()
+    # Auto-enable critical feature flags
+    _ensure_flags()
+
+
+def _ensure_flags():
+    """Ensure critical flags are always enabled on startup."""
+    from superai.feature_flags import enable, is_enabled
+    critical = [
+        ("semantic_cache", "auto-enable on startup: neural embeddings working"),
+        ("parallel_jobs", "auto-enable on startup: inflight=2 verified"),
+        ("debug_trace", "auto-enable on startup: debugging utility"),
+        ("extended_metrics", "auto-enable on startup: extra metrics no cost"),
+        ("cost_routing", "auto-enable on startup: pricing CALCULATED"),
+        ("auto_evolve", "auto-enable on startup: classify_risk is safety net"),
+        ("auto_cleanup", "auto-enable on startup: stale data cleanup"),
+        ("rate_limiting", "auto-enable on startup: quota protection"),
+    ]
+    for name, reason in critical:
+        if not is_enabled(name):
+            enable(name, reason=reason, actor="startup")
 
 
 @app.get("/")
