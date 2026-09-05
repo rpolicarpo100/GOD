@@ -96,15 +96,22 @@ def _check_local_llm() -> dict:
 
 
 def _check_web_search() -> dict:
-    """Web search: SearXNG absent."""
+    """Web search: SearXNG + DuckDuckGo."""
+    from .websearch import health as ws_health
+    h = ws_health()
+    available = h.get("available", [])
     return {
         "name": "web_search",
-        "status": "not_implemented",
-        "enabled": False,
+        "status": "implemented" if available else "not_implemented",
+        "enabled": bool(available),
         "verified": True,
-        "evidence": ["SearXNG absent"],
-        "limitations": ["no search engine integrated"],
-        "dependencies": ["searxng"],
+        "evidence": [
+            f"backends available: {available or 'none'}",
+            f"SearXNG: {'yes' if any('searxng' in b for b in available) else 'no'}",
+            f"DuckDuckGo: {'yes' if 'duckduckgo' in available else 'no'}",
+        ],
+        "limitations": [] if available else ["no search engine available"],
+        "dependencies": ["httpx"],
         "last_verified": now_iso(),
     }
 
