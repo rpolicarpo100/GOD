@@ -13,6 +13,7 @@ set "CMD=%~1"
 if "%CMD%"=="" goto :help
 
 if "%CMD%"=="start" goto :start
+if "%CMD%"=="start-lan" goto :start-lan
 if "%CMD%"=="stop" goto :stop
 if "%CMD%"=="status" goto :status
 if "%CMD%"=="test" goto :test
@@ -28,6 +29,23 @@ goto :help
 echo Starting GOD on port 8000...
 echo Dashboard: http://localhost:8000
 echo API docs:  http://localhost:8000/docs
+echo Bind:      127.0.0.1 (localhost only)
+echo Auth:      Required for admin endpoints
+echo Press Ctrl+C to stop.
+echo.
+"%PY%" -m uvicorn server:app --host 127.0.0.1 --port 8000
+goto :eof
+
+:start-lan
+echo.
+echo *** WARNING: Starting GOD in LAN mode! ***
+echo *** This exposes GOD to your local network. ***
+echo *** Authentication required for admin endpoints. ***
+echo.
+echo Starting GOD on port 8000...
+echo Dashboard: http://localhost:8000
+echo Bind:      0.0.0.0 (LAN accessible)
+echo Auth:      Required for admin endpoints
 echo Press Ctrl+C to stop.
 echo.
 "%PY%" -m uvicorn server:app --host 0.0.0.0 --port 8000
@@ -47,6 +65,9 @@ if %errorlevel% equ 0 (
     echo [OK] GOD is running on port 8000.
     echo Dashboard: http://localhost:8000
     "%PY%" -c "import httpx; r=httpx.get('http://127.0.0.1:8000/api/health',timeout=5); print(r.json())" 2>nul
+    echo.
+    echo Auth status:
+    "%PY%" -c "import httpx; r=httpx.get('http://127.0.0.1:8000/api/auth/status',timeout=5); print(r.json())" 2>nul
 ) else (
     echo [WARN] GOD is not running on port 8000.
     echo        Start with: god start
@@ -55,7 +76,7 @@ goto :eof
 
 :test
 echo Running tests...
-"%PY%" -m unittest tests.test_core -v
+"%PY%" -m pytest tests/ -v
 goto :eof
 
 :doctor
@@ -100,7 +121,8 @@ goto :eof
 echo.
 echo GOD — Commands
 echo.
-echo   god start       Start the server (port 8000)
+echo   god start       Start the server (localhost only, port 8000)
+echo   god start-lan   Start the server (LAN accessible, port 8000)
 echo   god stop        Stop the server
 echo   god status      Check if server is running
 echo   god test        Run test suite
@@ -108,6 +130,11 @@ echo   god doctor      Run diagnostics
 echo   god repair      Run repair checks
 echo   god benchmark   Run benchmark suite
 echo   god help        Show this help
+echo.
+echo Security:
+echo   Authentication required for admin endpoints.
+echo   Create owner: POST /api/auth/setup
+echo   Login:        POST /api/auth/login
 echo.
 
 endlocal

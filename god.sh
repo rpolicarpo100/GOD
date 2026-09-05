@@ -20,12 +20,30 @@ CMD="${1:-help}"
 
 case "$CMD" in
     start)
+        BIND="127.0.0.1"
+        EXTRA_MSG=""
         echo "Starting GOD on port 8000..."
         echo "Dashboard: http://localhost:8000"
         echo "API docs:  http://localhost:8000/docs"
+        echo "Bind:      $BIND (localhost only)"
+        echo "Auth:      Required for admin endpoints"
         echo "Press Ctrl+C to stop."
         echo ""
-        $PY -m uvicorn server:app --host 0.0.0.0 --port 8000
+        $PY -m uvicorn server:app --host $BIND --port 8000
+        ;;
+    start-lan)
+        BIND="0.0.0.0"
+        echo "⚠  WARNING: Starting GOD in LAN mode!"
+        echo "⚠  This exposes GOD to your local network."
+        echo "⚠  Authentication is required for admin endpoints."
+        echo ""
+        echo "Starting GOD on port 8000..."
+        echo "Dashboard: http://localhost:8000"
+        echo "Bind:      $BIND (LAN accessible)"
+        echo "Auth:      Required for admin endpoints"
+        echo "Press Ctrl+C to stop."
+        echo ""
+        $PY -m uvicorn server:app --host $BIND --port 8000
         ;;
     stop)
         echo "Stopping GOD..."
@@ -36,13 +54,16 @@ case "$CMD" in
         if curl -s http://127.0.0.1:8000/api/health >/dev/null 2>&1; then
             echo "[OK] GOD is running on port 8000."
             curl -s http://127.0.0.1:8000/api/health | $PY -m json.tool 2>/dev/null
+            echo ""
+            echo "Auth status:"
+            curl -s http://127.0.0.1:8000/api/auth/status | $PY -m json.tool 2>/dev/null
         else
             echo "[WARN] GOD is not running. Start with: ./god.sh start"
         fi
         ;;
     test)
         echo "Running tests..."
-        $PY -m unittest tests.test_core -v
+        $PY -m pytest tests/ -v
         ;;
     benchmark)
         echo "Running benchmark..."
@@ -72,13 +93,19 @@ print(r.get('note') or '')
         echo ""
         echo "GOD — Commands"
         echo ""
-        echo "  ./god.sh start       Start the server (port 8000)"
+        echo "  ./god.sh start       Start the server (localhost only, port 8000)"
+        echo "  ./god.sh start-lan   Start the server (LAN accessible, port 8000)"
         echo "  ./god.sh stop        Stop the server"
         echo "  ./god.sh status      Check if server is running"
         echo "  ./god.sh test        Run test suite"
         echo "  ./god.sh benchmark   Run benchmark suite"
         echo "  ./god.sh doctor      Run diagnostics"
         echo "  ./god.sh help        Show this help"
+        echo ""
+        echo "Security:"
+        echo "  Authentication required for admin endpoints."
+        echo "  Create owner: POST /api/auth/setup"
+        echo "  Login:        POST /api/auth/login"
         echo ""
         ;;
 esac
