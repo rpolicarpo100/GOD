@@ -554,3 +554,13 @@ def api_god_object():
 def api_protection_inspect():
     """Inspecionar todos os ficheiros fonte."""
     return rp.inspect_all()
+
+
+# === EVOLUTION ===
+
+
+@app.get("/api/system/experiments")
+def api_experiments():
+    """Resumo das experiências de evolução."""
+    from superai.evolution import experiments_summary
+    return experiments_summary()

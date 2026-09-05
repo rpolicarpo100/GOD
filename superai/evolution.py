@@ -225,9 +225,75 @@ def run_cycle() -> dict:
     obs = observe()
     bench = benchmark.run(trigger="evolution")
     exp = propose_from_observe(obs)
+    
+    # Additional experiments based on provider performance
+    provider_exp = _propose_provider_experiment(obs)
+    if provider_exp:
+        store.save_experiment(provider_exp)
+        bus.emit("VERSION_PROPOSED", "EVOLUTION", provider_exp["title"])
+    
     bus.emit("EXPERIMENT_COMPLETED", "EVOLUTION", f"cycle {exp['id']} + bench {bench['run_id']}")
     return {"observe": obs, "benchmark": bench, "experiment": exp}
 
 
+def _propose_provider_experiment(obs: dict) -> dict | None:
+    """Propor experimento de routing de providers baseado em performance."""
+    from . import tokens as ti
+    
+    stats = ti.provider_stats()
+    if stats.get("kind") == "UNKNOWN" or stats.get("n_events", 0) < 5:
+        return None
+    
+    providers = stats.get("providers", [])
+    if not providers:
+        return None
+    
+    # Find best and worst providers
+    best = max(providers, key=lambda p: p.get("ok_rate", 0))
+    worst = min(providers, key=lambda p: p.get("ok_rate", 1))
+    
+    if best["ok_rate"] - worst["ok_rate"] < 0.2:
+        return None  # Not enough difference
+    
+    return {
+        "id": uid("X"),
+        "title": f"Reordenar providers: {best['provider']} (best) vs {worst['provider']} (worst)",
+        "hypothesis": f"{best['provider']} tem ok_rate {best['ok_rate']:.2f} vs {worst['provider']} {worst['ok_rate']:.2f}",
+        "status": "pending",
+        "metric": "provider_ok_rate",
+        "before": {"best": best, "worst": worst},
+        "after": {"recommendation": "reorder by ok_rate"},
+        "risk": "medium",
+        "risk_info": classify_risk({"title": "routing provider", "hypothesis": "provider routing", "payload": {"change": "routing"}}),
+        "requires_human": gov.strict(),
+        "payload": {
+            "change": f"Reorder: {best['provider']} first, {worst['provider']} last",
+            "obs": obs,
+            "stats": stats,
+        },
+        "ts": now_iso(),
+    }
+
+
 def pending() -> list[dict]:
     return [e for e in store.experiments(20) if e.get("status") == "pending"]
+
+
+def experiments_summary() -> dict:
+    """Resumo das experiências para API/UI."""
+    exps = store.experiments(20)
+    pending = [e for e in exps if e.get("status") == "pending"]
+    adopted = [e for e in exps if e.get("status") == "adopted"]
+    rejected = [e for e in exps if e.get("status") == "rejected"]
+    blocked = [e for e in exps if e.get("status") == "blocked"]
+    
+    return {
+        "kind": "MEASURED",
+        "ts": now_iso(),
+        "total": len(exps),
+        "pending": len(pending),
+        "adopted": len(adopted),
+        "rejected": len(rejected),
+        "blocked": len(blocked),
+        "experiments": exps[:10],  # Last 10
+    }
