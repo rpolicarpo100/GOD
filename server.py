@@ -27,6 +27,20 @@ ROOT = Path(__file__).parent
 app = FastAPI(title="SUPER AI")
 WORKER_TOKEN = os.environ.get("SUPERAI_WORKER_TOKEN") or ""
 
+def _get_session(authorization: str | None) -> str | None:
+    """Extract session ID from Authorization header."""
+    if authorization and authorization.startswith("Bearer "):
+        return authorization[7:]
+    return None
+
+def _require_perm(authorization: str | None, permission: str):
+    """Require permission or raise HTTPException."""
+    session_id = _get_session(authorization)
+    check = auth.require_permission(session_id, permission)
+    if not check.get("ok"):
+        raise HTTPException(check.get("code", 403), check.get("error"))
+    return check
+
 
 class ParamsIn(BaseModel):
     patch: dict
@@ -235,7 +249,9 @@ def token_models():
 
 
 @app.post("/api/params")
-def params(body: ParamsIn):
+def params(body: ParamsIn, authorization: str | None = Header(default=None)):
+    """Update params. Protected — requires CONFIG_WRITE."""
+    _require_perm(authorization, auth.Perm.CONFIG_WRITE)
     return set_params(body.patch)
 
 
@@ -269,7 +285,9 @@ def api_god(gid: str):
 
 
 @app.post("/api/gods")
-def api_gods_save(body: GodIn):
+def api_gods_save(body: GodIn, authorization: str | None = Header(default=None)):
+    """Save GOD profile. Requires GODS_MANAGE."""
+    _require_perm(authorization, auth.Perm.GODS_MANAGE)
     from superai import gods
     from superai.runtime import _broadcast
 
@@ -284,7 +302,9 @@ def api_gods_save(body: GodIn):
 
 
 @app.post("/api/gods/{gid}/activate")
-def api_gods_activate(gid: str):
+def api_gods_activate(gid: str, authorization: str | None = Header(default=None)):
+    """Activate GOD profile. Requires GODS_ACTIVATE."""
+    _require_perm(authorization, auth.Perm.GODS_ACTIVATE)
     from superai import gods
     from superai.runtime import _broadcast
 
@@ -303,7 +323,9 @@ def api_gods_versions(gid: str):
 
 
 @app.post("/api/gods/{gid}/rollback")
-def api_gods_rollback(gid: str, body: RollbackIn):
+def api_gods_rollback(gid: str, body: RollbackIn, authorization: str | None = Header(default=None)):
+    """Rollback GOD profile. Requires GODS_MANAGE."""
+    _require_perm(authorization, auth.Perm.GODS_MANAGE)
     from superai import gods
     from superai.runtime import _broadcast
 
@@ -315,7 +337,9 @@ def api_gods_rollback(gid: str, body: RollbackIn):
 
 
 @app.post("/api/repair")
-def api_repair():
+def api_repair(authorization: str | None = Header(default=None)):
+    """Run repair. Requires REPAIR_EXECUTE."""
+    _require_perm(authorization, auth.Perm.REPAIR_EXECUTE)
     from superai import repair
     from superai.runtime import _broadcast
 
@@ -330,17 +354,23 @@ def chat(body: ChatIn):
 
 
 @app.post("/api/benchmark")
-def api_bench():
+def api_bench(authorization: str | None = Header(default=None)):
+    """Run benchmark. Requires BENCHMARK_RUN."""
+    _require_perm(authorization, auth.Perm.BENCHMARK_RUN)
     return benchmark.run("api")
 
 
 @app.post("/api/evolve")
-def api_evolve():
+def api_evolve(authorization: str | None = Header(default=None)):
+    """Run evolution cycle. Requires EVOLUTION_EXECUTE."""
+    _require_perm(authorization, auth.Perm.EVOLUTION_EXECUTE)
     return evolution.run_cycle()
 
 
 @app.post("/api/experiment")
-def api_exp(body: ExpIn):
+def api_exp(body: ExpIn, authorization: str | None = Header(default=None)):
+    """Decide experiment. Requires EVOLUTION_EXECUTE."""
+    _require_perm(authorization, auth.Perm.EVOLUTION_EXECUTE)
     return {"msg": evolution.decide(body.id, body.approve)}
 
 
@@ -399,17 +429,23 @@ def os_drivers():
 
 
 @app.post("/api/os/kill")
-def os_kill(body: KillIn):
+def os_kill(body: KillIn, authorization: str | None = Header(default=None)):
+    """Kill process. Critical — requires OS_KILL."""
+    _require_perm(authorization, auth.Perm.OS_KILL)
     return aios.kill(body.id)
 
 
 @app.post("/api/os/syscall")
-def os_sys(body: SyscallIn):
+def os_sys(body: SyscallIn, authorization: str | None = Header(default=None)):
+    """Execute syscall. Critical — requires OS_EXECUTE."""
+    _require_perm(authorization, auth.Perm.OS_EXECUTE)
     return aios.syscall(body.name, body.args or {})
 
 
 @app.post("/api/os/nice")
-def os_nice(body: NiceIn):
+def os_nice(body: NiceIn, authorization: str | None = Header(default=None)):
+    """Nice process. Requires OS_EXECUTE."""
+    _require_perm(authorization, auth.Perm.OS_EXECUTE)
     return aios.nice(body.id, body.priority)
 
 
@@ -549,13 +585,17 @@ def api_flag(name: str):
 
 
 @app.post("/api/system/flags/{name}/enable")
-def api_flag_enable(name: str):
+def api_flag_enable(name: str, authorization: str | None = Header(default=None)):
+    """Enable feature flag. Requires FLAGS_MANAGE."""
+    _require_perm(authorization, auth.Perm.FLAGS_MANAGE)
     """Activar uma feature flag."""
     return ff.enable(name, reason="API request", actor="api")
 
 
 @app.post("/api/system/flags/{name}/disable")
-def api_flag_disable(name: str):
+def api_flag_disable(name: str, authorization: str | None = Header(default=None)):
+    """Disable feature flag. Requires FLAGS_MANAGE."""
+    _require_perm(authorization, auth.Perm.FLAGS_MANAGE)
     """Desactivar uma feature flag."""
     return ff.disable(name, reason="API request", actor="api")
 
@@ -596,7 +636,9 @@ def api_resource_mode():
 
 
 @app.post("/api/system/resource-mode")
-def api_set_resource_mode(body: ResourceModeIn):
+def api_set_resource_mode(body: ResourceModeIn, authorization: str | None = Header(default=None)):
+    """Set resource mode. Requires CONFIG_WRITE."""
+    _require_perm(authorization, auth.Perm.CONFIG_WRITE)
     """Set resource mode."""
     from superai.governor import gov, RESOURCE_MODES
     from superai.runtime import _broadcast
@@ -634,7 +676,9 @@ def api_voice_health():
 
 
 @app.post("/api/system/voice/speak")
-def api_voice_speak(body: VoiceIn):
+def api_voice_speak(body: VoiceIn, authorization: str | None = Header(default=None)):
+    """TTS. Requires TOOLS_EXECUTE."""
+    _require_perm(authorization, auth.Perm.TOOLS_EXECUTE)
     """Converter texto em fala (TTS)."""
     from superai.voice import speak
     return speak(body.text, lang=body.lang, voice=body.voice)
@@ -675,7 +719,9 @@ def api_websearch_health():
 
 
 @app.post("/api/system/websearch")
-def api_websearch(body: SearchIn):
+def api_websearch(body: SearchIn, authorization: str | None = Header(default=None)):
+    """Web search. Requires TOOLS_EXECUTE."""
+    _require_perm(authorization, auth.Perm.TOOLS_EXECUTE)
     """Pesquisar na web."""
     from superai.websearch import search
     return search(body.query, max_results=body.max_results)
@@ -820,7 +866,9 @@ def api_nodes():
 
 
 @app.post("/api/system/nodes")
-def api_register_node(body: NodeIn):
+def api_register_node(body: NodeIn, authorization: str | None = Header(default=None)):
+    """Register node. Requires WORKER_MANAGE."""
+    _require_perm(authorization, auth.Perm.WORKER_MANAGE)
     """Register a new node."""
     from superai.nodes import registry
     from superai.runtime import _broadcast
@@ -831,7 +879,9 @@ def api_register_node(body: NodeIn):
 
 
 @app.delete("/api/system/nodes/{node_id}")
-def api_unregister_node(node_id: str):
+def api_unregister_node(node_id: str, authorization: str | None = Header(default=None)):
+    """Unregister node. Requires WORKER_MANAGE."""
+    _require_perm(authorization, auth.Perm.WORKER_MANAGE)
     """Unregister a node."""
     from superai.nodes import registry
     from superai.runtime import _broadcast
