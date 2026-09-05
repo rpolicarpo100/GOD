@@ -116,4 +116,5 @@ v5.1 — Interactive system map
 v5.2 — Advanced monitoring + Alert history
 v5.3 — Chat polish + Reactions + Edit + Search
 v5.4 — System Intelligence + Provider Matrix + Token Cost
+v5.5 — File upload support
 ```
