@@ -677,7 +677,7 @@
     "role": "OWNER",
     "created_at": 1788624916.925612,
     "last_active": 1788624916.9263272,
-    "active": true
+    "active": false
   },
   "FsgUobwWcKSBPQSzxjZX_Xk2wKOku33K_2tmAsw-o0k": {
     "session_id": "FsgUobwWcKSBPQSzxjZX_Xk2wKOku33K_2tmAsw-o0k",
@@ -685,7 +685,7 @@
     "role": "OWNER",
     "created_at": 1788624917.071,
     "last_active": 1788624917.071,
-    "active": true
+    "active": false
   },
   "n9V3QxIC_2uoIMvYb6qsinZ311Hin1UmkV6VZranYUc": {
     "session_id": "n9V3QxIC_2uoIMvYb6qsinZ311Hin1UmkV6VZranYUc",
@@ -693,7 +693,7 @@
     "role": "GUEST",
     "created_at": 1788624917.8515377,
     "last_active": 1788624917.8522594,
-    "active": true
+    "active": false
   },
   "UjSKAlxbAe86lWLqsx-5B-ah0Ea9Q31Q5neL-j2iAX8": {
     "session_id": "UjSKAlxbAe86lWLqsx-5B-ah0Ea9Q31Q5neL-j2iAX8",
@@ -701,7 +701,7 @@
     "role": "OWNER",
     "created_at": 1788624918.0622694,
     "last_active": 1788624918.0630283,
-    "active": true
+    "active": false
   },
   "KebLaJnl7IpYbcNrFseEwjdUyLNotlQ2N1R_Mx4vJFw": {
     "session_id": "KebLaJnl7IpYbcNrFseEwjdUyLNotlQ2N1R_Mx4vJFw",
@@ -709,7 +709,7 @@
     "role": "OWNER",
     "created_at": 1788624918.3683488,
     "last_active": 1788624918.3683488,
-    "active": true
+    "active": false
   },
   "Pl5TKhjRvyCyQDbNkZguPa6J5BGzcA04liieM7FPBsI": {
     "session_id": "Pl5TKhjRvyCyQDbNkZguPa6J5BGzcA04liieM7FPBsI",
@@ -717,7 +717,7 @@
     "role": "OWNER",
     "created_at": 1788624918.5788522,
     "last_active": 1788624918.579613,
-    "active": true
+    "active": false
   },
   "JE7Zo6A6L-n431KxMvROY1v4odQVd7dwsddehyKLifQ": {
     "session_id": "JE7Zo6A6L-n431KxMvROY1v4odQVd7dwsddehyKLifQ",
@@ -725,7 +725,7 @@
     "role": "GUEST",
     "created_at": 1788624918.7912865,
     "last_active": 1788624918.792043,
-    "active": true
+    "active": false
   },
   "hzpyz2KZ0O4DLjiRrMMvXjIWsz0RZVSR3i8DogXUvTw": {
     "session_id": "hzpyz2KZ0O4DLjiRrMMvXjIWsz0RZVSR3i8DogXUvTw",
@@ -749,7 +749,7 @@
     "role": "OWNER",
     "created_at": 1788625013.5342448,
     "last_active": 1788625013.5348258,
-    "active": true
+    "active": false
   },
   "Nv8FRUKtL-D91HcxyFzt33ivZvA2dU8dMaPzuBcKIYM": {
     "session_id": "Nv8FRUKtL-D91HcxyFzt33ivZvA2dU8dMaPzuBcKIYM",
@@ -757,7 +757,7 @@
     "role": "OWNER",
     "created_at": 1788625013.6765847,
     "last_active": 1788625013.6765847,
-    "active": true
+    "active": false
   },
   "e92ZdXzYqjkpstRHtJmNgVNVHSI-o_rj4SjIJiy-flE": {
     "session_id": "e92ZdXzYqjkpstRHtJmNgVNVHSI-o_rj4SjIJiy-flE",
@@ -765,7 +765,7 @@
     "role": "GUEST",
     "created_at": 1788625014.4462192,
     "last_active": 1788625014.4467673,
-    "active": true
+    "active": false
   },
   "BMihtnZ6N6gd7Ji7cMREZssa9G44u5P5N-GZNOgzenc": {
     "session_id": "BMihtnZ6N6gd7Ji7cMREZssa9G44u5P5N-GZNOgzenc",
@@ -773,7 +773,7 @@
     "role": "OWNER",
     "created_at": 1788625014.6569989,
     "last_active": 1788625014.6575758,
-    "active": true
+    "active": false
   },
   "bjLvrzLhCxO9Cv4NVtLruIjG_OdP0Edir9J6ip9A3TQ": {
     "session_id": "bjLvrzLhCxO9Cv4NVtLruIjG_OdP0Edir9J6ip9A3TQ",
@@ -781,7 +781,7 @@
     "role": "OWNER",
     "created_at": 1788625014.9618695,
     "last_active": 1788625014.9618695,
-    "active": true
+    "active": false
   },
   "SfN1a-HrG-JLRJJUasRH8jQRpGUK0PfOL4VQB0Hty0Y": {
     "session_id": "SfN1a-HrG-JLRJJUasRH8jQRpGUK0PfOL4VQB0Hty0Y",
@@ -789,7 +789,7 @@
     "role": "OWNER",
     "created_at": 1788625015.1722035,
     "last_active": 1788625015.1728272,
-    "active": true
+    "active": false
   },
   "d_M88kfJwGjb5FvyQ9P8McY1vrZai2MoadEYgKt1OYc": {
     "session_id": "d_M88kfJwGjb5FvyQ9P8McY1vrZai2MoadEYgKt1OYc",
@@ -797,6 +797,78 @@
     "role": "GUEST",
     "created_at": 1788625015.3799622,
     "last_active": 1788625015.3805475,
+    "active": false
+  },
+  "W-eIg8xdlmZTh7fzb1kl27RJyr05R_ZNL35G-KeSIC0": {
+    "session_id": "W-eIg8xdlmZTh7fzb1kl27RJyr05R_ZNL35G-KeSIC0",
+    "user_id": "owner-42dd4b8a59f34f5c",
+    "role": "OWNER",
+    "created_at": 1788626291.2247324,
+    "last_active": 1788626291.2247324,
+    "active": false
+  },
+  "kmKsN-uamRoc4oRX7Ckzc2nEdHu1NZpdtNrR7OwBPfc": {
+    "session_id": "kmKsN-uamRoc4oRX7Ckzc2nEdHu1NZpdtNrR7OwBPfc",
+    "user_id": "owner-c54690cd4486b351",
+    "role": "OWNER",
+    "created_at": 1788626291.3658087,
+    "last_active": 1788625390.366639,
+    "active": false
+  },
+  "B9RiyuFvnetvyFqmPEdo8q-S3aPmfZz-x2DdSpusg6A": {
+    "session_id": "B9RiyuFvnetvyFqmPEdo8q-S3aPmfZz-x2DdSpusg6A",
+    "user_id": "owner-6b56a2cab6fe5b9a",
+    "role": "OWNER",
+    "created_at": 1788626291.5094624,
+    "last_active": 1788626291.510283,
+    "active": true
+  },
+  "YcRBY1AWfyvDz0dWvVN2vPTAz_fQd5cC06OMTREAzvw": {
+    "session_id": "YcRBY1AWfyvDz0dWvVN2vPTAz_fQd5cC06OMTREAzvw",
+    "user_id": "owner-694dc5156e90fb42",
+    "role": "OWNER",
+    "created_at": 1788626291.6512609,
+    "last_active": 1788626291.6512609,
+    "active": true
+  },
+  "ghwgKIM6xJ5gGVGy6JYFq9NGjVx_h-tRZdhA5es7IB4": {
+    "session_id": "ghwgKIM6xJ5gGVGy6JYFq9NGjVx_h-tRZdhA5es7IB4",
+    "user_id": "guest-85a032a2c5b09c3a",
+    "role": "GUEST",
+    "created_at": 1788626292.51517,
+    "last_active": 1788626292.5160985,
+    "active": true
+  },
+  "1QQopYU9yORF8PIVqjOa0mdkzOghcOrSFdl4yojzJA4": {
+    "session_id": "1QQopYU9yORF8PIVqjOa0mdkzOghcOrSFdl4yojzJA4",
+    "user_id": "owner-4625a376d30ba370",
+    "role": "OWNER",
+    "created_at": 1788626292.7781863,
+    "last_active": 1788626292.7788641,
+    "active": true
+  },
+  "E9ksPF6hUvdiSa--fjqxtk2vyn80zq0PTmRQ-wntkos": {
+    "session_id": "E9ksPF6hUvdiSa--fjqxtk2vyn80zq0PTmRQ-wntkos",
+    "user_id": "owner-52220ee295605334",
+    "role": "OWNER",
+    "created_at": 1788626293.106773,
+    "last_active": 1788626293.106773,
+    "active": true
+  },
+  "JzeLKZ6_ycl28EIOSO8zt-wdacDUN1gaRX_eILNG12M": {
+    "session_id": "JzeLKZ6_ycl28EIOSO8zt-wdacDUN1gaRX_eILNG12M",
+    "user_id": "owner-02b51e40586315c4",
+    "role": "OWNER",
+    "created_at": 1788626293.320507,
+    "last_active": 1788626293.3211424,
+    "active": true
+  },
+  "FPapAl_1Mzc4tOe5o4gPdKZQi1alvS7xpWVOUEaEVsY": {
+    "session_id": "FPapAl_1Mzc4tOe5o4gPdKZQi1alvS7xpWVOUEaEVsY",
+    "user_id": "guest-e42877cb020c7dcd",
+    "role": "GUEST",
+    "created_at": 1788626293.5299392,
+    "last_active": 1788626293.5305824,
     "active": true
   }
 }

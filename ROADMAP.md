@@ -53,6 +53,11 @@ flowchart LR
 | 🔵 P1.5 | Feature Flags | 8 flags, DISABLED by default | **FEITO** | `superai/feature_flags.py` · 9 tests |
 | 🔵 P1.5 | Controlled Evolution | risk classification + human-in-the-loop | **FEITO** | evolution.py `classify_risk` + `propose_with_risk` · 5 tests |
 | 🔵 P1.5 | Runtime Protection | GOD Object detection | **FEITO** | `superai/runtime_protection.py` · 9 tests |
+| 🔵 P2.1 | Sensitive Data Detection | passwords, tokens, keys | **FEITO** | `superai/sensitive.py` |
+| 🔵 P2.2 | Resource Limits | CPU, memory, tokens | **FEITO** | `superai/resource_limits.py` |
+| 🔵 P2.4 | Sandbox Protection | path/network/import restrictions | **FEITO** | `superai/sandbox.py` |
+| 🔵 P2.5 | Rate Limiting | sliding window | **FEITO** | `superai/rate_limit.py` |
+| 🔵 P2.6 | Network Access Control | localhost default, LAN explicit | **FEITO** | `superai/network_control.py` |
 
 ## Feito
 
