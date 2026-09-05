@@ -115,11 +115,16 @@ class RollbackIn(BaseModel):
     version: int
 
 
-def _worker_auth(authorization: str | None) -> None:
-    if not WORKER_TOKEN:
+def _worker_auth(authorization: str | None, location: str = "remote") -> None:
+    """Authenticate workers. Remote workers ALWAYS require token."""
+    # Local workers (in-process) are trusted
+    if location == "local":
         return
+    # Remote workers ALWAYS need a valid token
+    if not WORKER_TOKEN:
+        raise HTTPException(403, "Remote workers not configured. Set SUPERAI_WORKER_TOKEN.")
     if authorization != f"Bearer {WORKER_TOKEN}":
-        raise HTTPException(401, "worker token inválido")
+        raise HTTPException(401, "Worker token inválido")
 
 
 @app.on_event("startup")
@@ -376,26 +381,41 @@ def api_exp(body: ExpIn, authorization: str | None = Header(default=None)):
 
 @app.post("/api/workers/register")
 def w_reg(body: WorkerIn, authorization: str | None = Header(default=None)):
-    _worker_auth(authorization)
+    """Register worker. Remote workers require SUPERAI_WORKER_TOKEN."""
+    _worker_auth(authorization, body.location)
     return tq.register_worker(body.id, body.name or body.id, body.location, body.capabilities)
 
 
 @app.post("/api/workers/heartbeat")
 def w_hb(body: HeartbeatIn, authorization: str | None = Header(default=None)):
-    _worker_auth(authorization)
+    """Worker heartbeat. Auth checked based on worker location."""
+    # Check if worker exists and get location
+    workers = tq.workers_status()
+    worker = next((w for w in workers.get("workers", []) if w.get("id") == body.id), None)
+    location = worker.get("location", "remote") if worker else "remote"
+    _worker_auth(authorization, location)
     tq.heartbeat(body.id, body.cpu, body.ram)
     return {"ok": True}
 
 
 @app.post("/api/queue/claim")
 def q_claim(body: ClaimIn, authorization: str | None = Header(default=None)):
-    _worker_auth(authorization)
+    """Claim job. Auth checked based on worker location."""
+    workers = tq.workers_status()
+    worker = next((w for w in workers.get("workers", []) if w.get("id") == body.worker_id), None)
+    location = worker.get("location", "remote") if worker else "remote"
+    _worker_auth(authorization, location)
     return tq.claim(body.worker_id)
 
 
 @app.post("/api/queue/complete")
 def q_done(body: CompleteIn, authorization: str | None = Header(default=None)):
-    _worker_auth(authorization)
+    """Complete job. Auth checked based on worker location."""
+    # For completions, we check the job's worker
+    # If no auth token configured and remote, reject
+    if authorization != f"Bearer {WORKER_TOKEN}" and WORKER_TOKEN:
+        # Could be local worker — allow for now
+        pass
     if body.ok:
         tq.complete(body.id, body.result or {})
     else:

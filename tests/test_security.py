@@ -346,5 +346,63 @@ class TestSecurityFlow(unittest.TestCase):
         self.assertEqual(check["code"], 403)
 
 
+class TestRemoteWorkerAuth(unittest.TestCase):
+    """Test that remote workers require authentication."""
+    
+    def test_worker_auth_local_allowed(self):
+        """Local workers should always be allowed."""
+        import server
+        # Should not raise for local workers even without token
+        try:
+            server._worker_auth(None, "local")
+            local_ok = True
+        except Exception:
+            local_ok = False
+        self.assertTrue(local_ok)
+    
+    def test_worker_auth_remote_no_token(self):
+        """Remote workers without token configured should be rejected."""
+        import server
+        # Save and clear token
+        old_token = server.WORKER_TOKEN
+        server.WORKER_TOKEN = ""
+        try:
+            server._worker_auth(None, "remote")
+            remote_ok = False  # Should have raised
+        except Exception as e:
+            remote_ok = "403" in str(e) or "não configurado" in str(e).lower() or "not configured" in str(e).lower()
+        finally:
+            server.WORKER_TOKEN = old_token
+        self.assertTrue(remote_ok)
+    
+    def test_worker_auth_remote_wrong_token(self):
+        """Remote workers with wrong token should be rejected."""
+        import server
+        old_token = server.WORKER_TOKEN
+        server.WORKER_TOKEN = "correct-token-123"
+        try:
+            server._worker_auth("Bearer wrong-token", "remote")
+            wrong_ok = False
+        except Exception as e:
+            wrong_ok = "401" in str(e)
+        finally:
+            server.WORKER_TOKEN = old_token
+        self.assertTrue(wrong_ok)
+    
+    def test_worker_auth_remote_correct_token(self):
+        """Remote workers with correct token should be allowed."""
+        import server
+        old_token = server.WORKER_TOKEN
+        server.WORKER_TOKEN = "correct-token-123"
+        try:
+            server._worker_auth("Bearer correct-token-123", "remote")
+            correct_ok = True
+        except Exception:
+            correct_ok = False
+        finally:
+            server.WORKER_TOKEN = old_token
+        self.assertTrue(correct_ok)
+
+
 if __name__ == "__main__":
     unittest.main()

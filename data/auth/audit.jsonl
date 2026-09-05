@@ -440,3 +440,129 @@
 {"id": "0291a47018034e7a", "ts": 1788623373.8520536, "action": "user.create", "user_id": "guest-bd4737dd3251ab35", "details": {"role": "GUEST", "username": "flowguest"}}
 {"id": "5977e129c0fe3c6f", "ts": 1788623373.921765, "action": "auth.login", "user_id": "guest-bd4737dd3251ab35", "details": {"session_id": "vn0hakwJ5bgfJgyiagKMgoquYxV71unuHfg7ms0RXKM"}}
 {"id": "352974b1730102ab", "ts": 1788623373.9222448, "action": "security.denied", "user_id": "guest-bd4737dd3251ab35", "details": {"permission": "os.kill"}}
+{"id": "a30fe8c28d22db0f", "ts": 1788623612.0703576, "action": "user.create", "user_id": "owner-d20109c517f9d13e", "details": {"role": "OWNER", "username": "admin1"}}
+{"id": "2d3f5c35e7c8594f", "ts": 1788623612.1404986, "action": "user.create", "user_id": "owner-39c492bbcede8d45", "details": {"role": "OWNER", "username": "admin"}}
+{"id": "ea3af55543c61862", "ts": 1788623612.2143307, "action": "user.create", "user_id": "owner-43815089ebea9ab6", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "a4709e631be26611", "ts": 1788623612.2824075, "action": "auth.login_fail", "user_id": "owner-43815089ebea9ab6", "details": {"username": "testowner", "reason": "bad_password"}}
+{"id": "1b5d8c369f49c52e", "ts": 1788623612.352557, "action": "user.create", "user_id": "owner-37cb627e869027f3", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "2deb5a3214b67928", "ts": 1788623612.4226606, "action": "user.create", "user_id": "owner-cb1e1546ea2355c2", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "a0f6c28633fcb36d", "ts": 1788623612.4228823, "action": "auth.login_fail", "user_id": null, "details": {"username": "nonexistent", "reason": "user_not_found"}}
+{"id": "3383404137433acf", "ts": 1788623612.4935632, "action": "user.create", "user_id": "owner-8ceb5a704a5dbafd", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "c3549d21c77fd58a", "ts": 1788623612.562095, "action": "auth.login", "user_id": "owner-8ceb5a704a5dbafd", "details": {"session_id": "XerE8BAlT_ehdz_7ZfJTc_vKEkazX9i0Dgn8mrwyg7s"}}
+{"id": "d0e8ad705dd9b47c", "ts": 1788623612.5625658, "action": "auth.logout", "user_id": "owner-8ceb5a704a5dbafd", "details": {"session_id": "XerE8BAlT_ehdz_7ZfJTc_vKEkazX9i0Dgn8mrwyg7s"}}
+{"id": "7568f56a8fbecc7b", "ts": 1788623612.6326485, "action": "user.create", "user_id": "owner-59a38b625d365da5", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "1c990ec421e5219a", "ts": 1788623612.7016203, "action": "auth.login", "user_id": "owner-59a38b625d365da5", "details": {"session_id": "K5Ego6nHL1L7imgBRwKFtsS4IdAbVVq3OIqcPSyqxPU"}}
+{"id": "eae0d141f3d2d4af", "ts": 1788623612.702508, "action": "auth.session_expired", "user_id": "owner-59a38b625d365da5", "details": {"reason": "inactivity"}}
+{"id": "874d9fe5386118de", "ts": 1788623612.7727227, "action": "user.create", "user_id": "owner-134218b2c4e4a939", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "38f295af71c86ded", "ts": 1788623612.841982, "action": "auth.login", "user_id": "owner-134218b2c4e4a939", "details": {"session_id": "Jf6vtgZg_Twfe4r8IKorNNVFuZYwthEI5m5PIFYcfGQ"}}
+{"id": "93b483539e8df40a", "ts": 1788623612.9155955, "action": "user.create", "user_id": "owner-6e36608913282161", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "6853ad0e2ef999e4", "ts": 1788623612.984594, "action": "auth.login", "user_id": "owner-6e36608913282161", "details": {"session_id": "8jioXdZIhtdoOiZJt6vADhCKWoPHDucTvCphAl6_vFg"}}
+{"id": "e9dda55a8a219641", "ts": 1788623613.0549166, "action": "user.create", "user_id": "owner-f1fb399545ef0bf1", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "4b0320966a62b178", "ts": 1788623613.1229448, "action": "user.create", "user_id": "guest-c5764d8a422d29a9", "details": {"role": "GUEST", "username": "guest1"}}
+{"id": "f09117f7854f905e", "ts": 1788623613.1930823, "action": "user.create", "user_id": "owner-9bf9c9532acd9246", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "ef15f16d52c743ad", "ts": 1788623613.2614574, "action": "user.create", "user_id": "guest-85202944ec9e325b", "details": {"role": "GUEST", "username": "guest1"}}
+{"id": "1d6242320282c83e", "ts": 1788623613.331534, "action": "user.create", "user_id": "owner-3ee6939c614c91b6", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "48a28eef52921ac1", "ts": 1788623613.4001725, "action": "user.create", "user_id": "guest-4ad1e9e5f7d3ad79", "details": {"role": "GUEST", "username": "guest1"}}
+{"id": "52f6a715041f6a0a", "ts": 1788623613.4002557, "action": "auth.no_session", "user_id": null, "details": {"permission": "security.manage"}}
+{"id": "5168e5110db149dc", "ts": 1788623613.4706783, "action": "user.create", "user_id": "owner-828071c0cc024ddd", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "c87bf3853ebcfb04", "ts": 1788623613.5392873, "action": "user.create", "user_id": "guest-826002a1909c7f08", "details": {"role": "GUEST", "username": "guest1"}}
+{"id": "12d201e75ed125dc", "ts": 1788623613.6099489, "action": "user.create", "user_id": "owner-0934a0ec62f20b8b", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "c6a81d36385345e5", "ts": 1788623613.6781914, "action": "user.create", "user_id": "guest-d9cca5b135d0eab4", "details": {"role": "GUEST", "username": "guest1"}}
+{"id": "7fc6dc83109b4668", "ts": 1788623613.7472672, "action": "auth.login", "user_id": "guest-d9cca5b135d0eab4", "details": {"session_id": "ZmEGOXmto6UsKcO7svPbBSLc27g4dRBMN4bDowyUdeQ"}}
+{"id": "9366a3d52899e584", "ts": 1788623613.7477927, "action": "auth.denied", "user_id": "guest-d9cca5b135d0eab4", "details": {"permission": "security.manage", "role": "GUEST"}}
+{"id": "f3961743014473ee", "ts": 1788623613.8188224, "action": "user.create", "user_id": "owner-5ea08890dba3dcf4", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "2f5e76b73b26e6a3", "ts": 1788623613.8875186, "action": "user.create", "user_id": "guest-4b6a9acabc40d932", "details": {"role": "GUEST", "username": "guest1"}}
+{"id": "2fd4cf24a4b71e83", "ts": 1788623613.9567623, "action": "auth.login", "user_id": "owner-5ea08890dba3dcf4", "details": {"session_id": "CmvlybK7rMXEcfPzOiJnm7f897raCnEQPgswZn0HUsQ"}}
+{"id": "a64013c088bbcca5", "ts": 1788623613.9604495, "action": "override.created", "user_id": "user-1", "details": {"override_id": "ovr-dfbc9fc0e9c58771", "action": "governor.override", "scope": "*"}}
+{"id": "dae21bd949f8dfae", "ts": 1788623613.961098, "action": "override.approved", "user_id": "admin", "details": {"override_id": "ovr-dfbc9fc0e9c58771"}}
+{"id": "36ee9ce374543815", "ts": 1788623613.963187, "action": "override.created", "user_id": "user-1", "details": {"override_id": "ovr-1032366216c7cbfc", "action": "governor.override", "scope": "*"}}
+{"id": "40d40bfdfc414930", "ts": 1788623613.9636421, "action": "override.approved", "user_id": "admin", "details": {"override_id": "ovr-1032366216c7cbfc"}}
+{"id": "c245195e77cb208f", "ts": 1788623613.9661286, "action": "override.created", "user_id": "user-1", "details": {"override_id": "ovr-67b04d3069029f87", "action": "fs.write", "scope": "/tmp/safe"}}
+{"id": "1f30873045f02923", "ts": 1788623613.9665935, "action": "override.approved", "user_id": "admin", "details": {"override_id": "ovr-67b04d3069029f87"}}
+{"id": "acdf52aed75fcb8f", "ts": 1788623613.9687173, "action": "override.created", "user_id": "user-1", "details": {"override_id": "ovr-ae1a872549119ba9", "action": "governor.override", "scope": "*"}}
+{"id": "680666d4100c6446", "ts": 1788623613.9692404, "action": "override.approved", "user_id": "admin", "details": {"override_id": "ovr-ae1a872549119ba9"}}
+{"id": "0bd70a4621f71646", "ts": 1788623613.9697592, "action": "override.consumed", "user_id": "user-1", "details": {"override_id": "ovr-ae1a872549119ba9"}}
+{"id": "0d71d90836d9cf2f", "ts": 1788623613.9719646, "action": "approval.requested", "user_id": "user-1", "details": {"approval_id": "apr-5a0a9d5081ca3cbd", "action": "os.kill"}}
+{"id": "cb1283e0f531037f", "ts": 1788623613.9724581, "action": "approval.denied", "user_id": "admin", "details": {"approval_id": "apr-5a0a9d5081ca3cbd"}}
+{"id": "6e00847c8581dc46", "ts": 1788623613.974588, "action": "approval.requested", "user_id": "user-1", "details": {"approval_id": "apr-d072dad3dbd9ea9d", "action": "os.kill"}}
+{"id": "7a10cf109f452d09", "ts": 1788623613.9751096, "action": "approval.approved", "user_id": "admin", "details": {"approval_id": "apr-d072dad3dbd9ea9d"}}
+{"id": "c4f86c433787458a", "ts": 1788623613.9777546, "action": "approval.requested", "user_id": "user-1", "details": {"approval_id": "apr-7e1d5091a18342b9", "action": "os.kill"}}
+{"id": "b7fd163294eed629", "ts": 1788623613.9783864, "action": "approval.approved", "user_id": "admin", "details": {"approval_id": "apr-7e1d5091a18342b9"}}
+{"id": "45a74117d745dc5a", "ts": 1788623613.9805276, "action": "approval.requested", "user_id": "user-1", "details": {"approval_id": "apr-cc3217f73bef0ff0", "action": "os.kill"}}
+{"id": "1bc504a7c3deea31", "ts": 1788623613.9811046, "action": "approval.approved", "user_id": "admin", "details": {"approval_id": "apr-cc3217f73bef0ff0"}}
+{"id": "6c11e5a624b7a99b", "ts": 1788623613.9816089, "action": "approval.consumed", "user_id": "user-1", "details": {"approval_id": "apr-cc3217f73bef0ff0"}}
+{"id": "615f605b944a81c1", "ts": 1788623614.052189, "action": "user.create", "user_id": "owner-534af915f92199f7", "details": {"role": "OWNER", "username": "audittest2"}}
+{"id": "fa4daa5c62d22dce", "ts": 1788623614.1201837, "action": "auth.login_fail", "user_id": "owner-534af915f92199f7", "details": {"username": "audittest2", "reason": "bad_password"}}
+{"id": "0d9fe5167d07e069", "ts": 1788623614.190931, "action": "user.create", "user_id": "owner-ed64179edf6bacfb", "details": {"role": "OWNER", "username": "audittest"}}
+{"id": "5a7e8218ec57bc6e", "ts": 1788623614.260299, "action": "auth.login", "user_id": "owner-ed64179edf6bacfb", "details": {"session_id": "ilOzpPsV8pazLT-HMcewTOOJfDZ6FHFLR5C3Ff1OlFQ"}}
+{"id": "457180c51ee954d0", "ts": 1788623614.330941, "action": "user.create", "user_id": "owner-e85e7464c2655da0", "details": {"role": "OWNER", "username": "flowowner"}}
+{"id": "904e38a6501b848e", "ts": 1788623614.3310215, "action": "security.denied", "user_id": "anonymous", "details": {"permission": "security.manage"}}
+{"id": "722b117768259bb2", "ts": 1788623614.4011633, "action": "user.create", "user_id": "owner-809dc1c6f49e4633", "details": {"role": "OWNER", "username": "flowowner"}}
+{"id": "5a2257033113646c", "ts": 1788623614.469621, "action": "auth.login", "user_id": "owner-809dc1c6f49e4633", "details": {"session_id": "481njvvvGU50sJ-udEHW9OKScN0441uHDyDkXf0HqOw"}}
+{"id": "60725c52cab4cd0c", "ts": 1788623614.5414855, "action": "user.create", "user_id": "owner-6320fbcadae3227a", "details": {"role": "OWNER", "username": "flowowner"}}
+{"id": "3a2924406dc921d1", "ts": 1788623614.6103232, "action": "user.create", "user_id": "guest-508852b3f2333f4c", "details": {"role": "GUEST", "username": "flowguest"}}
+{"id": "61a95d28ea377dcb", "ts": 1788623614.6792283, "action": "auth.login", "user_id": "guest-508852b3f2333f4c", "details": {"session_id": "IaIjc4ILyMMC-Ad2_d3yAT9wvgA1Q_8ZrOXwnb1OKkA"}}
+{"id": "a85100222a14b783", "ts": 1788623614.6797602, "action": "security.denied", "user_id": "guest-508852b3f2333f4c", "details": {"permission": "os.kill"}}
+{"id": "c98911bd9ef147b8", "ts": 1788623665.497361, "action": "user.create", "user_id": "owner-65040c123dd73116", "details": {"role": "OWNER", "username": "admin1"}}
+{"id": "b57dce32361c4b43", "ts": 1788623665.5674386, "action": "user.create", "user_id": "owner-5b27f3e8d7b45053", "details": {"role": "OWNER", "username": "admin"}}
+{"id": "51ee7b68beb624d8", "ts": 1788623665.6417205, "action": "user.create", "user_id": "owner-b7978917653fbb26", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "60588ac53792c2fc", "ts": 1788623665.7102606, "action": "auth.login_fail", "user_id": "owner-b7978917653fbb26", "details": {"username": "testowner", "reason": "bad_password"}}
+{"id": "159944cb38b0db69", "ts": 1788623665.7815557, "action": "user.create", "user_id": "owner-1c24cb4df3b42063", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "35b015cc3156407f", "ts": 1788623665.8549721, "action": "user.create", "user_id": "owner-1f1f21ce81e6fbf8", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "788cfa4c0c6bf66e", "ts": 1788623665.8552682, "action": "auth.login_fail", "user_id": null, "details": {"username": "nonexistent", "reason": "user_not_found"}}
+{"id": "97271427ccbed368", "ts": 1788623665.9258196, "action": "user.create", "user_id": "owner-95472dc883503461", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "7bb96d3c4ebaf04d", "ts": 1788623665.994561, "action": "auth.login", "user_id": "owner-95472dc883503461", "details": {"session_id": "H8L_vD11nPJ1rLMWAvCJd8GZBn2VieFIHMwPUCTZiOc"}}
+{"id": "35cfc99fcbe8e381", "ts": 1788623665.9950852, "action": "auth.logout", "user_id": "owner-95472dc883503461", "details": {"session_id": "H8L_vD11nPJ1rLMWAvCJd8GZBn2VieFIHMwPUCTZiOc"}}
+{"id": "217eecc22b5ce263", "ts": 1788623666.0656338, "action": "user.create", "user_id": "owner-5b1b74ae16ccc987", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "2930168bc44adbc4", "ts": 1788623666.1343648, "action": "auth.login", "user_id": "owner-5b1b74ae16ccc987", "details": {"session_id": "DjUlwWlITwuckR8LD4FpsKWSHEenjri5MRZ39TcmFMU"}}
+{"id": "984e43a4d071283f", "ts": 1788623666.1353269, "action": "auth.session_expired", "user_id": "owner-5b1b74ae16ccc987", "details": {"reason": "inactivity"}}
+{"id": "af9e01e1dace3aec", "ts": 1788623666.205862, "action": "user.create", "user_id": "owner-707db87b4c36c28e", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "e25d223ba4f744a2", "ts": 1788623666.2750368, "action": "auth.login", "user_id": "owner-707db87b4c36c28e", "details": {"session_id": "M7r20gRFzTlNcHmwWn72GfDZeQKf8jk2A54KM8ODpqM"}}
+{"id": "e36a3ca299a60480", "ts": 1788623666.3459625, "action": "user.create", "user_id": "owner-229c559e63f68a8e", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "38d44a9e5e528f17", "ts": 1788623666.4142902, "action": "auth.login", "user_id": "owner-229c559e63f68a8e", "details": {"session_id": "oBiIYVWpoR7rgnXt9kHlWc0HHQPqsUCDZZnwCbnSlYQ"}}
+{"id": "574d5ae69ed9556a", "ts": 1788623666.4844465, "action": "user.create", "user_id": "owner-8b991f301a7599cb", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "1189e613381e8069", "ts": 1788623666.5522091, "action": "user.create", "user_id": "guest-c5dffbea92fb679c", "details": {"role": "GUEST", "username": "guest1"}}
+{"id": "4aee0a46487756cc", "ts": 1788623666.6231499, "action": "user.create", "user_id": "owner-cf8f9c62a3139240", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "f70cdb6bc06bf853", "ts": 1788623666.6939418, "action": "user.create", "user_id": "guest-0a1fa5bb9d816f3c", "details": {"role": "GUEST", "username": "guest1"}}
+{"id": "35900d020826347e", "ts": 1788623666.7654383, "action": "user.create", "user_id": "owner-8ebff87724584a8e", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "ba11725812ece721", "ts": 1788623666.8351247, "action": "user.create", "user_id": "guest-46dbd850d0578b58", "details": {"role": "GUEST", "username": "guest1"}}
+{"id": "341441493184d64c", "ts": 1788623666.8352158, "action": "auth.no_session", "user_id": null, "details": {"permission": "security.manage"}}
+{"id": "c57ac59dd0d43c25", "ts": 1788623666.9058313, "action": "user.create", "user_id": "owner-1082ab4bf6727bf3", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "54c86d50211a0f60", "ts": 1788623666.974258, "action": "user.create", "user_id": "guest-c9b7772f563df9a5", "details": {"role": "GUEST", "username": "guest1"}}
+{"id": "6cb17677697fe0fc", "ts": 1788623667.0446854, "action": "user.create", "user_id": "owner-3e40c2dbe8de762e", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "c1c3314176348e4e", "ts": 1788623667.1131673, "action": "user.create", "user_id": "guest-d7604827729501a0", "details": {"role": "GUEST", "username": "guest1"}}
+{"id": "92a55785d184cba6", "ts": 1788623667.1822004, "action": "auth.login", "user_id": "guest-d7604827729501a0", "details": {"session_id": "ir-fVwPxbt7728vxhooymYJqA4MZ88NZNvM2VfIqGv4"}}
+{"id": "92e1c0c4375db380", "ts": 1788623667.1826391, "action": "auth.denied", "user_id": "guest-d7604827729501a0", "details": {"permission": "security.manage", "role": "GUEST"}}
+{"id": "a55683ff68bca070", "ts": 1788623667.2540658, "action": "user.create", "user_id": "owner-3b6972b752687e83", "details": {"role": "OWNER", "username": "testowner"}}
+{"id": "8c7ae9ccf4b5d9eb", "ts": 1788623667.3265398, "action": "user.create", "user_id": "guest-2edbeb89a08ac97e", "details": {"role": "GUEST", "username": "guest1"}}
+{"id": "0104a75db2701eae", "ts": 1788623667.395347, "action": "auth.login", "user_id": "owner-3b6972b752687e83", "details": {"session_id": "8LwO0jzLwwV38k5Hw0nkhgKx0h8j9t_eQvOY_Gx7v3o"}}
+{"id": "d5899747771077c8", "ts": 1788623667.3989, "action": "override.created", "user_id": "user-1", "details": {"override_id": "ovr-57c8798a6eed1990", "action": "governor.override", "scope": "*"}}
+{"id": "2cfdd3cba09fe2bf", "ts": 1788623667.3994157, "action": "override.approved", "user_id": "admin", "details": {"override_id": "ovr-57c8798a6eed1990"}}
+{"id": "756a1f9bab4f4e13", "ts": 1788623667.401348, "action": "override.created", "user_id": "user-1", "details": {"override_id": "ovr-9a0ad8722efab5e8", "action": "governor.override", "scope": "*"}}
+{"id": "ec0e4f454ab4a264", "ts": 1788623667.4017606, "action": "override.approved", "user_id": "admin", "details": {"override_id": "ovr-9a0ad8722efab5e8"}}
+{"id": "ee83cba5501122b9", "ts": 1788623667.4039376, "action": "override.created", "user_id": "user-1", "details": {"override_id": "ovr-a3d9a6dcce39aee1", "action": "fs.write", "scope": "/tmp/safe"}}
+{"id": "e67d4f01593a7387", "ts": 1788623667.4043143, "action": "override.approved", "user_id": "admin", "details": {"override_id": "ovr-a3d9a6dcce39aee1"}}
+{"id": "6bfac608f9fbe314", "ts": 1788623667.4063067, "action": "override.created", "user_id": "user-1", "details": {"override_id": "ovr-8543a9b9c06c02ad", "action": "governor.override", "scope": "*"}}
+{"id": "1bde6f5f35b07453", "ts": 1788623667.406722, "action": "override.approved", "user_id": "admin", "details": {"override_id": "ovr-8543a9b9c06c02ad"}}
+{"id": "ad1cc664eb0fa1e9", "ts": 1788623667.4071066, "action": "override.consumed", "user_id": "user-1", "details": {"override_id": "ovr-8543a9b9c06c02ad"}}
+{"id": "054674f8837bea10", "ts": 1788623667.4091146, "action": "approval.requested", "user_id": "user-1", "details": {"approval_id": "apr-fd14f2b2e7a92c34", "action": "os.kill"}}
+{"id": "4aa129fc4e9abaac", "ts": 1788623667.4095366, "action": "approval.denied", "user_id": "admin", "details": {"approval_id": "apr-fd14f2b2e7a92c34"}}
+{"id": "c44bf11e941f74cb", "ts": 1788623667.4114294, "action": "approval.requested", "user_id": "user-1", "details": {"approval_id": "apr-29a8c243a37707f9", "action": "os.kill"}}
+{"id": "48a17094ac71e3da", "ts": 1788623667.411879, "action": "approval.approved", "user_id": "admin", "details": {"approval_id": "apr-29a8c243a37707f9"}}
+{"id": "4b1d06f5df7b73c4", "ts": 1788623667.4141746, "action": "approval.requested", "user_id": "user-1", "details": {"approval_id": "apr-2ae9b15ee9c66d90", "action": "os.kill"}}
+{"id": "aecb5576f1c2725f", "ts": 1788623667.4147494, "action": "approval.approved", "user_id": "admin", "details": {"approval_id": "apr-2ae9b15ee9c66d90"}}
+{"id": "4252659eb16ce53b", "ts": 1788623667.4166253, "action": "approval.requested", "user_id": "user-1", "details": {"approval_id": "apr-285d825b690890e2", "action": "os.kill"}}
+{"id": "93d6535394eed464", "ts": 1788623667.4171073, "action": "approval.approved", "user_id": "admin", "details": {"approval_id": "apr-285d825b690890e2"}}
+{"id": "aad428a52016619a", "ts": 1788623667.41753, "action": "approval.consumed", "user_id": "user-1", "details": {"approval_id": "apr-285d825b690890e2"}}
+{"id": "ec53363078e24415", "ts": 1788623667.4882076, "action": "user.create", "user_id": "owner-ff9fb2948926ac65", "details": {"role": "OWNER", "username": "audittest2"}}
+{"id": "0ffc91ebd1da2981", "ts": 1788623667.5566223, "action": "auth.login_fail", "user_id": "owner-ff9fb2948926ac65", "details": {"username": "audittest2", "reason": "bad_password"}}
+{"id": "8904e9dfd0518f71", "ts": 1788623667.627645, "action": "user.create", "user_id": "owner-742eb0d257ef38a3", "details": {"role": "OWNER", "username": "audittest"}}
+{"id": "8b28c6c07e8c1eff", "ts": 1788623667.6970632, "action": "auth.login", "user_id": "owner-742eb0d257ef38a3", "details": {"session_id": "IXxelf0rkbct8WkUHWYpMO4X4sQPjE1MBRgSE_ti_ns"}}
+{"id": "61e3464aa1909b2b", "ts": 1788623667.7676568, "action": "user.create", "user_id": "owner-7e02074bad947ed8", "details": {"role": "OWNER", "username": "flowowner"}}
+{"id": "71f048f2bace0764", "ts": 1788623667.7677376, "action": "security.denied", "user_id": "anonymous", "details": {"permission": "security.manage"}}
+{"id": "e80158b432ec2763", "ts": 1788623667.8377676, "action": "user.create", "user_id": "owner-cc188a95fb477005", "details": {"role": "OWNER", "username": "flowowner"}}
+{"id": "80a07b7bac3161fd", "ts": 1788623667.9073071, "action": "auth.login", "user_id": "owner-cc188a95fb477005", "details": {"session_id": "TCeG_lsXbleUyfClyFlyrTSQqz5K_RY8TjBV8rtG4ws"}}
+{"id": "1cedf929fd0bd82d", "ts": 1788623667.977803, "action": "user.create", "user_id": "owner-56d5f615bc5b4926", "details": {"role": "OWNER", "username": "flowowner"}}
+{"id": "5edb6e4229512ac5", "ts": 1788623668.04649, "action": "user.create", "user_id": "guest-d96e1f1575cf1b62", "details": {"role": "GUEST", "username": "flowguest"}}
+{"id": "80c08776253422c1", "ts": 1788623668.115731, "action": "auth.login", "user_id": "guest-d96e1f1575cf1b62", "details": {"session_id": "WlpxDzKzlrtJX1BN1TESaKL2PloPT-qxW8LjqikvUw4"}}
+{"id": "2b0616ab2f4db4f5", "ts": 1788623668.1161828, "action": "security.denied", "user_id": "guest-d96e1f1575cf1b62", "details": {"permission": "os.kill"}}
