@@ -15,6 +15,10 @@ from superai import aios, benchmark, compute, evolution, observer, queue as tq, 
 from superai.events import bus
 from superai.runtime import handle, resolve_mode, set_params, snapshot
 from superai.util import uid
+from superai.system import system_state
+from superai.capabilities import can, get_capability, capabilities_summary
+from superai.trace import get_trace, recent_traces, trace_summary, format_trace
+from superai.health import liveness, readiness, full_health
 
 ROOT = Path(__file__).parent
 app = FastAPI(title="SUPER AI")
@@ -430,3 +434,70 @@ async def stream():
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
     )
+
+
+# === P1.5 SYSTEM INTEGRITY ENDPOINTS ===
+
+
+@app.get("/api/system/state")
+def api_system_state():
+    """Estado completo do sistema. Tudo MEASURED ou UNKNOWN."""
+    return system_state()
+
+
+@app.get("/api/system/capabilities")
+def api_capabilities():
+    """Lista todas as capabilities com estado real."""
+    return capabilities_summary()
+
+
+@app.get("/api/system/capabilities/{name}")
+def api_capability(name: str):
+    """Detalhe de uma capability."""
+    cap = get_capability(name)
+    if not cap:
+        raise HTTPException(404, f"capability '{name}' não encontrada")
+    return cap
+
+
+@app.get("/api/system/can/{name}")
+def api_can(name: str):
+    """Pergunta: GOD pode fazer X?"""
+    return {"name": name, "can": can(name), "kind": "MEASURED"}
+
+
+@app.get("/api/system/health")
+def api_health_full():
+    """Health completo: liveness + readiness + diagnostics."""
+    return full_health()
+
+
+@app.get("/api/system/liveness")
+def api_liveness():
+    """Liveness: O processo está funcional?"""
+    return liveness()
+
+
+@app.get("/api/system/readiness")
+def api_readiness():
+    """Readiness: Está pronto para aceitar trabalho?"""
+    return readiness()
+
+
+@app.get("/api/system/diagnostics")
+def api_diagnostics():
+    """Diagnostics: Componentes disponíveis, falhados, porquê."""
+    from superai.health import diagnostics
+    return diagnostics()
+
+
+@app.get("/api/system/trace")
+def api_traces():
+    """Últimos traces de decisão."""
+    return {"traces": recent_traces(10), "kind": "MEASURED"}
+
+
+@app.get("/api/system/trace/{request_id}")
+def api_trace(request_id: str):
+    """Trace de um request específico."""
+    return trace_summary(request_id)

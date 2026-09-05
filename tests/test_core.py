@@ -1297,5 +1297,206 @@ class P1RouterReliability(unittest.TestCase):
         self.assertEqual(order_hardcore[0].id, "claude")
 
 
+class P15SystemState(unittest.TestCase):
+    """P1.5 System State — verifiable operational state."""
+
+    def test_system_state_returns_measured(self):
+        from superai.system import system_state
+        s = system_state()
+        self.assertEqual(s["system"]["name"], "GOD")
+        self.assertIsNotNone(s["system"]["version"])
+        self.assertIsNotNone(s["system"]["git_commit"])
+        self.assertIsNotNone(s["system"]["ts"])
+
+    def test_system_state_has_runtime(self):
+        from superai.system import system_state
+        s = system_state()
+        self.assertIn(s["runtime"]["status"], ("healthy", "degraded"))
+        self.assertEqual(s["runtime"]["kind"], "MEASURED")
+
+    def test_system_state_has_providers(self):
+        from superai.system import system_state
+        s = system_state()
+        self.assertIsInstance(s["providers"]["available"], list)
+        self.assertEqual(s["providers"]["kind"], "MEASURED")
+
+    def test_system_state_has_queue(self):
+        from superai.system import system_state
+        s = system_state()
+        self.assertEqual(s["queue"]["kind"], "MEASURED")
+        self.assertEqual(s["queue"]["inflight"], 2)
+
+    def test_system_state_has_resources(self):
+        from superai.system import system_state
+        s = system_state()
+        self.assertEqual(s["resources"]["kind"], "MEASURED")
+        self.assertIn("host", s["resources"])
+        self.assertIn("cpu_count", s["resources"]["host"])
+
+
+class P15Capabilities(unittest.TestCase):
+    """P1.5 Capability Registry."""
+
+    def test_list_capabilities(self):
+        from superai.capabilities import list_capabilities
+        caps = list_capabilities()
+        self.assertGreater(len(caps), 5)
+        names = [c["name"] for c in caps]
+        self.assertIn("memory", names)
+        self.assertIn("voice", names)
+        self.assertIn("llm_api", names)
+
+    def test_can_memory(self):
+        from superai.capabilities import can
+        # memory should be implemented (Qdrant + SQLite)
+        result = can("memory")
+        self.assertIsInstance(result, bool)
+
+    def test_can_voice_false(self):
+        from superai.capabilities import can
+        self.assertFalse(can("voice"))
+
+    def test_can_nonexistent(self):
+        from superai.capabilities import can
+        self.assertFalse(can("nonexistent_capability_xyz"))
+
+    def test_get_capability_memory(self):
+        from superai.capabilities import get_capability
+        mem = get_capability("memory")
+        self.assertIsNotNone(mem)
+        self.assertEqual(mem["name"], "memory")
+        self.assertIn("status", mem)
+        self.assertIn("evidence", mem)
+        self.assertIn("limitations", mem)
+
+    def test_capabilities_summary(self):
+        from superai.capabilities import capabilities_summary
+        s = capabilities_summary()
+        self.assertEqual(s["kind"], "MEASURED")
+        self.assertGreater(s["n"], 0)
+        self.assertIn("implemented", s)
+        self.assertIn("not_implemented", s)
+
+
+class P15Health(unittest.TestCase):
+    """P1.5 Health & Readiness."""
+
+    def test_liveness(self):
+        from superai.health import liveness
+        h = liveness()
+        self.assertIn(h["status"], ("healthy", "unhealthy"))
+        self.assertEqual(h["kind"], "MEASURED")
+
+    def test_readiness(self):
+        from superai.health import readiness
+        r = readiness()
+        self.assertIn(r["status"], ("ready", "not_ready"))
+        self.assertEqual(r["kind"], "MEASURED")
+        self.assertIsInstance(r["checks"], list)
+        self.assertGreater(len(r["checks"]), 0)
+
+    def test_readiness_checks_each_component(self):
+        from superai.health import readiness
+        r = readiness()
+        names = [c["name"] for c in r["checks"]]
+        self.assertIn("sqlite", names)
+        self.assertIn("worker", names)
+        self.assertIn("queue_capacity", names)
+        self.assertIn("memory_pressure", names)
+
+    def test_full_health(self):
+        from superai.health import full_health
+        h = full_health()
+        self.assertIn("liveness", h)
+        self.assertIn("readiness", h)
+        self.assertIn("diagnostics", h)
+
+    def test_diagnostics(self):
+        from superai.health import diagnostics
+        d = diagnostics()
+        self.assertEqual(d["kind"], "MEASURED")
+        self.assertIsInstance(d["components"], list)
+        self.assertGreater(d["n_components"], 0)
+
+
+class P15Trace(unittest.TestCase):
+    """P1.5 Decision Trace."""
+
+    def test_start_trace(self):
+        from superai.trace import start_trace, get_trace
+        rid = start_trace("test-trace-1")
+        self.assertEqual(rid, "test-trace-1")
+        self.assertEqual(get_trace(rid), [])
+
+    def test_record_decision(self):
+        from superai.trace import start_trace, record_decision, get_trace
+        rid = start_trace("test-trace-2")
+        rec = record_decision(rid, "runtime", "tools", "FAST mode", result="executed")
+        self.assertEqual(rec["component"], "runtime")
+        self.assertEqual(rec["decision"], "tools")
+        self.assertEqual(rec["result"], "executed")
+        trace = get_trace(rid)
+        self.assertEqual(len(trace), 1)
+
+    def test_trace_summary(self):
+        from superai.trace import start_trace, record_decision, trace_summary
+        rid = start_trace("test-trace-3")
+        record_decision(rid, "runtime", "tools", "math", result="ok")
+        record_decision(rid, "validator", "passed", "all checks", result="ok")
+        s = trace_summary(rid)
+        self.assertTrue(s["found"])
+        self.assertEqual(s["n_decisions"], 2)
+        self.assertIn("runtime", s["components"])
+        self.assertIn("validator", s["components"])
+
+    def test_trace_summary_not_found(self):
+        from superai.trace import trace_summary
+        s = trace_summary("nonexistent-trace-xyz")
+        self.assertFalse(s["found"])
+
+
+class P15Endpoints(unittest.TestCase):
+    """P1.5 API Endpoints."""
+
+    def test_system_state_endpoint(self):
+        from server import api_system_state
+        r = api_system_state()
+        self.assertEqual(r["system"]["name"], "GOD")
+
+    def test_capabilities_endpoint(self):
+        from server import api_capabilities
+        r = api_capabilities()
+        self.assertEqual(r["kind"], "MEASURED")
+        self.assertGreater(r["n"], 0)
+
+    def test_can_endpoint(self):
+        from server import api_can
+        r = api_can("voice")
+        self.assertEqual(r["name"], "voice")
+        self.assertFalse(r["can"])
+
+    def test_liveness_endpoint(self):
+        from server import api_liveness
+        r = api_liveness()
+        self.assertIn(r["status"], ("healthy", "unhealthy"))
+
+    def test_readiness_endpoint(self):
+        from server import api_readiness
+        r = api_readiness()
+        self.assertIn(r["status"], ("ready", "not_ready"))
+
+    def test_health_full_endpoint(self):
+        from server import api_health_full
+        r = api_health_full()
+        self.assertIn("liveness", r)
+        self.assertIn("readiness", r)
+        self.assertIn("diagnostics", r)
+
+    def test_traces_endpoint(self):
+        from server import api_traces
+        r = api_traces()
+        self.assertEqual(r["kind"], "MEASURED")
+
+
 if __name__ == "__main__":
     unittest.main()
