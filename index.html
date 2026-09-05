@@ -2,677 +2,1422 @@
 <html lang="pt">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>GOD — viva</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+<title>GOD — System Intelligence</title>
 <style>
-:root{
-  --bg:#07080b; --bg2:#0c0e13; --bg3:#12151c; --bg4:#181c26;
-  --line:rgba(232,230,227,.09); --line2:rgba(232,230,227,.16);
-  --text:#eceae6; --muted:#8d8b86; --dim:#5c5b57;
-  --brain:#e4c98a; --spine:#e4c98a; --nerve:#3eecc0;
-  --body:#6aa8ff; --ok:#3eecc0; --warn:#ffd166; --crit:#ff5d5d;
-  --opp:#5eb0ff; --evo:#c084fc;
-  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-  --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+:root {
+  --bg: #07080b;
+  --bg2: #0c0e13;
+  --bg3: #12151c;
+  --bg4: #181c26;
+  --line: rgba(232,230,227,.09);
+  --line2: rgba(232,230,227,.16);
+  --text: #eceae6;
+  --muted: #8d8b86;
+  --dim: #5c5b57;
+  --accent: #e4c98a;
+  --ok: #3eecc0;
+  --warn: #ffd166;
+  --crit: #ff5d5d;
+  --opp: #5eb0ff;
+  --evo: #c084fc;
+  --mono: ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans: ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --sidebar-w: 220px;
+  --sidebar-collapsed: 56px;
+  --topbar-h: 48px;
 }
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans)}
-body{display:flex;flex-direction:column;overflow:hidden}
-button,input,select{font-family:inherit;color:inherit}
-button{cursor:pointer}
-.top{height:48px;flex-shrink:0;display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:1px solid var(--line);background:#0c0e14}
-.mark{width:22px;height:22px;border-radius:7px;background:conic-gradient(from 210deg,var(--brain),var(--nerve),var(--spine),var(--brain))}
-.brand{font-size:12px;letter-spacing:.22em;font-weight:700;text-transform:uppercase}
-.pills{display:flex;gap:8px;flex:1;align-items:center}
-.pill{font-size:10px;letter-spacing:.12em;text-transform:uppercase;padding:4px 8px;border-radius:999px;border:1px solid var(--line2);color:var(--muted)}
-.pill.on{color:var(--ok);border-color:rgba(62,236,192,.35);background:rgba(62,236,192,.08)}
-.pill.bad{color:var(--crit);border-color:rgba(255,93,93,.35)}
-.meta{font-family:var(--mono);font-size:11px;color:var(--muted);display:flex;gap:14px}
-.meta b{color:var(--text)}
-.board{flex:1;min-height:0;display:grid;gap:10px;padding:10px 12px 8px;grid-template-columns:250px 1.2fr 1fr 250px;grid-template-rows:122px minmax(0,1fr) minmax(0,1fr)}
-.panel{background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));border:1px solid var(--line);border-radius:14px;padding:12px;min-height:0;display:flex;flex-direction:column;overflow:hidden}
-.k{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
-.params{grid-column:1;grid-row:1/4}
-.vitals{grid-column:2/4;grid-row:1;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0;border:0;background:none}
-.prov{grid-column:4;grid-row:1}
-.pipe{grid-column:2;grid-row:2}
-.tools{grid-column:3;grid-row:2}
-.cachep{grid-column:4;grid-row:2}
-.tasks{grid-column:2;grid-row:3}
-.feed{grid-column:3/5;grid-row:3}
-.v{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:rgba(255,255,255,.025)}
-.v .n{font-family:var(--mono);font-size:20px;font-weight:600}
-.v .s{font-size:11px;color:var(--muted);margin-top:4px}
-.sl{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
-.sl b{font-family:var(--mono);color:var(--text);font-weight:500}
-input[type=range]{-webkit-appearance:none;appearance:none;height:4px;background:#1c212b;border-radius:99px;width:100%;margin:5px 0 10px}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--spine)}
-.row{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px}
-.seg{font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:5px 8px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--muted)}
-.seg.on{color:var(--text);background:rgba(255,255,255,.06);border-color:var(--line2)}
-.toggle{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:8px 0;border-top:1px solid var(--line);color:var(--muted)}
-.knob{width:32px;height:18px;border-radius:99px;background:#1c212b;border:1px solid var(--line2);position:relative}
-.knob::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--muted);transition:.15s}
-.knob.on{background:rgba(62,236,192,.25);border-color:rgba(62,236,192,.4)}
-.knob.on::after{left:16px;background:var(--ok)}
-.list{overflow:auto;flex:1;display:flex;flex-direction:column;gap:6px}
-.list::-webkit-scrollbar{width:8px}
-.list::-webkit-scrollbar-thumb{background:#22262f;border-radius:8px}
-.item{border:1px solid var(--line);border-radius:10px;padding:8px 9px;background:rgba(255,255,255,.02);font-size:12px}
-.item .h{display:flex;justify-content:space-between;gap:8px}
-.item .h span{color:var(--muted);font-family:var(--mono);font-size:10px}
-.d{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.45}
-.pre{font-family:var(--mono);font-size:11px;color:var(--spine);white-space:pre-wrap;line-height:1.45}
-.ev{display:grid;grid-template-columns:70px 1fr;gap:8px;font-size:12px;padding:6px 4px;border-bottom:1px solid var(--line)}
-.ev .t{font-family:var(--mono);font-size:10px;color:var(--dim)}
-.lvl{font-size:9px;letter-spacing:.1em;text-transform:uppercase}
-.mc{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--line);font-size:12px}
-.tag{font-size:10px;padding:2px 6px;border-radius:99px;border:1px solid var(--line)}
-.tag.off{color:var(--crit)}
-.tag.on{color:var(--ok)}
-.note{font-size:11px;color:var(--muted);line-height:1.5;margin-top:8px}
-.brain{flex-shrink:0;height:min(38vh,340px);border-top:1px solid var(--line);display:grid;grid-template-rows:36px 1fr 52px;background:#0a0c11}
-.bh{display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid var(--line)}
-.bh .k{margin:0;color:var(--brain)}
-.chips{display:flex;gap:6px;overflow:auto}
-.chip{font-size:10px;padding:4px 8px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--muted);white-space:nowrap}
-.chip:hover{color:var(--text)}
-.msgs{overflow:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px}
-.msg{max-width:82%;padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.5;white-space:pre-wrap}
-.msg.user{align-self:flex-end;background:#1a2030;border:1px solid var(--line2)}
-.msg.brain{align-self:flex-start;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.22)}
-.msg .who{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
-.composer{display:flex;gap:8px;padding:8px 16px 10px}
-.composer input{flex:1;background:var(--bg3);border:1px solid var(--line2);border-radius:12px;padding:10px 12px;font-size:13px;outline:none}
-.send{background:var(--brain);color:#12081f;border:0;border-radius:12px;padding:10px 16px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-size:11px}
-.warnbox{font-size:11px;color:var(--warn);line-height:1.4}
-.ph{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0 4px}
-.ph b{font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:3px 6px;border-radius:6px;border:1px solid var(--line);color:var(--muted);font-weight:600}
-.ph b.done{color:var(--ok);border-color:rgba(62,236,192,.4);background:rgba(62,236,192,.08)}
-.ph b.blocked{color:var(--crit);border-color:rgba(255,93,93,.35);background:rgba(255,93,93,.08)}
-.ph b.partial{color:var(--warn);border-color:rgba(255,209,102,.35)}
-.flowbox{flex:0 0 auto}
-.flowbox svg{width:100%;height:148px;display:block}
-.params select,.params input[type=text],.params textarea{width:100%;background:var(--bg3);border:1px solid var(--line2);border-radius:8px;padding:6px 8px;font-size:12px;margin:0 0 6px;color:var(--text)}
-.params textarea{resize:vertical;min-height:44px;font-family:inherit}
-.caps{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 8px}
-.caps label{font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:3px 6px;display:flex;gap:4px;align-items:center}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 13px; }
+body { display: flex; overflow: hidden; }
+button, input, select { font-family: inherit; color: inherit; }
+button { cursor: pointer; }
+
+/* Sidebar */
+.sidebar {
+  width: var(--sidebar-w);
+  height: 100vh;
+  background: var(--bg2);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  transition: width .2s ease;
+  overflow: hidden;
+  z-index: 100;
+}
+.sidebar.collapsed { width: var(--sidebar-collapsed); }
+.sidebar.collapsed .nav-label,
+.sidebar.collapsed .sidebar-header span,
+.sidebar.collapsed .sidebar-footer { display: none; }
+
+.sidebar-header {
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.sidebar-header .logo {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: conic-gradient(from 210deg, var(--accent), var(--ok), var(--accent));
+  flex-shrink: 0;
+}
+.sidebar-header span {
+  font-size: 11px;
+  letter-spacing: .22em;
+  font-weight: 700;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.nav { flex: 1; overflow-y: auto; padding: 8px 0; }
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.nav-item:hover { color: var(--text); background: rgba(255,255,255,.03); }
+.nav-item.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: rgba(228,201,138,.06);
+}
+.nav-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.sidebar-footer {
+  padding: 12px 14px;
+  border-top: 1px solid var(--line);
+  font-size: 10px;
+  color: var(--dim);
+}
+.sidebar-toggle {
+  width: 100%;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 8px;
+}
+
+/* Main content */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100vh;
+}
+
+/* Topbar */
+.topbar {
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg2);
+  flex-shrink: 0;
+}
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.topbar-left h1 { font-size: 14px; font-weight: 600; letter-spacing: .05em; }
+.topbar-right { display: flex; align-items: center; gap: 16px; }
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 6px;
+}
+.status-dot.ok { background: var(--ok); box-shadow: 0 0 8px rgba(62,236,192,.4); }
+.status-dot.warn { background: var(--warn); }
+.status-dot.crit { background: var(--crit); animation: pulse-crit 2s infinite; }
+@keyframes pulse-crit {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .5; }
+}
+.status-label { font-size: 11px; color: var(--muted); }
+.clock { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+
+/* Page content */
+.page {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: none;
+}
+.page.active { display: block; }
+.page::-webkit-scrollbar { width: 8px; }
+.page::-webkit-scrollbar-thumb { background: #22262f; border-radius: 8px; }
+
+/* KPI Grid */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.kpi-card {
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  transition: border-color .2s;
+}
+.kpi-card:hover { border-color: var(--line2); }
+.kpi-label {
+  font-size: 10px;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.kpi-value {
+  font-family: var(--mono);
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.kpi-context { font-size: 11px; color: var(--muted); }
+
+/* Section */
+.section {
+  background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.section-title {
+  font-size: 10px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* List items */
+.item {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,.02);
+  margin-bottom: 6px;
+  font-size: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.item-left { display: flex; flex-direction: column; gap: 2px; }
+.item-right { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+/* Status tags */
+.tag {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.tag.ok { color: var(--ok); border-color: rgba(62,236,192,.3); }
+.tag.warn { color: var(--warn); border-color: rgba(255,209,102,.3); }
+.tag.crit { color: var(--crit); border-color: rgba(255,93,93,.3); }
+.tag.off { color: var(--dim); }
+
+/* Progress bar */
+.progress {
+  height: 6px;
+  background: var(--bg4);
+  border-radius: 99px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width .5s ease;
+}
+
+/* Activity feed */
+.feed-item {
+  display: flex;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+.feed-time {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--dim);
+  min-width: 60px;
+}
+.feed-level {
+  font-size: 9px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  min-width: 60px;
+}
+.feed-msg { flex: 1; color: var(--muted); }
+
+/* Chat */
+.chat-container {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: calc(100% - var(--sidebar-w));
+  height: 280px;
+  background: var(--bg2);
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+  transition: width .2s;
+}
+.sidebar.collapsed ~ .main .chat-container { width: calc(100% - var(--sidebar-collapsed)); }
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.chat-header .title {
+  font-size: 10px;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.chat-toggle {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.chat-msg {
+  max-width: 80%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.chat-msg.user {
+  align-self: flex-end;
+  background: #1a2030;
+  border: 1px solid var(--line2);
+}
+.chat-msg.brain {
+  align-self: flex-start;
+  background: rgba(167,139,250,.08);
+  border: 1px solid rgba(167,139,250,.22);
+}
+.chat-msg .who {
+  font-size: 9px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.chat-composer {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.chat-composer input {
+  flex: 1;
+  background: var(--bg3);
+  border: 1px solid var(--line2);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  outline: none;
+}
+.chat-composer input:focus { border-color: var(--accent); }
+.chat-send {
+  background: var(--accent);
+  color: #12081f;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+/* Quick actions */
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 16px 8px;
+  flex-shrink: 0;
+}
+.quick-btn {
+  font-size: 10px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.quick-btn:hover { color: var(--text); border-color: var(--line2); }
+
+/* System map */
+.system-map {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.map-node {
+  background: rgba(255,255,255,.02);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+  transition: border-color .2s;
+}
+.map-node:hover { border-color: var(--line2); }
+.map-node .node-name {
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.map-node .node-status {
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* Provider list */
+.provider-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.provider-item:last-child { border-bottom: none; }
+.provider-name { font-weight: 500; }
+.provider-models { font-size: 11px; color: var(--muted); }
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--muted);
+}
+.empty-state .icon { font-size: 32px; margin-bottom: 12px; }
+.empty-state .msg { font-size: 12px; margin-bottom: 8px; }
+
+/* Loading skeleton */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg3) 25%, var(--bg4) 50%, var(--bg3) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.5s infinite;
+  border-radius: 6px;
+  height: 16px;
+  margin-bottom: 8px;
+}
+@keyframes skeleton-pulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Error state */
+.error-state {
+  text-align: center;
+  padding: 20px;
+  color: var(--warn);
+  font-size: 12px;
+}
+.error-state .retry-btn {
+  margin-top: 12px;
+  background: none;
+  border: 1px solid var(--warn);
+  border-radius: 6px;
+  padding: 6px 16px;
+  color: var(--warn);
+  font-size: 11px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: -var(--sidebar-w);
+    z-index: 200;
+    transition: left .2s;
+  }
+  .sidebar.mobile-open { left: 0; }
+  .sidebar.collapsed { width: var(--sidebar-w); }
+  .sidebar.collapsed .nav-label,
+  .sidebar.collapsed .sidebar-header span { display: block; }
+  
+  .chat-container { width: 100% !important; }
+  
+  .kpi-grid { grid-template-columns: 1fr; }
+  .system-map { grid-template-columns: repeat(2, 1fr); }
+  
+  .mobile-menu-btn { display: block !important; }
+}
+
+.mobile-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 20px;
+  padding: 4px;
+}
+
+/* Live indicator */
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ok);
+  display: inline-block;
+  animation: live-pulse 2s infinite;
+}
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .6; transform: scale(.8); }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+  .status-dot.crit { animation: none; }
+  .live-dot { animation: none; }
+  * { transition-duration: 0s !important; }
+}
 </style>
 </head>
 <body>
-<header class="top">
-  <div class="mark"></div>
-  <div class="brand">GOD</div>
-  <div class="pills">
-    <span class="pill" id="st-mode">modo</span>
-    <span class="pill" id="st-gov">governor</span>
-    <span class="pill bad" id="st-llm">llm</span>
-    <span class="pill" id="st-eye">olho</span>
-    <span class="pill" id="st-os">os</span>
+
+<!-- Sidebar -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="logo"></div>
+    <span>GOD</span>
   </div>
-  <div class="meta">
-    <span>tok sessão <b id="m-tok">0</b></span>
-    <span>tools <b id="m-tools">0</b></span>
-    <span>cache <b id="m-cache">—</b></span>
-    <span>cpu <b id="m-cpu">—</b></span>
-    <span>ram <b id="m-ram">—</b></span>
-    <span>fila <b id="m-q">—</b></span>
-    <span id="m-clock">—</span>
-  </div>
-</header>
-<main class="board">
-  <section class="panel params">
-    <div class="k">Token firewall</div>
-    <div class="sl"><span>Task budget</span><b id="v-task">8000</b></div>
-    <input type="range" min="500" max="32000" step="500" id="b-task"/>
-    <div class="sl"><span>Session</span><b id="v-session">50000</b></div>
-    <input type="range" min="1000" max="200000" step="1000" id="b-session"/>
-    <div class="sl"><span>Daily</span><b id="v-daily">200000</b></div>
-    <input type="range" min="5000" max="1000000" step="5000" id="b-daily"/>
-    <div class="k" style="margin-top:6px">Modo</div>
-    <div class="row" id="modes">
-      <button class="seg" data-v="auto">Auto</button>
-      <button class="seg" data-v="token_saver">Token saver</button>
-      <button class="seg" data-v="conservative">Conservative</button>
-      <button class="seg" data-v="offline">Offline</button>
-      <button class="seg" data-v="normal">Normal</button>
+  
+  <div class="nav">
+    <div class="nav-item active" data-page="overview">
+      <div class="nav-icon">◉</div>
+      <div class="nav-label">Overview</div>
     </div>
-    <div class="toggle" id="t-gov"><span>Governor estrito</span><div class="knob" id="k-gov"></div></div>
-    <div class="k" style="margin-top:10px">GOD Builder</div>
-    <select id="god-sel"></select>
-    <input type="text" id="god-name" placeholder="nome" maxlength="80"/>
-    <textarea id="god-purpose" placeholder="propósito" maxlength="400"></textarea>
-    <textarea id="god-person" placeholder="personalidade" maxlength="400"></textarea>
-    <textarea id="god-rules" placeholder="regras extra (não desligam o Governor)" maxlength="800"></textarea>
-    <div class="toggle" id="t-mem"><span>Memória deste perfil</span><div class="knob" id="k-mem"></div></div>
-    <div class="caps" id="god-caps"></div>
-    <select id="god-ver"></select>
-    <div class="row">
-      <button class="seg" id="god-save" type="button">Guardar</button>
-      <button class="seg" id="god-new" type="button">+ Novo</button>
-      <button class="seg" id="god-go" type="button">Activar</button>
-      <button class="seg" id="god-rb" type="button">Rollback</button>
-      <button class="seg" id="god-repair" type="button">Repara</button>
+    <div class="nav-item" data-page="intelligence">
+      <div class="nav-icon">◈</div>
+      <div class="nav-label">Intelligence</div>
     </div>
-    <div class="k" style="margin-top:10px">Missões</div>
-    <div class="row">
-      <button class="seg" id="mis-create" type="button">+ Nova</button>
-      <button class="seg" id="mis-pause" type="button">Pausa</button>
-      <button class="seg" id="mis-resume" type="button">Retoma</button>
-      <button class="seg" id="mis-done" type="button">Conclui</button>
-      <button class="seg" id="mis-cancel" type="button">Cancela</button>
+    <div class="nav-item" data-page="memory">
+      <div class="nav-icon">▣</div>
+      <div class="nav-label">Memory</div>
     </div>
-    <div class="list" id="mis-list" style="max-height:120px;flex:0 0 auto"></div>
-    <div class="k" style="margin-top:10px">Grafo de tarefas</div>
-    <div class="list" id="graph-viz" style="max-height:150px;flex:0 0 auto"></div>
-    <p class="note">Um handle. O perfil muda prompt e ferramentas reais. Sem swarm, sem Desktop, cost UNKNOWN.</p>
-    <div class="k" style="margin-top:10px">Roadmap ela</div>
-    <div class="ph" id="road-ph"></div>
-    <p class="note" id="road-note">CACHE → MEM → TOOLS → OS → ROUTER → HUMANO. LLM last. Sem provider ela recusa — não inventa.</p>
-    <p class="warnbox" id="unverified"></p>
-  </section>
-
-  <section class="vitals">
-    <div class="v"><div class="k">Modo efectivo</div><div class="n" id="h-mode">—</div><div class="s" id="h-mode-s">—</div></div>
-    <div class="v"><div class="k">Cache hit</div><div class="n" id="h-cache">—</div><div class="s" id="h-cache-s">hits / misses</div></div>
-    <div class="v"><div class="k">Último LLM</div><div class="n" id="h-dep">n/a</div><div class="s" id="h-dep-s">n=0 → n/a · MEASURED</div></div>
-    <div class="v"><div class="k">Último overall</div><div class="n" id="h-ov">—</div><div class="s" id="h-ov-s">sem execuções</div></div>
-  </section>
-
-  <section class="panel prov">
-    <div class="k">Providers · probed</div>
-    <div id="prov-list" class="list"></div>
-  </section>
-
-  <section class="panel pipe">
-    <div class="k">Fluxo vivo · GOD</div>
-    <div class="flowbox" id="flowbox"></div>
-    <div class="list"><div class="pre" id="pipe">ainda sem tarefas — o fluxo acende com a última rota MEASURED</div></div>
-  </section>
-
-  <section class="panel tools">
-    <div class="k">Ferramentas determinísticas</div>
-    <div class="list" id="tool-list"></div>
-  </section>
-
-  <section class="panel cachep">
-    <div class="k">Memória / uso</div>
-    <div class="list" id="mem-box"></div>
-  </section>
-
-  <section class="panel tasks">
-    <div class="k">Tarefas reais</div>
-    <div class="list" id="task-list"></div>
-  </section>
-
-  <section class="panel feed">
-    <div class="k">Event bus</div>
-    <div class="list" id="feed-list"></div>
-  </section>
-</main>
-<footer class="brain">
-  <div class="bh">
-    <div class="k">GOD · ela · LLM last</div>
-    <div class="chips">
-      <button class="chip" data-q="estado">Estado</button>
-      <button class="chip" data-q="calcula 17*24+9">Cálculo</button>
-      <button class="chip" data-q="git status">Git</button>
-      <button class="chip" data-q="lista ficheiros em super-ai">Ficheiros</button>
-      <button class="chip" data-q="lê config.yaml">Lê config</button>
-      <button class="chip" data-q="pesquisa alternativas open-source ao n8n">Pesquisa (deve recusar LLM)</button>
-      <button class="chip" data-q="corre benchmark">Benchmark</button>
-      <button class="chip" data-q="evolução">Evolução</button>
-      <button class="chip" data-q="aprova">Aprova</button>
-      <button class="chip" data-q="terceiro olho">Terceiro olho</button>
-      <button class="chip" data-q="repara">Repara</button>
-      <button class="chip" data-q="economia de tokens">Tokens</button>
-      <button class="chip" data-q="ps">ps</button>
-      <button class="chip" data-q="kernel">Kernel</button>
-      <button class="chip" data-q="quem és tu em duas frases">Quem és</button>
-      <button class="chip" data-q="missão actual">Missão</button>
-      <button class="chip" data-q="missão: P1 executive no SQLite">Nova missão</button>
-      <button class="chip" data-q="roadmap">Roadmap</button>
-      <button class="chip" data-q="cria uma landing page de um café em Lisboa, só HTML e CSS">Cria um site</button>
+    <div class="nav-item" data-page="compute">
+      <div class="nav-icon">⚡</div>
+      <div class="nav-label">Compute</div>
+    </div>
+    <div class="nav-item" data-page="tokens">
+      <div class="nav-icon">◌</div>
+      <div class="nav-label">Tokens</div>
+    </div>
+    <div class="nav-item" data-page="evolution">
+      <div class="nav-icon">↻</div>
+      <div class="nav-label">Evolution</div>
+    </div>
+    <div class="nav-item" data-page="activity">
+      <div class="nav-icon">▤</div>
+      <div class="nav-label">Activity</div>
+    </div>
+    <div class="nav-item" data-page="settings">
+      <div class="nav-icon">⚙</div>
+      <div class="nav-label">Settings</div>
     </div>
   </div>
-  <div class="msgs" id="msgs"></div>
-  <form class="composer" id="form">
-    <input id="inp" autocomplete="off" placeholder="Fala comigo. Cálculo e git vão às ferramentas. LLM só se fizer falta."/>
-    <button class="send" type="submit">Enviar</button>
-  </form>
-</footer>
-<script>
-const $ = id => document.getElementById(id);
-const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const LEVELC = {INFO:'#9aa4b2',NOTICE:'#6aa8ff',WARNING:'var(--warn)',CRITICAL:'var(--crit)',SECURITY:'var(--crit)',OPPORTUNITY:'var(--opp)',EVOLUTION:'var(--evo)'};
-let S=null, applying=false, chatLen=0;
+  
+  <div class="sidebar-footer">
+    <div>v2.0 · Living Intelligence</div>
+    <button class="sidebar-toggle" id="sidebar-toggle">← Collapse</button>
+  </div>
+</nav>
 
-function clock(){
-  $('m-clock').textContent = new Intl.DateTimeFormat('pt-PT',{timeZone:'Europe/Lisbon',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date());
-}
-setInterval(clock,1000); clock();
-
-function paint(s){
-  S=s;
-  const u=s.usage||{};
-  $('m-tok').textContent = u.session_tokens||0;
-  $('m-tools').textContent = u.tool_calls||0;
-  const host=s.host||{};
-  $('m-cpu').textContent = (host.load1??'—')+'/'+(host.cpu_count??'—');
-  $('m-ram').textContent = host.ram_avail_mb!=null ? host.ram_avail_mb+'MB' : '—';
-  const qq=s.queue||{};
-  $('m-q').textContent = (qq.queued||0)+'q '+(qq.running||0)+'r';
-  $('st-llm').title = (host.gpu && host.gpu.note) || '';
-  const hr=s.cache && s.cache.hit_rate;
-  $('m-cache').textContent = hr==null ? 'n/a' : Math.round(hr*100)+'%';
-  $('st-mode').textContent = s.mode;
-  $('st-mode').className = 'pill '+(s.mode==='OFFLINE'?'bad':'on');
-  $('st-gov').textContent = s.governor.strict ? 'governor on' : 'governor lax';
-  $('st-gov').classList.toggle('on', s.governor.strict);
-  const llmOn = (s.providers||[]).some(p=>p.available);
-  $('st-llm').textContent = llmOn ? 'llm up' : 'llm none';
-  $('st-llm').className = 'pill '+(llmOn?'on':'bad');
-  const alerts=(s.eye&&s.eye.alerts)||[];
-  $('st-eye').textContent = alerts.length ? 'olho '+alerts.length : 'olho ok';
-  $('st-eye').className = 'pill '+(alerts.some(a=>a.level==='CRITICAL'||a.level==='SECURITY')?'bad':alerts.length?'':'on');
-  const os=s.os||{};
-  $('st-os').textContent = os.booted ? ('os '+(os.running||0)+'r '+(os.ready||0)+'q') : 'os';
-  $('st-os').className = 'pill '+(os.booted?'on':'');
-  $('st-os').title = (os.sysname||'')+' gpu_required=false preempt=false';
-  $('h-mode').textContent = s.mode;
-  $('h-mode-s').textContent = s.mode_reason||'';
-  $('h-cache').textContent = hr==null ? 'n/a' : Math.round(hr*100)+'%';
-  $('h-cache-s').textContent = `${s.cache.hits||0} hits · ${s.cache.misses||0} misses · ${s.cache.entries||0} entries`;
-  const md=(s.token&&s.token.models)||{};
-  const mrows=md.models||[];
-  const top=mrows[0];
-  $('h-dep').textContent = top && top.model ? String(top.model).split('/').slice(-1)[0] : 'n/a';
-  $('h-dep-s').textContent = top ? `n=${top.n} · ${top.tokens} tok MEASURED` : ((md.kind||'UNKNOWN')+' · sem amostras');
-  const r=s.last_rating;
-  $('h-ov').textContent = r ? r.OVERALL+'/100' : '—';
-  $('h-ov-s').textContent = r ? `tok ${r.tokens_actual} · llm ${r.llm_used}` : 'sem execuções medidas';
-
-  if(!applying && s.budgets){
-    ['task','session','daily'].forEach(k=>{
-      $('b-'+k).value = s.budgets[k];
-      $('v-'+k).textContent = s.budgets[k];
-    });
-    document.querySelectorAll('#modes .seg').forEach(b=>b.classList.toggle('on', b.dataset.v===(s.mode||'').toLowerCase() || (s.mode==='OFFLINE'&&b.dataset.v==='auto')));
-    $('k-gov').classList.toggle('on', s.governor.strict);
-  }
-
-  $('prov-list').innerHTML = (s.providers||[]).map(p=>`
-    <div class="mc">
-      <div><b>${esc(p.name)}</b>
-        <div class="d">${esc(p.error||p.endpoint||'')}</div>
-        <div class="d">${esc(((p.models||[]).slice(0,2).join(' · '))||'')}</div>
+<!-- Main content -->
+<div class="main">
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="mobile-menu-btn" id="mobile-menu-btn">☰</button>
+      <h1 id="page-title">System Overview</h1>
+    </div>
+    <div class="topbar-right">
+      <div>
+        <span class="status-dot ok" id="status-dot"></span>
+        <span class="status-label" id="status-label">Healthy</span>
       </div>
-      <span class="tag ${p.available?'on':'off'}">${p.available?'up':'down'}</span>
-    </div>`).join('');
+      <div class="clock" id="clock">--:--:--</div>
+    </div>
+  </header>
 
-  paintRoad(s);
-  paintFlow(s);
-  const p=s.last_pipeline;
-  if(p){
-    let valLine = '';
-    const v = p.validation;
-    if(v) valLine = `\nValidator: ${v.n_passed}/${v.n_checks} checks · ${v.overall||'?'} · confidence ${v.confidence||0}`;
-    let critLine = '';
-    const cr = p.critique;
-    if(cr) critLine = `\nThird Eye: ${cr.overall||'?'} · ${cr.n_findings||0} findings · ${cr.n_issues||0} issues`;
-    $('pipe').textContent =
-      `rota ${(p.route||[]).join(' → ') || '—'}\nmode ${(p.task&&p.task.exec_mode)||''} path=${(p.decision&&p.decision.path)||'—'} fast=${p.fast||false} direct=${p.direct_llm} ${p.stages_ms?JSON.stringify(p.stages_ms):''} ${p.latency_ms!=null?p.latency_ms+'ms MEASURED':''}\n${(p.decision&&p.decision.reasons||[]).join(' · ')}\ncache ${p.cache} · mem ${p.memory_hits} · fw ${(p.firewall&&p.firewall.action)||'n/a'} · missão ${p.mission_id||'—'}${valLine}${critLine}`;
-  }
+  <!-- Pages -->
+  <div class="page active" id="page-overview">
+    <div class="kpi-grid" id="kpi-grid"></div>
+    
+    <div class="section">
+      <div class="section-title">
+        <span class="live-dot"></span>
+        GOD System Map
+      </div>
+      <div class="system-map" id="system-map"></div>
+    </div>
+    
+    <div class="section">
+      <div class="section-title">Live Activity</div>
+      <div id="activity-feed"></div>
+    </div>
+  </div>
 
-  $('tool-list').innerHTML = (s.tools||[]).map(t=>`
-    <div class="item"><div class="h"><b>${esc(t.name)}</b><span>ok ${t.ok} · fail ${t.fail}</span></div>
-    <div class="d">${(t.capabilities||[]).join(', ')} · risk ${t.risk} · ${t.permissions}</div></div>`).join('');
+  <div class="page" id="page-intelligence">
+    <div class="section">
+      <div class="section-title">Active Intelligence</div>
+      <div id="active-model"></div>
+    </div>
+    
+    <div class="section">
+      <div class="section-title">Providers</div>
+      <div id="providers-list"></div>
+    </div>
+    
+    <div class="section">
+      <div class="section-title">Model Routing</div>
+      <div id="routing-info"></div>
+    </div>
+  </div>
 
-  const mem=s.memory||{};
-  const qd=s.qdrant||{};
-  const b=s.benchmark;
-  const pend=(s.experiments||[]).find(e=>e.status==='pending');
-  $('mem-box').innerHTML = `<div class="item">
-    <div class="d">session tokens ${u.session_tokens||0} / ${s.budgets && s.budgets.session}</div>
-    <div class="d">llm_calls ${u.llm_calls||0} · tool_calls ${u.tool_calls||0}</div>
-    <div class="d">memória SQL: ${Object.entries(mem).map(([k,v])=>k+' '+v).join(' · ')||'vazia'}</div>
-    <div class="d">Qdrant ${qd.available?'up':'down'} · ${JSON.stringify(qd.collections||{})}</div>
-    <div class="d">${esc((qd.embed&&qd.embed.method)||'')}</div>
-    <div class="d">benchmark ${b? b.run_id+' n_llm='+b.n_llm_samples+' passed='+b.passed+' skip='+b.skipped : 'ainda n=0'}</div>
-    <div class="d">GPU ${host.gpu && host.gpu.present ? 'presente (opcional)' : 'ausente — não exigida'} · pressure ${host.pressure||'—'}</div>
-    <div class="d">workers ${(s.workers||[]).map(w=>w.id+(w.alive?'✓':'✗')+' '+w.location).join(', ')||'nenhum'}</div>
-    ${(() => { const mi=s.mission||{}; const a=mi.active; const g=s.graph||{}; return `
-    <div class="d">MISSÃO ${a?esc(a.id)+' '+esc(a.status)+' — '+esc((a.goal||'').slice(0,80)):'nenhuma active'} · n=${mi.n??0} ${esc(mi.kind||'')}</div>
-    <div class="d">GRAPH edges=${(g.edges||[]).length} parallel=${g.parallel} inflight=${g.inflight_applied} ${esc(g.kind||'')}</div>
-    ${(g.edges||[]).slice(0,6).map(e=>`<div class="d">  ${esc(e.from)} → ${esc(e.to)}</div>`).join('')}`; })()}
-    <div class="d">fila queued ${qq.queued||0} running ${qq.running||0} done ${qq.completed||0}</div>
-    ${(s.jobs||[]).slice(0,6).map(j=>`<div class="d">job ${esc(j.id)} ${esc(j.kind)} ${esc(j.status)}</div>`).join('')}
-    ${(s.projects&&s.projects.length)? `<div class="d">sites ${s.projects.map(p=>`<a href="${esc(p.preview)}" target="_blank" rel="noopener">${esc(p.slug)}</a>`).join(' · ')}</div>`: '<div class="d">sites: nenhum em data/projects</div>'}
-    ${(s.away&&s.away.length)? `<div class="d">enquanto a UI esteve fora: ${s.away.length} job(s)</div>`:''}
-    ${((s.eye&&s.eye.alerts)||[]).map(a=>`<div class="d">olho [${esc(a.level)}] ${esc(a.code)} — ${esc(a.msg)}</div>`).join('')}
-    <div class="d">useful_work/token ${s.eye && s.eye.metrics && s.eye.metrics.useful_work_per_token != null ? s.eye.metrics.useful_work_per_token : 'n/a (0 tok LLM)'} · avg ${s.eye && s.eye.metrics ? s.eye.metrics.avg_overall : '—'}</div>
-    ${(() => { const t=s.token||{}; const u=t.usage||{}; const c=t.cost||{}; const f=t.forecast||{}; const b=t.budget||{}; return `
-    <div class="d">TOKEN MEASURED actual=${u.sum_actual??0} llm=${u.llm_calls??0} · ESTIMATED sum=${u.sum_estimated??0}</div>
-    <div class="d">COST API ${esc(c.kind||'UNKNOWN')} — ${esc(c.reason||'sem source')}</div>
-    ${(() => { const sp=(s.token&&s.token.cost_split)||{}; const sub=sp.subscription||{}; const api=sp.api||{}; const inf=sp.infrastructure||{}; return `
-    <div class="d">SUBSCRIPTION ${esc(sub.kind||'USER_STATED')} ${sub.amount_eur??'—'} ${esc(sub.currency||'EUR')} IVA ${sub.includes_vat?'incluído':'?'} · lista ${sub.official_usd_monthly??'—'} USD/mês IVA ${sub.official_vat_included?'incluído':'não incluído'} · ${esc(sub.source||'')}</div>
-    <div class="d">API ${esc(api.kind||'UNKNOWN')} — ${esc(api.reason||'')}</div>
-    <div class="d">INFRA ${esc(inf.kind||'UNKNOWN')} — ${esc(inf.reason||'')}</div>
-    <div class="d">não somar os três · sum=${sp.sum_eur==null?'null':sp.sum_eur} ${esc(sp.sum_kind||'UNKNOWN')}</div>`; })()}
-    ${(() => { const n=s.pc_node||{}; const cap=n.caps||{}; return `
-    <div class="d">PC NODE ${esc(n.kind||'UNKNOWN')} ${esc(n.cpu||'')} · ${n.cores??'—'}c · ${n.ram_gb??'—'}GB · GPU ${esc(n.gpu||'')} required=false</div>
-    <div class="d">caps GOD ≤${cap.ram_gb_max??'—'}GB RAM · ≤${cap.cores_max??'—'} cores · gpu_for_llm=${cap.gpu_for_llm} · ${esc(cap.note||'nunca totalidade')}</div>
-    <div class="d">este processo ≠ esse PC: ${n.this_process_is_not_that_pc} · disco ${esc(n.disk||'')} ${n.disk_gb??''}GB</div>`; })()}
-    ${(() => { const pl=s.plane||{}; return `
-    <div class="d">PLANE ${esc(pl.kind||'UNKNOWN')} me=${pl.me_http??'—'} ws=${esc(pl.workspace_slug||'')} found=${pl.workspace_found} project=${esc(pl.project_identifier||pl.project_id||'')} ${esc(pl.project_name||'')} · in_product=${pl.in_product}</div>
-    <div class="d">issues ${pl.issues && pl.issues.n!=null ? pl.issues.n+' MEASURED' : 'null'} ${(pl.issues&&pl.issues.items||[]).slice(0,7).map(i=>'#'+ (i.sequence_id??'?')+' '+esc(i.name||'')).join(' · ')}</div>`; })()}
-    <div class="d">FORECAST ${esc(f.status||f.kind||'UNKNOWN')} ${esc(f.reason||'')}</div>
-    <div class="d">budget daily ${b.daily ? b.daily.used_measured+'/'+b.daily.limit : '—'} hard=${b.daily && b.daily.hard}</div>`; })()}
-    ${pend? `<div class="d">PENDENTE ${esc(pend.id)} ${esc(pend.title)}</div>
-      <button class="seg" id="btn-yes">Adoptar</button> <button class="seg" id="btn-no">Rejeitar</button>`:''}
-  </div>`;
-  if(pend){
-    const yes=$('btn-yes'), no=$('btn-no');
-    if(yes) yes.onclick=()=>fetch('/api/experiment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:pend.id,approve:true})});
-    if(no) no.onclick=()=>fetch('/api/experiment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:pend.id,approve:false})});
-  }
-  $('unverified').textContent = 'Ainda ausente: '+(s.unverified||[]).join(' · ');
+  <div class="page" id="page-memory">
+    <div class="kpi-grid" id="memory-kpis"></div>
+    
+    <div class="section">
+      <div class="section-title">Memory Store</div>
+      <div id="memory-details"></div>
+    </div>
+  </div>
 
-  $('task-list').innerHTML = ((s.tasks&&s.tasks.length)?s.tasks:[{task_id:'—',title:'sem tarefas',status:'',type:''}]).map(t=>`
-    <div class="item"><div class="h"><b>${esc(t.title||t.task_id)}</b><span>${esc(t.status)} ${esc(t.via||'')}</span></div>
-    <div class="d">${esc(t.task_id)} · ${esc(t.type)} · est ${t.estimated_tokens??'—'} tok</div></div>`).join('');
+  <div class="page" id="page-compute">
+    <div class="section">
+      <div class="section-title">Local Node</div>
+      <div id="compute-node"></div>
+    </div>
+    
+    <div class="section">
+      <div class="section-title">Workers</div>
+      <div id="workers-list"></div>
+    </div>
+  </div>
 
-  $('feed-list').innerHTML = (s.events||[]).slice(0,40).map(e=>`
-    <div class="ev">
-      <div><div class="t">${new Date(e.ts).toLocaleTimeString('pt-PT')}</div>
-      <div class="lvl" style="color:${LEVELC[e.level]||'#9aa4b2'}">${esc(e.level)}</div></div>
-      <div><div>${esc(e.name)}</div><div class="d">${esc(e.msg)}</div></div>
-    </div>`).join('');
+  <div class="page" id="page-tokens">
+    <div class="kpi-grid" id="token-kpis"></div>
+    
+    <div class="section">
+      <div class="section-title">Token Intelligence</div>
+      <div id="token-details"></div>
+    </div>
+  </div>
 
-  paintChat(s.chat||[]);
-  paintGods(s);
-  paintMissions(s);
-  paintGraph(s);
+  <div class="page" id="page-evolution">
+    <div class="section">
+      <div class="section-title">Evolution Pipeline</div>
+      <div id="evolution-pipeline"></div>
+    </div>
+    
+    <div class="section">
+      <div class="section-title">Experiments</div>
+      <div id="experiments-list"></div>
+    </div>
+  </div>
+
+  <div class="page" id="page-activity">
+    <div class="section">
+      <div class="section-title">
+        <span class="live-dot"></span>
+        Event Stream
+      </div>
+      <div id="full-activity-feed"></div>
+    </div>
+  </div>
+
+  <div class="page" id="page-settings">
+    <div class="section">
+      <div class="section-title">System Configuration</div>
+      <div id="settings-content"></div>
+    </div>
+    
+    <div class="section">
+      <div class="section-title">Feature Flags</div>
+      <div id="feature-flags"></div>
+    </div>
+    
+    <div class="section">
+      <div class="section-title">GOD Profiles</div>
+      <div id="god-profiles"></div>
+    </div>
+  </div>
+
+  <!-- Chat -->
+  <div class="chat-container" id="chat-container">
+    <div class="chat-header">
+      <div class="title">GOD · Chat Interface</div>
+      <button class="chat-toggle" id="chat-toggle">▲</button>
+    </div>
+    <div class="chat-messages" id="chat-messages"></div>
+    <div class="quick-actions" id="quick-actions"></div>
+    <form class="chat-composer" id="chat-form">
+      <input id="chat-input" autocomplete="off" placeholder="Fala com a GOD..."/>
+      <button class="chat-send" type="submit">Enviar</button>
+    </form>
+  </div>
+</div>
+
+<script>
+// State
+let S = null;
+let chatLen = 0;
+let currentPage = 'overview';
+let sidebarCollapsed = false;
+let chatExpanded = true;
+
+// Helpers
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c]));
+
+// Clock
+function updateClock() {
+  $('clock').textContent = new Intl.DateTimeFormat('pt-PT', {
+    timeZone: 'Europe/Lisbon',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  }).format(new Date());
 }
+setInterval(updateClock, 1000);
+updateClock();
 
-function phases(s){
-  const mis=s.mission||{};
-  const g=s.graph||{};
-  const p=s.last_pipeline||{};
-  return [
-    {id:'P0', t:'Fast Path', st:'done'},
-    {id:'P0', t:'Latency', st:'done'},
-    {id:'P0', t:'Direct LLM', st:'done'},
-    {id:'P0', t:'Smart mem', st:'done'},
-    {id:'P1', t:'Executive', st:'done'},
-    {id:'P1', t:'Missão', st: mis.kind==='MEASURED' ? 'done' : 'blocked'},
-    {id:'P1', t:'Graph', st: (g.kind==='MEASURED') ? 'partial' : 'blocked'},
-    {id:'P1', t:'Router', st:'partial'},
-    {id:'P2', t:'Validator', st:'done'},
-    {id:'P2', t:'Third Eye', st:'done'},
-    {id:'P2', t:'Factory', st:'blocked'},
-    {id:'P3', t:'Mesh', st:'blocked'},
-    {id:'P4', t:'UI', st: (p.decision || mis.active || (g.edges||[]).length) ? 'partial' : 'partial'}
-  ];
-}
-function paintRoad(s){
-  const ph=phases(s);
-  $('road-ph').innerHTML = ph.map(x=>`<b class="${x.st}" title="${x.st}">${esc(x.id)} ${esc(x.t)}</b>`).join('');
-  const nDone=ph.filter(x=>x.st==='done').length;
-  const nPart=ph.filter(x=>x.st==='partial').length;
-  const nBlk=ph.filter(x=>x.st==='blocked').length;
-  const gh=s.god && s.god.github_deployed ? 'GitHub main' : 'GitHub não no deploy';
-  const a=(s.mission&&s.mission.active);
-  $('road-note').textContent = `P0–P4 · ${nDone} feito · ${nPart} parcial · ${nBlk} não · ${gh} · Plane fora do núcleo · missão ${a?a.id:'nenhuma'}.`;
-}
-function paintFlow(s){
-  const route=((s.last_pipeline&&s.last_pipeline.route)||[]).join(' ').toUpperCase();
-  const cache=(s.last_pipeline&&s.last_pipeline.cache)||'';
-  const llm=(s.providers||[]).some(p=>p.available);
-  const on = k => {
-    if(k==='USER') return true;
-    if(k==='ANL') return !!s.last_pipeline;
-    if(k==='CACHE') return /CACHE/.test(route) || cache==='hit' || cache==='semantic';
-    if(k==='MEM') return !!(s.last_pipeline && cache!=='hit' && cache!=='semantic');
-    if(k==='FW') return /FIREWALL/.test(route) || !!(s.last_pipeline && s.last_pipeline.firewall);
-    if(k==='TOOLS') return /TOOLS|STATE/.test(route);
-    if(k==='OS') return (s.os&&s.os.booted) || /TOOLS/.test(route);
-    if(k==='Q') return /QUEUE/.test(route);
-    if(k==='RTR') return /ROUTER|NO_PROVIDER|OMNI|DIRECT/.test(route);
-    if(k==='OUT') return /NO_PROVIDER/.test(route) || (!llm && /ROUTER/.test(route));
-    return false;
-  };
-  const node=(x,y,w,label,key)=>{
-    const a=on(key);
-    const fill=a?'rgba(228,201,138,.22)':'rgba(255,255,255,.03)';
-    const str=a?'#e4c98a':'rgba(232,230,227,.18)';
-    const tc=a?'#eceae6':'#8d8b86';
-    return `<rect x="${x}" y="${y}" width="${w}" height="28" rx="7" fill="${fill}" stroke="${str}"/>
-      <text x="${x+w/2}" y="${y+18}" text-anchor="middle" font-size="10" font-family="ui-sans-serif,system-ui" fill="${tc}">${label}</text>`;
-  };
-  const arr=(x1,y1,x2,y2)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="rgba(228,201,138,.35)" stroke-width="1.2"/>`;
-  $('flowbox').innerHTML = `<svg viewBox="0 0 640 148" xmlns="http://www.w3.org/2000/svg">
-    ${node(8,12,70,'tu','USER')}${arr(78,26,96,26)}
-    ${node(96,12,78,'analyze','ANL')}${arr(174,26,192,26)}
-    ${node(192,12,70,'cache','CACHE')}${arr(262,26,280,26)}
-    ${node(280,12,62,'mem','MEM')}${arr(342,26,360,26)}
-    ${node(360,12,78,'firewall','FW')}${arr(438,26,456,26)}
-    ${node(456,12,70,'tools','TOOLS')}${arr(526,26,544,26)}
-    ${node(544,12,86,'OS syscall','OS')}
-    ${node(96,78,78,'fila','Q')}${arr(174,92,192,92)}
-    ${node(192,78,86,'router','RTR')}${arr(278,92,296,92)}
-    ${node(296,78,110, llm ? 'LLM' : 'NO_PROVIDER','OUT')}
-    ${arr(490,40,135,78)}
-    <text x="8" y="140" font-size="10" fill="#8d8b86" font-family="ui-sans-serif,system-ui">PC control → SQLite/Qdrant → worker local · GPU não exigida · dourado = última rota</text>
-  </svg>`;
-}
-function linkify(s){
-  return s.replace(/\/preview\/[a-z0-9-]{1,40}\//g, m=>`<a href="${m}" target="_blank" rel="noopener">${m}</a>`);
-}
-function paintChat(msgs){
-  const box=$('msgs');
-  if(msgs.length===chatLen && box.children.length) return;
-  chatLen=msgs.length;
-  box.innerHTML = msgs.map(m=>`<div class="msg ${m.role}"><div class="who">${m.role==='brain'?'GOD':'tu'}</div>${linkify(esc(m.text))}</div>`).join('');
-  box.scrollTop = box.scrollHeight;
-}
-
-function patch(obj){
-  applying=true;
-  fetch('/api/params',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({patch:obj})})
-    .finally(()=>setTimeout(()=>applying=false,80));
-}
-['task','session','daily'].forEach(k=>{
-  $('b-'+k).addEventListener('input', e=>{
-    applying=true;
-    $('v-'+k).textContent=e.target.value;
-    patch({budgets:{[k]: Number(e.target.value)}});
+// Navigation
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const page = item.dataset.page;
+    switchPage(page);
+    // Close mobile sidebar
+    $('sidebar').classList.remove('mobile-open');
   });
 });
-document.querySelectorAll('#modes .seg').forEach(b=>b.onclick=()=>patch({mode:b.dataset.v}));
-$('t-gov').onclick=()=>patch({governor:{strict: !(S&&S.governor.strict)}});
 
-let godEditing=null;
-function paintGods(s){
-  const g=s.god||{};
-  const list=g.profiles||[];
-  const act=g.active||{};
-  const tools=s.tools||[];
-  const sel=$('god-sel');
-  if(!sel) return;
-  const focus=document.activeElement && ['god-name','god-purpose','god-person','god-rules'].includes(document.activeElement.id);
-  if(!focus){
-    sel.innerHTML = list.map(x=>`<option value="${esc(x.id)}" ${x.id===(godEditing||act.id)?'selected':''}>${esc(x.name)} v${esc(x.version)}${x.active?' ●':''}</option>`).join('');
+function switchPage(page) {
+  currentPage = page;
+  document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+  document.querySelector(`.nav-item[data-page="${page}"]`).classList.add('active');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  $(`page-${page}`).classList.add('active');
+  
+  const titles = {
+    overview: 'System Overview',
+    intelligence: 'Intelligence',
+    memory: 'Memory',
+    compute: 'Compute',
+    tokens: 'Token Intelligence',
+    evolution: 'Evolution',
+    activity: 'Activity Stream',
+    settings: 'Settings'
+  };
+  $('page-title').textContent = titles[page] || 'GOD';
+}
+
+// Sidebar toggle
+$('sidebar-toggle').addEventListener('click', () => {
+  sidebarCollapsed = !sidebarCollapsed;
+  $('sidebar').classList.toggle('collapsed', sidebarCollapsed);
+  $('sidebar-toggle').textContent = sidebarCollapsed ? '→ Expand' : '← Collapse';
+});
+
+// Mobile menu
+$('mobile-menu-btn').addEventListener('click', () => {
+  $('sidebar').classList.toggle('mobile-open');
+});
+
+// Chat toggle
+$('chat-toggle').addEventListener('click', () => {
+  chatExpanded = !chatExpanded;
+  $('chat-container').style.height = chatExpanded ? '280px' : '48px';
+  $('chat-toggle').textContent = chatExpanded ? '▲' : '▼';
+  $('chat-messages').style.display = chatExpanded ? 'flex' : 'none';
+  $('quick-actions').style.display = chatExpanded ? 'flex' : 'none';
+  document.querySelector('.chat-composer').style.display = chatExpanded ? 'flex' : 'none';
+});
+
+// Chat
+$('chat-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const text = $('chat-input').value.trim();
+  if (text) {
+    sendChat(text);
+    $('chat-input').value = '';
   }
-  if(!focus && !godEditing){
-    $('god-name').value = act.name||'';
-    $('god-purpose').value = act.purpose||'';
-    $('god-person').value = act.personality||'';
-    $('god-rules').value = act.rules||'';
-    $('k-mem').classList.toggle('on', act.memory!==false);
-    const caps=new Set(act.capabilities||[]);
-    $('god-caps').innerHTML = tools.map(t=>`<label><input type="checkbox" value="${esc(t.name)}" ${caps.has(t.name)?'checked':''}/>${esc(t.name)}</label>`).join('');
-    const vers=g.versions||[];
-    $('god-ver').innerHTML = vers.map(v=>`<option value="${esc(v.version)}" ${v.current?'selected':''}>v${esc(v.version)}${v.current?' actual':''} ${esc(v.purpose||'')}</option>`).join('');
+});
+
+function sendChat(text) {
+  fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text })
+  });
+}
+
+// Quick actions
+const QUICK_ACTIONS = [
+  { label: 'Estado', query: 'estado' },
+  { label: 'Missão', query: 'missão actual' },
+  { label: 'Roadmap', query: 'roadmap' },
+  { label: 'Tokens', query: 'economia de tokens' },
+  { label: 'Evolution', query: 'evolução' },
+  { label: 'Benchmark', query: 'corre benchmark' }
+];
+
+function renderQuickActions() {
+  $('quick-actions').innerHTML = QUICK_ACTIONS.map(a =>
+    `<button class="quick-btn" data-q="${esc(a.query)}">${esc(a.label)}</button>`
+  ).join('');
+  document.querySelectorAll('.quick-btn').forEach(btn => {
+    btn.addEventListener('click', () => sendChat(btn.dataset.q));
+  });
+}
+renderQuickActions();
+
+// Main render
+function paint(s) {
+  S = s;
+  renderStatus(s);
+  renderOverview(s);
+  renderIntelligence(s);
+  renderMemory(s);
+  renderCompute(s);
+  renderTokens(s);
+  renderEvolution(s);
+  renderActivity(s);
+  renderSettings(s);
+  renderChat(s);
+}
+
+function renderStatus(s) {
+  const providers = s.providers || [];
+  const hasLLM = providers.some(p => p.available);
+  const alerts = (s.eye && s.eye.alerts) || [];
+  const hasCritical = alerts.some(a => a.level === 'CRITICAL' || a.level === 'SECURITY');
+  
+  let status = 'ok';
+  let label = 'Healthy';
+  
+  if (!hasLLM) {
+    status = 'crit';
+    label = 'No LLM';
+  } else if (hasCritical) {
+    status = 'crit';
+    label = 'Critical';
+  } else if (alerts.length > 0) {
+    status = 'warn';
+    label = `${alerts.length} Alert${alerts.length > 1 ? 's' : ''}`;
+  }
+  
+  $('status-dot').className = `status-dot ${status}`;
+  $('status-label').textContent = label;
+}
+
+function renderOverview(s) {
+  const host = s.host || {};
+  const usage = s.usage || {};
+  const cache = s.cache || {};
+  const providers = s.providers || [];
+  const hasLLM = providers.some(p => p.available);
+  const lastPipeline = s.last_pipeline || {};
+  const lastRating = s.last_rating;
+  const mission = s.mission || {};
+  const activeMission = mission.active;
+  
+  // Health percentage
+  let healthPct = 0;
+  if (hasLLM) healthPct += 40;
+  if (host.load1 && host.cpu_count) healthPct += Math.max(0, 30 - (host.load1 / host.cpu_count * 30));
+  if (cache.hit_rate != null) healthPct += Math.round(cache.hit_rate * 30);
+  
+  // Active model
+  const tokenData = s.token || {};
+  const models = (tokenData.models || {}).models || [];
+  const topModel = models[0];
+  
+  // KPIs
+  $('kpi-grid').innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">
+        System Health
+        <span class="tag ${healthPct > 70 ? 'ok' : healthPct > 40 ? 'warn' : 'crit'}">
+          ${healthPct > 70 ? '● HEALTHY' : healthPct > 40 ? '● DEGRADED' : '● CRITICAL'}
+        </span>
+      </div>
+      <div class="kpi-value">${healthPct}%</div>
+      <div class="kpi-context">${hasLLM ? 'Core systems operational' : 'No LLM provider available'}</div>
+    </div>
+    
+    <div class="kpi-card">
+      <div class="kpi-label">Active Intelligence</div>
+      <div class="kpi-value" style="font-size:16px">
+        ${topModel ? esc(topModel.model.split('/').pop()) : 'No Model'}
+      </div>
+      <div class="kpi-context">${topModel ? esc(topModel.provider || 'Unknown') : 'Not connected'}</div>
+    </div>
+    
+    <div class="kpi-card">
+      <div class="kpi-label">Response</div>
+      <div class="kpi-value">${lastPipeline.latency_ms != null ? lastPipeline.latency_ms + 'ms' : 'N/A'}</div>
+      <div class="kpi-context">${lastPipeline.latency_ms != null ? 'Last request latency' : 'No requests yet'}</div>
+    </div>
+    
+    <div class="kpi-card">
+      <div class="kpi-label">Memory</div>
+      <div class="kpi-value">${(s.memory || {}).total || 0}</div>
+      <div class="kpi-context">Active memories</div>
+    </div>
+    
+    <div class="kpi-card">
+      <div class="kpi-label">Tokens Today</div>
+      <div class="kpi-value">${formatNumber(usage.session_tokens || 0)}</div>
+      <div class="kpi-context">${usage.llm_calls || 0} LLM calls</div>
+    </div>
+    
+    <div class="kpi-card">
+      <div class="kpi-label">Compute</div>
+      <div class="kpi-value" style="font-size:14px">
+        CPU ${host.load1 ? Math.round(host.load1 / host.cpu_count * 100) : 'N/A'}%
+      </div>
+      <div class="kpi-context">RAM ${host.ram_avail_mb ? (host.ram_avail_mb / 1024).toFixed(1) + 'GB free' : 'N/A'}</div>
+    </div>
+  `;
+  
+  // System map
+  const queue = s.queue || {};
+  const os = s.os || {};
+  const qdrant = s.qdrant || {};
+  
+  $('system-map').innerHTML = `
+    <div class="map-node">
+      <div class="node-name">Runtime</div>
+      <div class="node-status">
+        <span class="status-dot ok"></span>
+        <span>Active</span>
+      </div>
+    </div>
+    <div class="map-node">
+      <div class="node-name">Intelligence</div>
+      <div class="node-status">
+        <span class="status-dot ${hasLLM ? 'ok' : 'crit'}"></span>
+        <span>${hasLLM ? 'Connected' : 'Offline'}</span>
+      </div>
+    </div>
+    <div class="map-node">
+      <div class="node-name">Memory</div>
+      <div class="node-status">
+        <span class="status-dot ${qdrant.available ? 'ok' : 'warn'}"></span>
+        <span>${qdrant.available ? 'Qdrant Up' : 'SQLite Only'}</span>
+      </div>
+    </div>
+    <div class="map-node">
+      <div class="node-name">Queue</div>
+      <div class="node-status">
+        <span class="status-dot ok"></span>
+        <span>${queue.queued || 0} pending</span>
+      </div>
+    </div>
+    <div class="map-node">
+      <div class="node-name">Governor</div>
+      <div class="node-status">
+        <span class="status-dot ${s.governor && s.governor.strict ? 'ok' : 'warn'}"></span>
+        <span>${s.governor && s.governor.strict ? 'Strict' : 'Lax'}</span>
+      </div>
+    </div>
+    <div class="map-node">
+      <div class="node-name">OS</div>
+      <div class="node-status">
+        <span class="status-dot ${os.booted ? 'ok' : 'off'}"></span>
+        <span>${os.booted ? 'Booted' : 'Offline'}</span>
+      </div>
+    </div>
+  `;
+  
+  // Activity feed (last 10)
+  const events = (s.events || []).slice(0, 10);
+  $('activity-feed').innerHTML = events.length ? events.map(e => `
+    <div class="feed-item">
+      <div class="feed-time">${new Date(e.ts).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
+      <div class="feed-level" style="color: ${levelColor(e.level)}">${esc(e.level)}</div>
+      <div class="feed-msg">${esc(e.msg || e.name)}</div>
+    </div>
+  `).join('') : '<div class="empty-state"><div class="msg">No activity yet</div></div>';
+}
+
+function renderIntelligence(s) {
+  const providers = s.providers || [];
+  const tokenData = s.token || {};
+  const models = (tokenData.models || {}).models || [];
+  const topModel = models[0];
+  const lastPipeline = s.last_pipeline || {};
+  
+  // Active model
+  $('active-model').innerHTML = topModel ? `
+    <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px;">
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Model</div>
+        <div style="font-family:var(--mono);font-size:16px;">${esc(topModel.model.split('/').pop())}</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Provider</div>
+        <div style="font-family:var(--mono);font-size:16px;">${esc(topModel.provider || 'Unknown')}</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Requests</div>
+        <div style="font-family:var(--mono);font-size:16px;">${topModel.n || 0}</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Tokens</div>
+        <div style="font-family:var(--mono);font-size:16px;">${formatNumber(topModel.tokens || 0)}</div>
+      </div>
+    </div>
+  ` : '<div class="empty-state"><div class="icon">◈</div><div class="msg">No model connected</div></div>';
+  
+  // Providers list
+  $('providers-list').innerHTML = providers.length ? providers.map(p => `
+    <div class="provider-item">
+      <div>
+        <div class="provider-name">${esc(p.name)}</div>
+        <div class="provider-models">${(p.models || []).slice(0, 3).join(', ') || 'No models'}</div>
+      </div>
+      <span class="tag ${p.available ? 'ok' : 'off'}">${p.available ? '● Available' : '○ Offline'}</span>
+    </div>
+  `).join('') : '<div class="empty-state"><div class="msg">No providers configured</div></div>';
+  
+  // Routing info
+  if (lastPipeline.route) {
+    $('routing-info').innerHTML = `
+      <div style="font-family:var(--mono);font-size:12px;color:var(--muted);">
+        <div style="margin-bottom:8px;">Last route: ${lastPipeline.route.join(' → ')}</div>
+        <div>Cache: ${lastPipeline.cache || 'miss'}</div>
+        <div>Decision: ${lastPipeline.decision ? lastPipeline.decision.path : 'N/A'}</div>
+        <div>Latency: ${lastPipeline.latency_ms != null ? lastPipeline.latency_ms + 'ms' : 'N/A'}</div>
+      </div>
+    `;
+  } else {
+    $('routing-info').innerHTML = '<div class="empty-state"><div class="msg">No routing data yet</div></div>';
   }
 }
-function godPayload(){
-  const caps=[...document.querySelectorAll('#god-caps input:checked')].map(i=>i.value);
-  return {
-    id: $('god-sel').value || undefined,
-    name: $('god-name').value.trim(),
-    purpose: $('god-purpose').value.trim(),
-    personality: $('god-person').value.trim(),
-    rules: $('god-rules').value.trim(),
-    memory: $('k-mem').classList.contains('on'),
-    capabilities: caps,
-    models: 'auto'
+
+function renderMemory(s) {
+  const mem = s.memory || {};
+  const qdrant = s.qdrant || {};
+  const cache = s.cache || {};
+  
+  // Memory KPIs
+  $('memory-kpis').innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Session</div>
+      <div class="kpi-value">${mem.session || 0}</div>
+      <div class="kpi-context">Current session</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Semantic</div>
+      <div class="kpi-value">${mem.semantic || 0}</div>
+      <div class="kpi-context">Vector store</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Cache Hit Rate</div>
+      <div class="kpi-value">${cache.hit_rate != null ? Math.round(cache.hit_rate * 100) + '%' : 'N/A'}</div>
+      <div class="kpi-context">${cache.hits || 0} hits · ${cache.misses || 0} misses</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Qdrant</div>
+      <div class="kpi-value" style="font-size:14px">${qdrant.available ? 'Connected' : 'Offline'}</div>
+      <div class="kpi-context">${qdrant.embed ? qdrant.embed.method : 'N/A'}</div>
+    </div>
+  `;
+  
+  // Memory details
+  $('memory-details').innerHTML = `
+    <div style="font-size:12px;color:var(--muted);line-height:1.8;">
+      <div>Total memories: ${mem.total || 0}</div>
+      <div>Projects: ${mem.project || 0}</div>
+      <div>Cache entries: ${cache.entries || 0}</div>
+      <div>Embedding method: ${qdrant.embed ? qdrant.embed.method : 'HashingVectorizer (fallback)'}</div>
+      <div>Vector dimensions: ${qdrant.embed ? qdrant.embed.dim : '384'}</div>
+    </div>
+  `;
+}
+
+function renderCompute(s) {
+  const host = s.host || {};
+  const workers = s.workers || [];
+  
+  // Compute node
+  const cpuPct = host.load1 && host.cpu_count ? Math.round(host.load1 / host.cpu_count * 100) : null;
+  const ramFree = host.ram_avail_mb ? (host.ram_avail_mb / 1024).toFixed(1) : null;
+  const ramTotal = host.ram_total_mb ? (host.ram_total_mb / 1024).toFixed(1) : null;
+  
+  $('compute-node').innerHTML = `
+    <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:16px;">
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">CPU</div>
+        <div class="progress">
+          <div class="progress-fill" style="width:${cpuPct || 0}%;background:${cpuPct > 80 ? 'var(--crit)' : cpuPct > 60 ? 'var(--warn)' : 'var(--ok)'}"></div>
+        </div>
+        <div style="font-family:var(--mono);font-size:14px;">${cpuPct != null ? cpuPct + '%' : 'N/A'}</div>
+        <div style="font-size:11px;color:var(--muted);">${host.cpu_count || '?'} cores · load ${host.load1 || '?'}</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">RAM</div>
+        <div class="progress">
+          <div class="progress-fill" style="width:${ramTotal && ramFree ? Math.round((1 - ramFree/ramTotal) * 100) : 0}%;background:var(--opp)"></div>
+        </div>
+        <div style="font-family:var(--mono);font-size:14px;">${ramFree ? ramFree + 'GB free' : 'N/A'}</div>
+        <div style="font-size:11px;color:var(--muted);">${ramTotal ? ramTotal + 'GB total' : 'Unknown total'}</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">GPU</div>
+        <div style="font-family:var(--mono);font-size:14px;">${host.gpu && host.gpu.present ? 'Detected' : 'Not Available'}</div>
+        <div style="font-size:11px;color:var(--muted);">Not required for operation</div>
+      </div>
+    </div>
+  `;
+  
+  // Workers
+  $('workers-list').innerHTML = workers.length ? workers.map(w => `
+    <div class="item">
+      <div class="item-left">
+        <div style="font-weight:500;">${esc(w.id)}</div>
+        <div style="font-size:11px;color:var(--muted);">${esc(w.location)} · ${(w.capabilities || []).join(', ')}</div>
+      </div>
+      <span class="tag ${w.alive ? 'ok' : 'off'}">${w.alive ? '● Alive' : '○ Dead'}</span>
+    </div>
+  `).join('') : '<div class="empty-state"><div class="msg">No remote workers connected</div><div style="font-size:11px;color:var(--dim);">GOD is running on local node only</div></div>';
+}
+
+function renderTokens(s) {
+  const token = s.token || {};
+  const usage = token.usage || {};
+  const cost = token.cost || {};
+  const budget = token.budget || {};
+  const efficiency = token.efficiency;
+  
+  // Token KPIs
+  $('token-kpis').innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Tokens Used</div>
+      <div class="kpi-value">${formatNumber(usage.sum_actual || 0)}</div>
+      <div class="kpi-context">Actual measured</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">LLM Calls</div>
+      <div class="kpi-value">${usage.llm_calls || 0}</div>
+      <div class="kpi-context">Requests to providers</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Efficiency</div>
+      <div class="kpi-value">${efficiency != null ? Math.round(efficiency * 100) + '%' : 'N/A'}</div>
+      <div class="kpi-context">Cache hit rate</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Cost</div>
+      <div class="kpi-value" style="font-size:14px">${cost.kind || 'UNKNOWN'}</div>
+      <div class="kpi-context">${cost.reason || 'No cost data'}</div>
+    </div>
+  `;
+  
+  // Token details
+  $('token-details').innerHTML = `
+    <div style="font-size:12px;color:var(--muted);line-height:1.8;">
+      <div>Session tokens: ${usage.session_tokens || 0}</div>
+      <div>Estimated total: ${usage.sum_estimated || 0}</div>
+      <div>Tool calls: ${usage.tool_calls || 0}</div>
+      <div>Budget daily: ${budget.daily ? budget.daily.used_measured + '/' + budget.daily.limit : 'N/A'}</div>
+      <div>Budget session: ${s.budgets ? s.budgets.session : 'N/A'}</div>
+      <div>Cost kind: ${esc(cost.kind || 'UNKNOWN')}</div>
+      <div>Cost reason: ${esc(cost.reason || 'No source')}</div>
+    </div>
+  `;
+}
+
+function renderEvolution(s) {
+  const experiments = s.experiments || [];
+  const pending = experiments.find(e => e.status === 'pending');
+  
+  // Pipeline visualization
+  $('evolution-pipeline').innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+      <div style="padding:8px 16px;background:rgba(62,236,192,.1);border:1px solid rgba(62,236,192,.3);border-radius:8px;font-size:12px;">Observe</div>
+      <div style="color:var(--dim);">→</div>
+      <div style="padding:8px 16px;background:rgba(62,236,192,.1);border:1px solid rgba(62,236,192,.3);border-radius:8px;font-size:12px;">Detect</div>
+      <div style="color:var(--dim);">→</div>
+      <div style="padding:8px 16px;background:rgba(228,201,138,.1);border:1px solid rgba(228,201,138,.3);border-radius:8px;font-size:12px;">Propose</div>
+      <div style="color:var(--dim);">→</div>
+      <div style="padding:8px 16px;background:rgba(228,201,138,.1);border:1px solid rgba(228,201,138,.3);border-radius:8px;font-size:12px;">Test</div>
+      <div style="color:var(--dim);">→</div>
+      <div style="padding:8px 16px;background:rgba(228,201,138,.1);border:1px solid rgba(228,201,138,.3);border-radius:8px;font-size:12px;">Approve</div>
+      <div style="color:var(--dim);">→</div>
+      <div style="padding:8px 16px;background:rgba(62,236,192,.1);border:1px solid rgba(62,236,192,.3);border-radius:8px;font-size:12px;">Apply</div>
+    </div>
+    ${pending ? `
+      <div style="padding:12px;background:rgba(255,209,102,.08);border:1px solid rgba(255,209,102,.2);border-radius:8px;margin-bottom:12px;">
+        <div style="font-size:10px;color:var(--warn);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Pending Approval</div>
+        <div style="font-weight:500;margin-bottom:4px;">${esc(pending.title || pending.id)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">${esc(pending.description || '')}</div>
+        <div style="display:flex;gap:8px;">
+          <button class="tag ok" onclick="approveExperiment('${esc(pending.id)}', true)">✓ Adopt</button>
+          <button class="tag crit" onclick="approveExperiment('${esc(pending.id)}', false)">✗ Reject</button>
+        </div>
+      </div>
+    ` : ''}
+  `;
+  
+  // Experiments list
+  $('experiments-list').innerHTML = experiments.length ? experiments.map(e => `
+    <div class="item">
+      <div class="item-left">
+        <div style="font-weight:500;">${esc(e.title || e.id)}</div>
+        <div style="font-size:11px;color:var(--muted);">${esc(e.status)} · risk ${esc(e.risk || '?')}</div>
+      </div>
+      <span class="tag ${e.status === 'applied' ? 'ok' : e.status === 'pending' ? 'warn' : 'off'}">${esc(e.status)}</span>
+    </div>
+  `).join('') : '<div class="empty-state"><div class="msg">No experiments yet</div></div>';
+}
+
+function approveExperiment(id, approve) {
+  fetch('/api/experiment', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, approve })
+  });
+}
+
+function renderActivity(s) {
+  const events = s.events || [];
+  $('full-activity-feed').innerHTML = events.length ? events.map(e => `
+    <div class="feed-item">
+      <div class="feed-time">${new Date(e.ts).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
+      <div class="feed-level" style="color: ${levelColor(e.level)}">${esc(e.level)}</div>
+      <div class="feed-msg">
+        <div>${esc(e.name)}</div>
+        <div style="font-size:11px;color:var(--dim);">${esc(e.msg)}</div>
+      </div>
+    </div>
+  `).join('') : '<div class="empty-state"><div class="msg">No events recorded</div></div>';
+}
+
+function renderSettings(s) {
+  const gov = s.governor || {};
+  const budgets = s.budgets || {};
+  
+  // Settings
+  $('settings-content').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px;">
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">Mode</div>
+        <div style="font-family:var(--mono);font-size:14px;">${esc(s.mode || 'Unknown')}</div>
+        <div style="font-size:11px;color:var(--muted);">${esc(s.mode_reason || '')}</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">Governor</div>
+        <div style="font-family:var(--mono);font-size:14px;">${gov.strict ? 'Strict Mode' : 'Lax Mode'}</div>
+        <div style="font-size:11px;color:var(--muted);">Security enforcement</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">Budget Task</div>
+        <div style="font-family:var(--mono);font-size:14px;">${budgets.task || 8000} tokens</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">Budget Session</div>
+        <div style="font-family:var(--mono);font-size:14px;">${budgets.session || 50000} tokens</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">Budget Daily</div>
+        <div style="font-family:var(--mono);font-size:14px;">${budgets.daily || 200000} tokens</div>
+      </div>
+    </div>
+  `;
+  
+  // Feature flags
+  $('feature-flags').innerHTML = '<div style="font-size:11px;color:var(--muted);">Loading flags...</div>';
+  fetch('/api/system/flags').then(r => r.json()).then(flags => {
+    const enabled = flags.enabled || [];
+    const disabled = flags.disabled || [];
+    $('feature-flags').innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;">
+        ${enabled.map(f => `
+          <div class="item" style="padding:8px;">
+            <span style="font-size:11px;">${esc(f)}</span>
+            <span class="tag ok" style="font-size:9px;">ON</span>
+          </div>
+        `).join('')}
+        ${disabled.map(f => `
+          <div class="item" style="padding:8px;">
+            <span style="font-size:11px;">${esc(f)}</span>
+            <span class="tag off" style="font-size:9px;">OFF</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }).catch(() => {
+    $('feature-flags').innerHTML = '<div class="error-state">Failed to load flags</div>';
+  });
+  
+  // GOD profiles
+  const god = s.god || {};
+  const profiles = god.profiles || [];
+  const active = god.active || {};
+  
+  $('god-profiles').innerHTML = `
+    <div style="margin-bottom:12px;">
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Active Profile</div>
+      <div style="font-weight:500;">${esc(active.name || 'Default')}</div>
+      <div style="font-size:11px;color:var(--muted);">${esc(active.purpose || '')}</div>
+    </div>
+    ${profiles.length > 1 ? `
+      <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">Available Profiles</div>
+      ${profiles.filter(p => p.id !== active.id).map(p => `
+        <div class="item" style="padding:8px;">
+          <div>
+            <div style="font-weight:500;">${esc(p.name)}</div>
+            <div style="font-size:11px;color:var(--muted);">${esc((p.purpose || '').slice(0, 60))}</div>
+          </div>
+        </div>
+      `).join('')}
+    ` : ''}
+  `;
+}
+
+function renderChat(s) {
+  const msgs = s.chat || [];
+  if (msgs.length === chatLen && $('chat-messages').children.length) return;
+  chatLen = msgs.length;
+  
+  $('chat-messages').innerHTML = msgs.map(m => `
+    <div class="chat-msg ${m.role}">
+      <div class="who">${m.role === 'brain' ? 'GOD' : 'You'}</div>
+      ${linkify(esc(m.text))}
+    </div>
+  `).join('');
+  $('chat-messages').scrollTop = $('chat-messages').scrollHeight;
+}
+
+// Utilities
+function formatNumber(n) {
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return n.toString();
+}
+
+function levelColor(level) {
+  const colors = {
+    INFO: '#9aa4b2',
+    NOTICE: '#6aa8ff',
+    WARNING: 'var(--warn)',
+    CRITICAL: 'var(--crit)',
+    SECURITY: 'var(--crit)',
+    OPPORTUNITY: 'var(--opp)',
+    EVOLUTION: 'var(--evo)'
+  };
+  return colors[level] || '#9aa4b2';
+}
+
+function linkify(s) {
+  return s.replace(/\/preview\/[a-z0-9-]{1,40}\//g, m => `<a href="${m}" target="_blank" rel="noopener">${m}</a>`);
+}
+
+// SSE connection
+function connect() {
+  const es = new EventSource('/api/stream');
+  es.addEventListener('snapshot', e => {
+    try {
+      paint(JSON.parse(e.data));
+    } catch (err) {
+      console.error('Failed to parse snapshot:', err);
+    }
+  });
+  es.addEventListener('event', () => {});
+  es.onerror = () => {
+    es.close();
+    setTimeout(connect, 2000);
+    // Fallback to polling
+    fetch('/api/state').then(r => r.json()).then(paint).catch(() => {});
   };
 }
-$('god-sel').onchange=()=>{
-  const id=$('god-sel').value;
-  godEditing=id;
-  fetch('/api/gods/'+encodeURIComponent(id)).then(r=>r.json()).then(g=>{
-    $('god-name').value=g.name||'';
-    $('god-purpose').value=g.purpose||'';
-    $('god-person').value=g.personality||'';
-    $('god-rules').value=g.rules||'';
-    $('k-mem').classList.toggle('on', g.memory!==false);
-    const caps=new Set(g.capabilities||[]);
-    document.querySelectorAll('#god-caps input').forEach(i=>{ i.checked = caps.has(i.value); });
-  });
-};
-$('god-save').onclick=()=>{
-  const body=godPayload();
-  if(!body.name) return;
-  fetch('/api/gods',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
-    .then(r=>r.json()).then(()=>{ godEditing=null; });
-};
-$('god-new').onclick=()=>{
-  godEditing='new';
-  $('god-sel').value='';
-  $('god-name').value='';
-  $('god-purpose').value='';
-  $('god-person').value='';
-  $('god-rules').value='';
-  $('k-mem').classList.add('on');
-  document.querySelectorAll('#god-caps input').forEach(i=>i.checked=true);
-  $('god-name').focus();
-};
-$('god-go').onclick=()=>{
-  const id=$('god-sel').value;
-  if(!id) return;
-  fetch('/api/gods/'+encodeURIComponent(id)+'/activate',{method:'POST'}).then(()=>{ godEditing=null; });
-};
-$('god-repair').onclick=()=>fetch('/api/repair',{method:'POST'});
-$('t-mem').onclick=()=>$('k-mem').classList.toggle('on');
-$('god-rb').onclick=()=>{
-  const id=$('god-sel').value, v=$('god-ver').value;
-  if(!id || !v) return;
-  fetch('/api/gods/'+encodeURIComponent(id)+'/rollback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:Number(v)})});
-};
 
-function send(text){
-  text=(text||'').trim();
-  if(!text) return;
-  fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
-  $('inp').value='';
-}
-$('form').onsubmit=ev=>{ev.preventDefault(); send($('inp').value)};
-document.querySelectorAll('.chip').forEach(b=>b.onclick=()=>send(b.dataset.q));
+// Initial load
+fetch('/api/state').then(r => r.json()).then(paint).catch(() => {
+  $('status-dot').className = 'status-dot crit';
+  $('status-label').textContent = 'Connection Failed';
+});
 
-// Mission management
-function paintMissions(s){
-  const mi=s.mission||{};
-  const a=mi.active;
-  const recent=mi.recent||[];
-  const box=$('mis-list');
-  if(!box) return;
-  if(!recent.length){
-    box.innerHTML='<div class="d">sem missões — usa "missão: objectivo" no chat</div>';
-    return;
-  }
-  box.innerHTML=recent.slice(0,8).map(m=>{
-    const st=m.status||'?';
-    const cls=st==='active'?'ok':st==='paused'?'warn':st==='done'?'':'';
-    const goal=(m.goal||'').slice(0,60);
-    return `<div class="item"><div class="h"><b>${esc(m.id)}</b><span class="tag ${cls}">${esc(st)}</span></div>
-      <div class="d">${esc(goal)}${m.updated?' · '+new Date(m.updated).toLocaleTimeString('pt-PT'):''}</div></div>`;
-  }).join('');
-}
-$('mis-create').onclick=()=>{
-  const goal=prompt('Objectivo da missão:');
-  if(goal) send('missão: '+goal);
-};
-$('mis-pause').onclick=()=>send('pausa missão');
-$('mis-resume').onclick=()=>{
-  // Resume = reactivate the paused mission
-  const mi=S&&S.mission||{};
-  const recent=mi.recent||[];
-  const paused=recent.find(m=>m.status==='paused');
-  if(paused){
-    fetch('/api/gods/'+encodeURIComponent('master')+'/activate',{method:'POST'});
-    send('missão: '+paused.goal);
-  } else {
-    send('missão actual');
-  }
-};
-$('mis-done').onclick=()=>send('conclui missão');
-$('mis-cancel').onclick=()=>send('cancela missão');
-
-// Graph visualization
-function paintGraph(s){
-  const g=s.graph||{};
-  const jobs=s.jobs||[];
-  const edges=g.edges||[];
-  const box=$('graph-viz');
-  if(!box) return;
-  if(!edges.length && !jobs.length){
-    box.innerHTML='<div class="d">sem tarefas com dependências — usa "depois: tarefa" no chat</div>';
-    return;
-  }
-  // Build adjacency
-  const nodes=new Map();
-  jobs.forEach(j=>nodes.set(j.id,j));
-  const children=new Map();
-  edges.forEach(e=>{
-    if(!children.has(e.from)) children.set(e.from,[]);
-    children.get(e.from).push(e.to);
-  });
-  // Topological sort (simple)
-  const visited=new Set();
-  const order=[];
-  function visit(id){
-    if(visited.has(id)) return;
-    visited.add(id);
-    (children.get(id)||[]).forEach(visit);
-    order.push(id);
-  }
-  nodes.forEach((_,id)=>visit(id));
-  // Render
-  const statusColor={queued:'var(--muted)',assigned:'var(--warn)',running:'var(--opp)',completed:'var(--ok)',failed:'var(--crit)',killed:'var(--crit)'};
-  box.innerHTML=order.slice(0,12).map(id=>{
-    const j=nodes.get(id);
-    if(!j) return '';
-    const st=j.status||'?';
-    const color=statusColor[st]||'var(--muted)';
-    const deps=edges.filter(e=>e.to===id).map(e=>e.from);
-    const kind=j.kind||'?';
-    const text=(j.text||'').slice(0,40);
-    return `<div class="item" style="border-left:3px solid ${color}">
-      <div class="h"><b>${esc(id)}</b><span style="color:${color}">${esc(st)}</span></div>
-      <div class="d">${esc(kind)} · ${esc(text)}${deps.length?' · deps: '+deps.join(', '):''}</div></div>`;
-  }).join('');
-}
-
-function connect(){
-  const es=new EventSource('/api/stream');
-  es.addEventListener('snapshot', e=>paint(JSON.parse(e.data)));
-  es.addEventListener('event', ()=>{});
-  es.onerror=()=>{ es.close(); setTimeout(connect,1500); fetch('/api/state').then(r=>r.json()).then(paint).catch(()=>{}); };
-}
 connect();
-$('inp').focus();
 </script>
 </body>
 </html>
