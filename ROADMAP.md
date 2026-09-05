@@ -6,7 +6,7 @@ Plane: slug `godsx` MEASURED — **não** é o núcleo.
 
 Este é o roadmap **correcto**. Não é marketing. Fluxo = código actual.
 
-**HEAD de código P1.5:** [`619d8e6`](https://github.com/rpolicarpo100/GOD/commit/619d8e6) · testes **162 OK** (164 total, 2 pré-existentes).
+**HEAD de código:** [`2d341e4`](https://github.com/rpolicarpo100/GOD/commit/2d341e4) · testes **162 OK** (164 total, 2 pré-existentes).
 
 ```mermaid
 flowchart LR
@@ -71,6 +71,7 @@ flowchart LR
 - P1.5 Feature Flags (`superai/feature_flags.py`) — 8 flags, DISABLED by default, risk-classified.
 - P1.5 Controlled Evolution — classify_risk() + propose_with_risk() com auto-blocking para HIGH RISK.
 - P1.5 Runtime Protection (`superai/runtime_protection.py`) — GOD Object detection + AST inspection.
+- Refactor GOD Object — runtime.py: 1129→503 linhas, handle(): 586→53 linhas. Extracted pipeline.py + shortcuts.py.
 - GitHub público + push por deploy key SSH (`3c0c8cb` e seguintes).
 - Plane `godsx` / GODSX work-items MEASURED (`in_product=false`).
 - Caps PC i5-4590 50%. 22€ IVA USER_STATED ≠ API UNKNOWN.
@@ -86,7 +87,8 @@ flowchart LR
 7. ~~**P1.5 System Integrity**~~ — System State + Capability Registry + Health/Readiness + Decision Trace. **FEITO** (`superai/system.py`, `capabilities.py`, `health.py`, `trace.py`).
 8. ~~**P1.5 Controlled Evolution**~~ — feature flags (8 flags, DISABLED by default) + risk classification (LOW/MEDIUM/HIGH). **FEITO** (`superai/feature_flags.py`, evolution.py `classify_risk` + `propose_with_risk`).
 9. ~~**P1.5 Runtime Protection**~~ — GOD Object anti-pattern detection + AST-based file inspection. **FEITO** (`superai/runtime_protection.py`).
-10. **Não** P2 Agent Factory, P3 GOD Factory, P3 mesh, Desktop, swarm, Redis/K8s por aparência.
+10. ~~**Refactor GOD Object**~~ — runtime.py 1129→503, handle() 586→53. Extracted `pipeline.py` + `shortcuts.py`. **FEITO**.
+11. **Não** P2 Agent Factory, P3 GOD Factory, P3 mesh, Desktop, swarm, Redis/K8s por aparência.
 
 ## GitHub deploy
 
