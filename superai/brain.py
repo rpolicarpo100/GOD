@@ -156,11 +156,40 @@ def context_pack(task: dict, memory_hits: list[dict], limit: int = 5) -> dict:
 def cache_lookup(text: str, ns: str = "") -> dict | None:
     key = sha(normalize_query(text) + (f"\n{ns}" if ns else ""))
     hit = store.cache_get(key)
-    return hit
+    if hit:
+        return hit
+    # Semantic cache: search by embedding similarity
+    from .feature_flags import is_enabled
+    if not is_enabled("semantic_cache"):
+        return None
+    from .memory_vec import vectors
+    if not vectors.available():
+        return None
+    results = vectors.search("cache", text, k=1, min_score=0.85)
+    if not results:
+        return None
+    r = results[0]
+    # Found a semantic match above threshold
+    cached_result = r.get("result")
+    if not cached_result:
+        return None
+    return {"key": r.get("key", ""), "norm": text, "result": cached_result, "quality": r.get("quality", 0.5), "ts": r.get("ts", ""), "hits": 0, "semantic": True, "score": r.get("score", 0)}
 
 
 def cache_store(text: str, result: dict, quality: float, ns: str = "") -> None:
-    store.cache_put(sha(normalize_query(text) + (f"\n{ns}" if ns else "")), normalize_query(text), result, quality)
+    norm = normalize_query(text)
+    key = sha(norm + (f"\n{ns}" if ns else ""))
+    store.cache_put(key, norm, result, quality)
+    # Also store in vector cache for semantic lookup
+    from .feature_flags import is_enabled
+    if is_enabled("semantic_cache"):
+        from .memory_vec import vectors
+        if vectors.available():
+            try:
+                import json as _json
+                vectors.upsert("cache", key, norm, {"result": result, "quality": quality, "ts": now_iso()})
+            except Exception:
+                pass  # Non-critical
 
 
 def evaluate(task: dict, tool_results: list[dict], llm_used: bool, tokens_actual: int) -> dict:
