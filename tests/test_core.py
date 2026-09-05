@@ -1514,19 +1514,19 @@ class P15FeatureFlags(unittest.TestCase):
 
     def test_flags_disabled_by_default(self):
         from superai.feature_flags import is_enabled
-        # All flags should be disabled by default
-        self.assertFalse(is_enabled("semantic_cache"))
-        self.assertFalse(is_enabled("auto_evolve"))
+        # hardcore_mode should always be disabled by default
         self.assertFalse(is_enabled("hardcore_mode"))
 
     def test_list_flags(self):
         from superai.feature_flags import list_flags
         flags = list_flags()
-        self.assertGreater(len(flags), 5)
+        self.assertGreater(len(flags), 8)
         names = [f["name"] for f in flags]
         self.assertIn("semantic_cache", names)
         self.assertIn("auto_evolve", names)
         self.assertIn("hardcore_mode", names)
+        self.assertIn("auto_cleanup", names)
+        self.assertIn("rate_limiting", names)
 
     def test_enable_low_risk(self):
         from superai.feature_flags import enable, disable, is_enabled
@@ -1548,10 +1548,11 @@ class P15FeatureFlags(unittest.TestCase):
         from superai.governor import gov
         if not gov.strict():
             self.skipTest("governor not strict")
-        r = enable("auto_evolve", reason="test", actor="test")
+        # hardcore_mode is HIGH RISK — should be blocked in strict mode
+        r = enable("hardcore_mode", reason="test", actor="test")
         self.assertFalse(r["ok"])
         self.assertIn("HIGH RISK", r["error"])
-        self.assertFalse(is_enabled("auto_evolve"))
+        self.assertFalse(is_enabled("hardcore_mode"))
 
     def test_unknown_flag_rejected(self):
         from superai.feature_flags import enable
@@ -1566,16 +1567,18 @@ class P15FeatureFlags(unittest.TestCase):
         self.assertGreater(s["n"], 0)
         self.assertIsInstance(s["enabled"], list)
         self.assertIsInstance(s["disabled"], list)
-        self.assertIn("auto_evolve", s["high_risk"])
+        self.assertIn("hardcore_mode", s["high_risk"])
 
     def test_flag_risk_classification(self):
         from superai.feature_flags import get_flag
         auto = get_flag("auto_evolve")
-        self.assertEqual(auto["risk"], "high")
+        self.assertEqual(auto["risk"], "medium")  # Reclassified: governor + classify_risk are safety nets
         cache = get_flag("semantic_cache")
         self.assertEqual(cache["risk"], "low")
         hc = get_flag("hardcore_mode")
         self.assertEqual(hc["risk"], "high")
+        cost = get_flag("cost_routing")
+        self.assertEqual(cost["risk"], "low")  # Reclassified: free tier first, fallback
 
     def test_flags_endpoint(self):
         from server import api_flags

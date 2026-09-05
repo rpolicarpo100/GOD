@@ -167,8 +167,15 @@ class DirectAdapter(RoutingAdapter):
             if not h["available"]:
                 last = {"adapter": a.id, "error": h.get("error")}
                 continue
+            # Rate limiting check
+            from .ratelimit import check as rl_check, record as rl_record
+            rl = rl_check(a.id)
+            if not rl.get("allowed", True):
+                last = {"adapter": a.id, "error": f"rate limited ({rl.get('remaining', 0)} remaining)"}
+                continue
             res = a.complete(prompt, **kw)
             if res.get("status") == "success" and str(res.get("text") or "").strip():
+                rl_record(a.id)
                 return res
             last = res
             tries += 1

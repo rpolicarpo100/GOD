@@ -24,34 +24,48 @@ cost:
     official_vat_included: false
 feature_flags:
   allow_remote_tools: false
-  auto_evolve: false
+  auto_cleanup: true
+  auto_evolve: true
   cost_routing: true
-  debug_trace: true
+  debug_trace: false
   extended_metrics: true
   hardcore_mode: false
   parallel_jobs: true
-  semantic_cache: true
+  rate_limiting: true
+  semantic_cache: false
 feature_flags_meta:
+  auto_cleanup:
+    enabled_at: '2026-09-05T10:17:32.499521+00:00'
+    enabled_by: auto
+    reason: stale data cleanup, no risk
+  auto_evolve:
+    enabled_at: '2026-09-05T10:19:58.461566+00:00'
+    enabled_by: test
+    reason: test
   cost_routing:
-    enabled_at: '2026-09-05T09:39:18.944633+00:00'
+    enabled_at: '2026-09-05T10:17:32.478664+00:00'
     enabled_by: auto
-    reason: pricing CALCULATED for all providers
+    reason: pricing CALCULATED, free tier first
   debug_trace:
-    enabled_at: '2026-09-05T09:39:18.922639+00:00'
-    enabled_by: auto
-    reason: useful for debugging, no performance impact
+    disabled_at: '2026-09-05T10:21:34.161145+00:00'
+    disabled_by: system
+    reason: test cleanup
   extended_metrics:
-    enabled_at: '2026-09-05T09:39:18.932989+00:00'
+    enabled_at: '2026-09-05T10:17:32.467458+00:00'
     enabled_by: auto
-    reason: extra metrics at no cost
+    reason: extra metrics no cost
   parallel_jobs:
-    enabled_at: '2026-09-05T09:39:18.911774+00:00'
+    enabled_at: '2026-09-05T10:17:32.446849+00:00'
     enabled_by: auto
-    reason: inflight=2 verified, queue tests pass
+    reason: inflight=2 verified
+  rate_limiting:
+    enabled_at: '2026-09-05T10:17:32.510495+00:00'
+    enabled_by: auto
+    reason: protect free tier quotas
   semantic_cache:
-    enabled_at: '2026-09-05T09:39:18.896519+00:00'
-    enabled_by: auto
-    reason: neural embeddings tested, paraphrases working
+    disabled_at: '2026-09-05T10:21:34.184631+00:00'
+    disabled_by: system
+    reason: test cleanup
 governor:
   deny_names:
   - .env

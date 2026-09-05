@@ -53,3 +53,43 @@ def run() -> dict:
         "actions": actions,
         "note": "não repara providers remotos nem inventa SearXNG/preços",
     }
+
+
+def auto_cleanup() -> dict:
+    """Limpar dados stale. Chamada periodicamente se flag auto_cleanup activa."""
+    from .feature_flags import is_enabled
+    if not is_enabled("auto_cleanup"):
+        return {"kind": "SKIPPED", "reason": "auto_cleanup flag disabled"}
+
+    cleaned: list[dict] = []
+
+    # 1. Prune dead workers (keep control-local)
+    n = tq.prune(keep=("control-local",))
+    if n:
+        cleaned.append({"check": "dead_workers", "n": n})
+
+    # 2. God history: keep only last 5 per god
+    from pathlib import Path
+    hist = DATA / "gods" / "history"
+    if hist.is_dir():
+        seen: dict[str, list[Path]] = {}
+        for f in sorted(hist.glob("*.json")):
+            gid = f.stem.rsplit("-v", 1)[0] if "-v" in f.stem else f.stem
+            seen.setdefault(gid, []).append(f)
+        removed = 0
+        for gid, files in seen.items():
+            for f in files[:-5]:
+                try:
+                    f.unlink()
+                    removed += 1
+                except Exception:
+                    pass
+        if removed:
+            cleaned.append({"check": "god_history", "n": removed})
+
+    return {
+        "kind": "MEASURED",
+        "ts": now_iso(),
+        "cleaned": cleaned,
+        "n_cleaned": len(cleaned),
+    }

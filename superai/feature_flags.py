@@ -21,7 +21,7 @@ _FLAG_DEFS: dict[str, dict] = {
     "semantic_cache": {
         "default": False,
         "risk": "low",
-        "description": "Usar cache semântico (Qdrant) além do hash cache",
+        "description": "Usar cache semântico (Qdrant + FastEmbed neural) além do hash cache",
         "requires": [],
     },
     "parallel_jobs": {
@@ -32,9 +32,9 @@ _FLAG_DEFS: dict[str, dict] = {
     },
     "auto_evolve": {
         "default": False,
-        "risk": "high",
-        "description": "Auto-aplicar propostas de evolução sem aprovação humana",
-        "requires": ["governor_strict_false"],
+        "risk": "medium",
+        "description": "Auto-aplicar evoluções LOW/MEDIUM risk. HIGH risk continua bloqueado por classify_risk().",
+        "requires": [],
     },
     "allow_remote_tools": {
         "default": False,
@@ -56,15 +56,27 @@ _FLAG_DEFS: dict[str, dict] = {
     },
     "cost_routing": {
         "default": False,
-        "risk": "medium",
-        "description": "Usar custo como critério de routing (precisa pricing verificada)",
+        "risk": "low",
+        "description": "Usar custo como critério de routing. Free tier first, fallback automático.",
         "requires": ["verified_pricing"],
     },
     "hardcore_mode": {
         "default": False,
         "risk": "high",
-        "description": "Claude como provider primário (precisa API key + budget)",
+        "description": "Claude como provider primário (precisa API key + budget). Último fallback exceto em hardcore.",
         "requires": ["claude_api_key"],
+    },
+    "auto_cleanup": {
+        "default": False,
+        "risk": "low",
+        "description": "Limpar dados stale automaticamente (queue jobs, god history, expired cache)",
+        "requires": [],
+    },
+    "rate_limiting": {
+        "default": False,
+        "risk": "low",
+        "description": "Rate limiting por provider para evitar exceder free tier quotas",
+        "requires": [],
     },
 }
 

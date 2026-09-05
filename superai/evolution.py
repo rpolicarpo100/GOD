@@ -232,8 +232,32 @@ def run_cycle() -> dict:
         store.save_experiment(provider_exp)
         bus.emit("VERSION_PROPOSED", "EVOLUTION", provider_exp["title"])
     
+    # Auto-evolve: auto-apply LOW/MEDIUM risk pending experiments
+    from .feature_flags import is_enabled
+    if is_enabled("auto_evolve"):
+        _auto_apply_pending()
+    
     bus.emit("EXPERIMENT_COMPLETED", "EVOLUTION", f"cycle {exp['id']} + bench {bench['run_id']}")
     return {"observe": obs, "benchmark": bench, "experiment": exp}
+
+
+def _auto_apply_pending() -> None:
+    """Auto-apply LOW/MEDIUM risk pending experiments."""
+    exps = store.experiments(20)
+    applied = 0
+    for e in exps:
+        if e.get("status") != "pending":
+            continue
+        risk = e.get("risk", "high")
+        if risk in ("low", "medium"):
+            e["status"] = "adopted"
+            e["adopted_at"] = now_iso()
+            e["adopted_by"] = "auto_evolve"
+            store.save_experiment(e)
+            applied += 1
+            bus.emit("EXPERIMENT_ADOPTED", "EVOLUTION", f"auto: {e.get('title', '')[:60]}")
+    if applied:
+        bus.emit("AUTO_EVOLVE", "EVOLUTION", f"applied {applied} experiments")
 
 
 def _propose_provider_experiment(obs: dict) -> dict | None:
