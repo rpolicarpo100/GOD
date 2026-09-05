@@ -2,37 +2,69 @@
 
 ---
 
-## CURRENT (v3) ✅
+## CURRENT (v4) ✅
 
-**GOD CORE + Living Interface**
+**GOD CORE + Living Interface + Event-Driven + Personality**
 
-- [x] GOD CORE with 8 states (idle/ready/listening/thinking/tools/responding/error/offline)
-- [x] SVG ring with CSS animations
+### GOD CORE ✅
+- [x] Organic breathing orb (4 layers, cubic-bezier)
+- [x] 8 states (idle/ready/listening/thinking/tools/responding/error/offline)
+- [x] Event-driven via SSE (11 events)
+- [x] Personality messages in Portuguese
+- [x] Auto-return to ready after 3 seconds
+
+### Intelligence ✅
+- [x] SSE-driven GOD CORE states
+- [x] Latency sparkline (SVG, last N requests)
+- [x] Provider health display
+- [x] Active model display
+- [x] Route visualization
+
+### Performance ✅
+- [x] Performance history (SQLite, last 10 requests)
+- [x] Latency stats (avg/min/max)
+- [x] MEASURED/ESTIMATED/TARGET separation
+- [x] Resource Governor modes (ECO/NORMAL/PERFORMANCE)
+
+### Voice ✅
+- [x] TTS via edge-tts
+- [x] Capability distinction (TTS/STT/Input/Duplex)
+- [x] Voice badge shows TTS status
+
+### Nodes ✅
+- [x] Node Registry (capability-based)
+- [x] Local node auto-registered
+- [x] Node visualization in UI
+- [x] API: GET/POST/DELETE /api/system/nodes
+
+### Proactive Messages ✅
+- [x] Budget exceeded alert
+- [x] Quality drop alert
+- [x] PC overload alert
+- [x] Provider gap alert
+- [x] Budget recovery message
+
+### UI ✅
 - [x] Sidebar navigation (8 pages)
 - [x] KPIs with real data
 - [x] System Map
-- [x] Activity Feed
+- [x] Nodes panel
+- [x] Providers panel
+- [x] Activity Feed (live)
 - [x] Chat with quick actions
-- [x] Voice badge
 - [x] Responsive (mobile/tablet/desktop)
 - [x] prefers-reduced-motion
 - [x] No WebGL/Canvas/Three.js
 - [x] Performance optimized
 
+### Truth Model ✅
+- [x] Classification system (IMPLEMENTED/TESTED/ENABLED/ACTIVE/MEASURED/ESTIMATED/TARGET/UNKNOWN/BLOCKED/MISSING)
+- [x] All capabilities audited
+- [x] Documentation consistent
+
 ---
 
-## NEXT (v4)
-
-**Enhanced Intelligence**
-
-- [ ] GOD CORE state transitions driven by SSE events (not just snapshots)
-- [ ] Real-time latency graph (last 20 requests, SVG sparkline)
-- [ ] Provider health timeline
-- [ ] Memory growth chart
-- [ ] Token usage trend (daily)
-- [ ] Voice health endpoint integration
-- [ ] GOD CORE personality messages ("Estou a analisar...", "Encontrei um problema...")
-- [ ] Sound effects (optional, user toggle)
+## NEXT (v4.1)
 
 **Chat Enhancement**
 
@@ -49,9 +81,16 @@
 - [ ] Data flow visualization
 - [ ] Worker topology view
 
+**Advanced Monitoring**
+
+- [ ] Alert history with acknowledgement
+- [ ] Performance baselines
+- [ ] Anomaly detection visualization
+- [ ] Resource prediction
+
 ---
 
-## FUTURE (v5+)
+## FUTURE (v5)
 
 **Advanced Visualization**
 
@@ -64,7 +103,6 @@
 **GOD Personality**
 
 - [ ] Mood indicator based on system state
-- [ ] Proactive messages ("Notei que o cache está baixo...")
 - [ ] Contextual suggestions
 - [ ] Learning curve visualization
 
@@ -74,19 +112,19 @@
 - [ ] Custom layout save/restore
 - [ ] Multi-monitor support
 
-**Advanced Monitoring**
-
-- [ ] Alert history with acknowledgement
-- [ ] Performance baselines
-- [ ] Anomaly detection visualization
-- [ ] Resource prediction
-
 **Accessibility**
 
 - [ ] High contrast mode
 - [ ] Font size controls
 - [ ] Screen reader optimization
 - [ ] Keyboard shortcuts overlay
+
+**Future Devices**
+
+- [ ] Samsung A23 integration
+- [ ] Audio input/output
+- [ ] Camera access
+- [ ] Context awareness
 
 ---
 
@@ -98,40 +136,33 @@
 4. **Professional** — Not a game demo, a tool
 5. **Responsive** — Works everywhere
 6. **Accessible** — respects reduced-motion, keyboard nav
+7. **Event-driven** — React to real backend events
+8. **Truth Model** — Distinguish IMPLEMENTED/TESTED/ENABLED/ACTIVE
 
 ---
 
 ## PERFORMANCE TARGETS (Standing)
 
-| Metric | Target |
-|--------|--------|
-| Idle CPU | < 3% |
-| Active CPU | < 15% |
-| Idle RAM | < 250MB |
-| GPU | 0% |
-| Animations | CSS/SVG only |
-| Bundle | < 50KB |
-| External deps | 0 |
+| Metric | Target | Status |
+|--------|--------|--------|
+| Idle CPU | < 3% | TARGET |
+| Active CPU | < 15% | TARGET |
+| Idle RAM | < 250MB | TARGET |
+| GPU | 0% | TARGET |
+| Animations | CSS/SVG only | ✅ ACHIEVED |
+| Bundle | < 50KB | ✅ ACHIEVED (~30KB) |
+| External deps | 0 | ✅ ACHIEVED |
 
 ---
 
-## IMPLEMENTATION ORDER
+## VERSION HISTORY
 
 ```
-v4.1 — SSE-driven GOD CORE states
-v4.2 — Latency sparkline + voice health
-v4.3 — Chat typing indicator + markdown
-v4.4 — Interactive system map
-v5.0 — Task graph + memory graph
-v5.1 — GOD personality messages
-v5.2 — Advanced monitoring
+v4.0 — GOD CORE organic breathing orb
+v4.1 — Event-driven states + Performance history
+v4.2 — Resource Governor + Voice distinction
+v4.3 — Node Registry + Proactive messages
+v4.4 — Truth Model + Documentation consistency
+v4.5 — Providers panel + Nodes visualization
+v5.0 — Chat enhancement + Interactive system map
 ```
-
-Each version:
-- Implement
-- Run
-- Test
-- Measure
-- Compare
-- Improve
-- Test again
