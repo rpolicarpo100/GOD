@@ -405,8 +405,8 @@ button{cursor:pointer}
         <div class="panel-b"><div class="feed" id="feed"></div></div>
       </div>
       <div class="panel">
-        <div class="panel-h"><div class="panel-t">Providers</div></div>
-        <div class="panel-b"><div id="providers"></div></div>
+        <div class="panel-h"><div class="panel-t">Performance</div></div>
+        <div class="panel-b"><div id="perf-panel"></div></div>
       </div>
     </div>
       </div>
@@ -545,7 +545,7 @@ function setCore(st,label){
 
 // ═══ PAINT ═══
 function paint(s){
-  S=s;pStatus(s);pCore(s);pKPI(s);pSmap(s);pNodes(s);pFeed(s);pProviders(s);
+  S=s;pStatus(s);pCore(s);pKPI(s);pSmap(s);pNodes(s);pFeed(s);pPerf(s);
   pIntel(s);pMem(s);pComp(s);pTok(s);pEvo(s);pAct(s);pCfg(s);pProf(s);pChat(s);
 }
 
@@ -634,6 +634,49 @@ function pProviders(s){
   const ps=s.providers||[];
   if(!ps.length){$('providers').innerHTML='<div class="empty">Sem providers</div>';return;}
   $('providers').innerHTML=ps.map(p=>`<div class="pv"><div class="pv-d ${p.available?'up':'down'}"></div><div class="pv-n">${esc(p.name)}</div><div class="pv-m">${(p.models||[]).slice(0,2).join(', ')}</div><span class="tag ${p.available?'ok':'off'}">${p.available?'Up':'Down'}</span></div>`).join('');
+}
+
+function pPerf(s){
+  const perf=s.perf||{};
+  const stats=perf.stats||{};
+  const history=perf.history||[];
+  const cache=s.cache||{};
+  const usage=s.usage||{};
+  
+  if(!$('perf-panel'))return;
+  
+  // Build sparkline SVG
+  let sparkline='';
+  if(history.length>1){
+    const w=100,h=20;
+    const vals=history.map(d=>d.latency_ms||0).reverse();
+    const mx=Math.max(...vals,1);
+    const pts=vals.map((v,i)=>{
+      const x=(i/(vals.length-1))*w;
+      const y=h-(v/mx)*h;
+      return `${x},${y}`;
+    }).join(' ');
+    sparkline=`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;margin:4px 0"><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  }
+  
+  $('perf-panel').innerHTML=`
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <div style="flex:1;text-align:center;padding:4px">
+        <div style="font-size:8px;color:var(--dim)">Requests</div>
+        <div style="font-family:var(--mono);font-size:14px">${stats.n||0}</div>
+      </div>
+      <div style="flex:1;text-align:center;padding:4px">
+        <div style="font-size:8px;color:var(--dim)">Avg Latency</div>
+        <div style="font-family:var(--mono);font-size:14px;color:var(--ok)">${stats.avg_ms||'—'}ms</div>
+      </div>
+      <div style="flex:1;text-align:center;padding:4px">
+        <div style="font-size:8px;color:var(--dim)">Cache Hit</div>
+        <div style="font-family:var(--mono);font-size:14px;color:var(--accent)">${cache.hit_rate!=null?Math.round(cache.hit_rate*100)+'%':'—'}</div>
+      </div>
+    </div>
+    ${sparkline}
+    <div style="font-size:9px;color:var(--dim)">LLM: ${usage.llm_calls||0} calls · Tools: ${usage.tool_calls||0} calls · Tokens: ${fmtN(usage.session_tokens||0)}</div>
+  `;
 }
 
 function pIntel(s){
