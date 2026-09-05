@@ -6,7 +6,7 @@ Plane: slug `godsx` MEASURED — **não** é o núcleo.
 
 Este é o roadmap **correcto**. Não é marketing. Fluxo = código actual.
 
-**HEAD de código:** [`ac29d56`](https://github.com/rpolicarpo100/GOD/commit/ac29d56) · testes **162 OK** (164 total, 2 pré-existentes).
+**HEAD de código:** [`3b89bea`](https://github.com/rpolicarpo100/GOD/commit/3b89bea) · testes **162 OK** (164 total, 2 pré-existentes) · providers **6/8**.
 
 ```mermaid
 flowchart LR
@@ -72,22 +72,37 @@ flowchart LR
 - P1.5 Controlled Evolution — classify_risk() + propose_with_risk() com auto-blocking para HIGH RISK.
 - P1.5 Runtime Protection (`superai/runtime_protection.py`) — GOD Object detection + AST inspection.
 - Refactor GOD Object — runtime.py: 1129→503 linhas, handle(): 586→53 linhas. Extracted pipeline.py + shortcuts.py.
+- Providers 6/8 — Groq, Cerebras, OpenRouter, Inference.net, Z.ai, Claude (all free except Claude).
+- Provider Tiers — PRIMARY (Groq, Cerebras, Claude), SECONDARY (OpenRouter, Inference.net, Z.ai), BRAINSTORMING (pending).
+- Benchmark 5/5 — tool_math, tool_json, embed_separation, qdrant_roundtrip, llm_pong.
 - GitHub público + push por deploy key SSH (`3c0c8cb` e seguintes).
 - Plane `godsx` / GODSX work-items MEASURED (`in_product=false`).
 - Caps PC i5-4590 50%. 22€ IVA USER_STATED ≠ API UNKNOWN.
 
+## Provider Tiers
+
+| Tier | Providers | Função | Estado |
+|------|-----------|--------|--------|
+| **PRIMARY** | Groq, Cerebras, Claude | Requests principais, respostas rápidas | ✅ 3/3 |
+| **SECONDARY** | OpenRouter, Inference.net, Z.ai | Substituição rápida, side tasks | ✅ 3/3 |
+| **BRAINSTORMING** | Gemini, NVIDIA NIM, Mistral, Cohere, SambaNova | Brainstorming, tarefas específicas | ⏳ 0/5 |
+
+**Próximo:** Adicionar 5 providers BRAINSTORMING (Gemini, NVIDIA NIM, Mistral, Cohere, SambaNova).
+
 ## A fazer (ordem)
 
-1. ~~**P2 Validator**~~ — provas da tarefa, não só `evaluate()` heurístico. Sem agente QA fictício. **FEITO** (`superai/validator.py`).
-2. ~~**P2 Third Eye 2.0**~~ — criticar decisões/planos com factos MEASURED. Sem LLM de crítica inventado. **FEITO** (`superai/thirdeye.py`).
-3. ~~**P1 Task Graph**~~ — dependências + paralelismo. inflight=2 (2 jobs paralelos). **FEITO** (`resources.inflight_cap`, `queue.graph`).
-4. ~~**P1 Model Router**~~ — ordenar por fiabilidade (ok_rate) + latência. HARDCORE MODE → claude primary. **FEITO** (`routing.sort_adapters`).
-5. ~~**P4 UI**~~ — mission/graph/decision já visíveis; falta command center de missão/grafo interactivo. **FEITO** (dashboard interactivo).
-6. ~~**P1.5 System Integrity**~~ — System State + Capability Registry + Health/Readiness + Decision Trace. **FEITO** (`superai/system.py`, `capabilities.py`, `health.py`, `trace.py`).
-7. ~~**P1.5 Controlled Evolution**~~ — feature flags (8 flags, DISABLED by default) + risk classification (LOW/MEDIUM/HIGH). **FEITO** (`superai/feature_flags.py`, evolution.py `classify_risk` + `propose_with_risk`).
-8. ~~**P1.5 Runtime Protection**~~ — GOD Object anti-pattern detection + AST-based file inspection. **FEITO** (`superai/runtime_protection.py`).
-9. ~~**Refactor GOD Object**~~ — runtime.py 1129→503, handle() 586→53. Extracted `pipeline.py` + `shortcuts.py`. **FEITO**.
-10. **Não** P2 Agent Factory, P3 GOD Factory, P3 mesh, Desktop, swarm, Redis/K8s por aparência.
+1. ~~**P2 Validator**~~ — **FEITO**.
+2. ~~**P2 Third Eye 2.0**~~ — **FEITO**.
+3. ~~**P1 Task Graph**~~ — **FEITO**.
+4. ~~**P1 Model Router**~~ — **FEITO**.
+5. ~~**P4 UI**~~ — **FEITO**.
+6. ~~**P1.5 System Integrity**~~ — **FEITO**.
+7. ~~**P1.5 Controlled Evolution**~~ — **FEITO**.
+8. ~~**P1.5 Runtime Protection**~~ — **FEITO**.
+9. ~~**Refactor GOD Object**~~ — **FEITO**.
+10. ~~**Providers 6/8**~~ — **FEITO** (Groq, Cerebras, OpenRouter, Inference.net, Z.ai, Claude).
+11. **Provider Tiers BRAINSTORMING** — adicionar Gemini, NVIDIA NIM, Mistral, Cohere, SambaNova.
+12. **Não** P2 Agent Factory, P3 GOD Factory, P3 mesh, Desktop, swarm, Redis/K8s por aparência.
 
 ## GitHub deploy
 
