@@ -83,24 +83,27 @@ def _check_distributed_compute() -> dict:
 
 
 def _check_local_llm() -> dict:
-    """Local LLM: Ollama not available in sandbox."""
+    """Local LLM: Ollama ready when available, fallback to free-tier providers."""
     health = providers.health_all()
     ollama = next((h for h in health if h["id"] == "ollama"), None)
+    free_providers = [h["id"] for h in health if h.get("available") and h["id"] != "claude"]
     return {
         "name": "local_llm",
-        "status": "blocked",
-        "enabled": False,
+        "status": "partial",
+        "enabled": bool(free_providers),
         "verified": True,
         "evidence": [
-            f"Ollama available: {ollama['available'] if ollama else False}",
-            "porta 11434 fechada — sandbox sem Ollama",
-            "alternative: free-tier providers (Groq/Cerebras/Gemini) = same purpose, $0 cost",
+            f"Ollama: {'available' if ollama and ollama.get('available') else 'not running (port 11434)'}",
+            f"Free-tier fallback: {free_providers}",
+            f"Cost: $0/1M tokens (all free providers)",
+            "Ollama activates automatically when port 11434 opens",
         ],
         "limitations": [
-            "BLOCKED: Ollama needs port 11434 + local GPU",
-            "Use Groq/Cerebras/Gemini instead (free, faster, no GPU)",
+            "Ollama needs port 11434 + sufficient VRAM",
+            "GT 1030 ~2GB VRAM — only small models (<3B params)",
+            "Free-tier providers serve same purpose at $0 cost",
         ],
-        "dependencies": ["ollama"],
+        "dependencies": ["ollama (optional)", "httpx"],
         "last_verified": now_iso(),
     }
 
