@@ -18,11 +18,17 @@
 - [x] Data flow visualization (animated dots)
 - [x] Worker topology view
 
-### v5.2 — Advanced Monitoring
-- [ ] Alert history with acknowledgement
-- [ ] Performance baselines
-- [ ] Anomaly detection visualization
-- [ ] Resource prediction
+### v5.2 — Advanced Monitoring ✅
+- [x] Alert history with acknowledgement (Activity page)
+- [x] Performance baselines (rolling avg comparison)
+- [x] Anomaly detection visualization (IQR method, red dots on sparkline)
+- [x] Resource prediction (linear extrapolation, trend indicator)
+
+### v5.3 — Chat Polish
+- [ ] File upload support
+- [ ] Message reactions (👍/👎)
+- [ ] Edit last message
+- [ ] Search messages
 
 ### v5.3 — Chat Polish
 - [ ] File upload support

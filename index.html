@@ -434,6 +434,60 @@ button{cursor:pointer}
 .syn-b{color:#ff5370}/* builtin */
 
 /* ═══════════════════════════════
+   ALERT HISTORY
+   ═══════════════════════════════ */
+.alert-row{
+  display:flex;align-items:flex-start;gap:8px;padding:6px 0;
+  border-bottom:1px solid var(--line);font-size:11px;
+}
+.alert-row:last-child{border-bottom:none}
+.alert-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.alert-dot.crit{background:var(--crit);box-shadow:0 0 6px rgba(232,96,96,.2)}
+.alert-dot.warn{background:var(--warn)}
+.alert-dot.info{background:var(--info)}
+.alert-body{flex:1;min-width:0}
+.alert-title{font-weight:500;font-size:10px}
+.alert-msg{font-size:9px;color:var(--muted);margin-top:1px}
+.alert-time{font-family:var(--mono);font-size:8px;color:var(--dim);flex-shrink:0}
+.alert-ack{
+  font-size:8px;padding:1px 5px;border-radius:4px;border:1px solid var(--line);
+  background:transparent;color:var(--dim);cursor:pointer;flex-shrink:0;
+  transition:all .15s;
+}
+.alert-ack:hover{color:var(--ok);border-color:rgba(94,232,176,.2)}
+.alert-ack.done{color:var(--ok);border-color:rgba(94,232,176,.15);opacity:.5}
+
+/* Anomaly indicator */
+.anomaly-badge{
+  display:inline-flex;align-items:center;gap:3px;font-size:8px;
+  padding:2px 6px;border-radius:4px;background:var(--crit-dim);
+  border:1px solid rgba(232,96,96,.12);color:var(--crit);
+}
+.anomaly-badge.ok{background:var(--ok-dim);border-color:rgba(94,232,176,.12);color:var(--ok)}
+
+/* Baseline comparison */
+.baseline-row{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:3px 0;font-size:10px;
+}
+.baseline-label{color:var(--muted)}
+.baseline-val{font-family:var(--mono);font-size:10px}
+.baseline-diff{font-size:8px;margin-left:4px}
+.baseline-diff.up{color:var(--crit)}
+.baseline-diff.down{color:var(--ok)}
+.baseline-diff.flat{color:var(--dim)}
+
+/* Prediction bar */
+.pred-bar{
+  display:flex;align-items:center;gap:6px;padding:3px 0;font-size:10px;
+}
+.pred-label{color:var(--muted);min-width:40px}
+.pred-track{flex:1;height:4px;background:var(--bg);border-radius:99px;overflow:hidden;position:relative}
+.pred-fill{height:100%;border-radius:99px;transition:width .6s ease}
+.pred-future{position:absolute;top:0;height:100%;border-radius:99px;opacity:.3}
+.pred-val{font-family:var(--mono);font-size:9px;min-width:35px;text-align:right}
+
+/* ═══════════════════════════════
    RESPONSIVE
    ═══════════════════════════════ */
 @media(max-width:700px){
@@ -561,6 +615,7 @@ button{cursor:pointer}
     <!-- ═══ ACTIVITY ═══ -->
     <div class="page" id="p-act"><div class="pg">
       <div class="pg-sec"><div class="t">Event Stream</div><div id="a-feed"></div></div>
+      <div class="pg-sec"><div class="t">Alert History</div><div id="alert-history"></div></div>
     </div></div>
 
     <!-- ═══ SETTINGS ═══ -->
@@ -596,6 +651,88 @@ const fmtN=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':String
 const lc={INFO:'i',NOTICE:'i',WARNING:'w',CRITICAL:'c',SECURITY:'c',OPPORTUNITY:'i',EVOLUTION:'e'};
 const pn={home:'GOD · Home',intel:'GOD · Intelligence',mem:'GOD · Memory',comp:'GOD · Compute',tok:'GOD · Tokens',evo:'GOD · Evolution',act:'GOD · Activity',set:'GOD · Settings'};
 let S=null,cLen=0,cOpen=false,flagsDone=false,coreSt='idle';
+
+// ═══════════════════════════════
+// ALERT HISTORY + ANOMALY DETECTION
+// ═══════════════════════════════
+const alertHistory=[];
+const alertAcked=new Set();
+const MAX_ALERTS=50;
+
+function addAlert(level,title,msg){
+  const id=Date.now()+'-'+Math.random().toString(36).slice(2,6);
+  alertHistory.unshift({id,level,title,msg,ts:Date.now()});
+  if(alertHistory.length>MAX_ALERTS)alertHistory.length=MAX_ALERTS;
+  renderAlerts();
+}
+
+function ackAlert(id){
+  alertAcked.add(id);
+  renderAlerts();
+}
+
+function renderAlerts(){
+  const el=$('alert-history');
+  if(!el)return;
+  if(!alertHistory.length){el.innerHTML='<div class="empty">Sem alertas</div>';return;}
+  el.innerHTML=alertHistory.slice(0,15).map(a=>{
+    const acked=alertAcked.has(a.id);
+    const ts=new Date(a.ts).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    return`<div class="alert-row">
+      <div class="alert-dot ${a.level}"></div>
+      <div class="alert-body">
+        <div class="alert-title">${esc(a.title)}</div>
+        <div class="alert-msg">${esc(a.msg)}</div>
+      </div>
+      <div class="alert-time">${ts}</div>
+      <button class="alert-ack${acked?' done':''}" onclick="ackAlert('${a.id}')">${acked?'✓':'Ack'}</button>
+    </div>`;
+  }).join('');
+}
+
+// Anomaly detection — IQR on latency data
+function detectAnomalies(data){
+  if(data.length<4)return{anomalies:[],isAnomaly:false};
+  const vals=data.map(d=>d.latency_ms||0).filter(v=>v>0);
+  if(vals.length<4)return{anomalies:[],isAnomaly:false};
+  const sorted=[...vals].sort((a,b)=>a-b);
+  const q1=sorted[Math.floor(sorted.length*.25)];
+  const q3=sorted[Math.floor(sorted.length*.75)];
+  const iqr=q3-q1;
+  const lower=q1-iqr*1.5;
+  const upper=q3+iqr*1.5;
+  const anomalies=vals.filter(v=>v<lower||v>upper);
+  return{anomalies,isAnomaly:anomalies.length>0,q1,q3,lower,upper};
+}
+
+// Performance baseline — rolling average
+function calcBaseline(history){
+  if(history.length<3)return null;
+  const vals=history.map(d=>d.latency_ms||0).filter(v=>v>0);
+  if(vals.length<3)return null;
+  const recent=vals.slice(0,5);
+  const older=vals.slice(5,15);
+  const avgRecent=recent.reduce((a,b)=>a+b,0)/recent.length;
+  const avgOlder=older.length?older.reduce((a,b)=>a+b,0)/older.length:avgRecent;
+  const diff=avgRecent-avgOlder;
+  const pct=avgOlder>0?Math.round(diff/avgOlder*100):0;
+  return{avgRecent:Math.round(avgRecent),avgOlder:Math.round(avgOlder),diff:Math.round(diff),pct};
+}
+
+// Resource prediction — linear extrapolation
+function predictResource(history,key){
+  if(history.length<3)return null;
+  const vals=history.map(d=>d[key]||0);
+  // Simple linear regression
+  const n=vals.length;
+  let sumX=0,sumY=0,sumXY=0,sumX2=0;
+  for(let i=0;i<n;i++){sumX+=i;sumY+=vals[i];sumXY+=i*vals[i];sumX2+=i*i;}
+  const slope=(n*sumXY-sumX*sumY)/(n*sumX2-sumX*sumX);
+  const intercept=(sumY-slope*sumX)/n;
+  const current=vals[0];
+  const predicted=Math.max(0,Math.min(100,intercept+slope*n));
+  return{current:Math.round(current),predicted:Math.round(predicted),trend:slope>0.5?'up':slope<-0.5?'down':'flat'};
+}
 
 // ═══════════════════════════════
 // MARKDOWN RENDERER (pure JS, no deps)
@@ -927,11 +1064,13 @@ function pPerf(s){
   const history=perf.history||[];
   const cache=s.cache||{};
   const usage=s.usage||{};
+  const host=s.host||{};
   
   if(!$('perf-panel'))return;
   
-  // Build sparkline SVG
+  // Build sparkline SVG with anomaly highlighting
   let sparkline='';
+  const anomalyInfo=detectAnomalies(history);
   if(history.length>1){
     const w=100,h=20;
     const vals=history.map(d=>d.latency_ms||0).reverse();
@@ -941,8 +1080,42 @@ function pPerf(s){
       const y=h-(v/mx)*h;
       return `${x},${y}`;
     }).join(' ');
-    sparkline=`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;margin:4px 0"><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    // Highlight anomaly points
+    let anomalyDots='';
+    if(anomalyInfo.isAnomaly){
+      vals.forEach((v,i)=>{
+        if(anomalyInfo.anomalies.includes(v)){
+          const x=(i/(vals.length-1))*w;
+          const y=h-(v/mx)*h;
+          anomalyDots+=`<circle cx="${x}" cy="${y}" r="3" fill="var(--crit)" opacity=".6"/>`;
+        }
+      });
+    }
+    sparkline=`<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;margin:4px 0"><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>${anomalyDots}</svg>`;
   }
+  
+  // Baseline comparison
+  const baseline=calcBaseline(history);
+  let baselineHtml='';
+  if(baseline){
+    const diffClass=baseline.pct>10?'up':baseline.pct<-10?'down':'flat';
+    const diffIcon=baseline.pct>10?'↑':baseline.pct<-10?'↓':'→';
+    baselineHtml=`<div class="baseline-row"><span class="baseline-label">Baseline</span><span class="baseline-val">${baseline.avgOlder}ms</span></div><div class="baseline-row"><span class="baseline-label">Current</span><span class="baseline-val">${baseline.avgRecent}ms <span class="baseline-diff ${diffClass}">${diffIcon}${Math.abs(baseline.pct)}%</span></span></div>`;
+  }
+  
+  // Latency trend prediction
+  const latencyPred=predictResource(history.map(d=>({cpu_pct:d.latency_ms||0})),'cpu_pct');
+  let predHtml='';
+  if(latencyPred&&stats.avg_ms){
+    const maxLatency=Math.max(stats.avg_ms*2,500);
+    const currentPct=Math.min(Math.round(latencyPred.current/maxLatency*100),100);
+    const predPct=Math.min(Math.round(latencyPred.predicted/maxLatency*100),100);
+    const trendColor=latencyPred.trend==='up'?'var(--warn)':latencyPred.trend==='down'?'var(--ok)':'var(--dim)';
+    predHtml=`<div class="pred-bar"><span class="pred-label">Trend</span><div class="pred-track"><div class="pred-fill" style="width:${currentPct}%;background:${currentPct>80?'var(--crit)':currentPct>60?'var(--warn)':'var(--ok)'}"></div><div class="pred-future" style="width:${predPct}%;background:${trendColor}"></div></div><span class="pred-val">${latencyPred.current}ms</span></div>`;
+  }
+  
+  // Anomaly badge
+  const anomalyBadge=anomalyInfo.isAnomaly?`<span class="anomaly-badge">${anomalyInfo.anomalies.length} anomalia${anomalyInfo.anomalies.length>1?'s':''}</span>`:`<span class="anomaly-badge ok">Normal</span>`;
   
   $('perf-panel').innerHTML=`
     <div style="display:flex;gap:8px;margin-bottom:8px">
@@ -960,7 +1133,10 @@ function pPerf(s){
       </div>
     </div>
     ${sparkline}
-    <div style="font-size:9px;color:var(--dim)">LLM: ${usage.llm_calls||0} calls · Tools: ${usage.tool_calls||0} calls · Tokens: ${fmtN(usage.session_tokens||0)}</div>
+    ${anomalyBadge}
+    ${baselineHtml}
+    ${predHtml}
+    <div style="font-size:9px;color:var(--dim);margin-top:4px">LLM: ${usage.llm_calls||0} calls · Tools: ${usage.tool_calls||0} calls · Tokens: ${fmtN(usage.session_tokens||0)}</div>
   `;
 }
 
@@ -1044,7 +1220,14 @@ function pEvo(s){
 
 function pAct(s){
   const ev=s.events||[];
+  // Collect alerts from events
+  ev.forEach(e=>{
+    if((e.level==='CRITICAL'||e.level==='WARNING')&&!alertHistory.find(a=>a.msg===e.msg)){
+      addAlert(e.level==='CRITICAL'?'crit':'warn',e.name||'Alert',e.msg||'');
+    }
+  });
   $('a-feed').innerHTML=ev.length?ev.map(e=>`<div class="fr"><div class="ft">${new Date(e.ts).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</div><div class="fd ${lc[e.level]||'i'}"></div><div class="fm" style="white-space:normal"><div>${esc(e.name)}</div><div style="font-size:9px;color:var(--dim)">${esc(e.msg)}</div></div></div>`).join(''):'<div class="empty">Sem eventos</div>';
+  renderAlerts();
 }
 
 function pCfg(s){
