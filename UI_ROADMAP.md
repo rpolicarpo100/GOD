@@ -6,17 +6,17 @@
 
 **Chat Enhancement + Interactive System Map + Advanced Monitoring**
 
-### v5.0 — Chat Enhancement
-- [ ] Code syntax highlighting (pure CSS, no deps)
-- [ ] Markdown rendering (inline, no deps)
-- [ ] Code block copy button
-- [ ] Rich message formatting
+### v5.0 — Chat Enhancement ✅
+- [x] Code syntax highlighting (pure CSS, no deps) — 9 languages
+- [x] Markdown rendering (inline, no deps) — headers, bold, italic, lists, links, tables, blockquotes
+- [x] Code block copy button
+- [x] Rich message formatting
 
-### v5.1 — Interactive System Map
-- [ ] Click nodes to see details
-- [ ] SVG connection lines between modules
-- [ ] Data flow visualization (animated dots)
-- [ ] Worker topology view
+### v5.1 — Interactive System Map ✅
+- [x] Click nodes to see details (click → popup with capabilities)
+- [x] SVG connection lines between modules
+- [x] Data flow visualization (animated dots)
+- [x] Worker topology view
 
 ### v5.2 — Advanced Monitoring
 - [ ] Alert history with acknowledgement

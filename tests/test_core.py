@@ -619,6 +619,21 @@ class SiteBuilder(unittest.TestCase):
 
 
 class GodBuilder(unittest.TestCase):
+    def setUp(self):
+        from superai import gods
+        from superai.gods import DIR
+
+        gods.activate("master")
+        # Clean up test profiles to avoid hitting MAX_GODS
+        if DIR.exists():
+            for p in DIR.glob("*.json"):
+                name = p.stem
+                if name != "master":
+                    try:
+                        p.unlink()
+                    except Exception:
+                        pass
+
     def tearDown(self):
         from superai import gods
 

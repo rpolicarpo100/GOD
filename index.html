@@ -246,13 +246,55 @@ button{cursor:pointer}
 
 /* ── System map ── */
 .smap{display:flex;flex-direction:column;gap:5px}
-.sr{display:flex;align-items:center;gap:7px;font-size:11px}
+.sr{display:flex;align-items:center;gap:7px;font-size:11px;cursor:pointer;padding:3px 4px;border-radius:6px;transition:background .15s}
+.sr:hover{background:var(--glass)}
 .sd{width:5px;height:5px;border-radius:50%;flex-shrink:0}
 .sd.on{background:var(--ok);box-shadow:0 0 6px rgba(94,232,176,.25)}
 .sd.off{background:var(--dim)}
 .sd.w{background:var(--warn)}
 .sn{width:70px;color:var(--muted);font-size:10px}
 .sv{color:var(--text);font-family:var(--mono);font-size:10px}
+
+/* Interactive system map */
+.smap-vis{position:relative;width:100%;min-height:180px;margin:8px 0}
+.smap-vis-node{
+  position:absolute;padding:8px 12px;border-radius:10px;
+  background:var(--glass);border:1px solid var(--line);
+  cursor:pointer;transition:all .25s ease;z-index:2;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  min-width:70px;text-align:center;
+}
+.smap-vis-node:hover{border-color:var(--line2);background:var(--surface);transform:scale(1.05)}
+.smap-vis-node .nd{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.smap-vis-node .nd.on{background:var(--ok);box-shadow:0 0 6px rgba(94,232,176,.3)}
+.smap-vis-node .nd.off{background:var(--dim)}
+.smap-vis-node .nn{font-size:9px;font-weight:600;color:var(--text);letter-spacing:.04em}
+.smap-vis-node .nv{font-size:8px;color:var(--dim)}
+
+/* Connection lines */
+.smap-lines{position:absolute;inset:0;z-index:1;pointer-events:none}
+.smap-line{stroke:var(--line2);stroke-width:1;fill:none}
+.smap-line.active{stroke:var(--accent);stroke-width:1.5;stroke-dasharray:4 3;animation:flow-dash 2s linear infinite}
+@keyframes flow-dash{to{stroke-dashoffset:-14}}
+
+/* Data flow dots */
+.flow-dot{fill:var(--accent);r:2;opacity:.7}
+.flow-dot.animated{animation:flow-pulse 2s ease-in-out infinite}
+@keyframes flow-pulse{0%,100%{opacity:.3;r:1.5}50%{opacity:1;r:2.5}}
+
+/* Detail panel */
+.smap-detail{
+  position:absolute;top:8px;right:8px;min-width:180px;max-width:220px;
+  background:var(--deep);border:1px solid var(--line);border-radius:10px;
+  padding:10px;z-index:10;font-size:10px;
+  opacity:0;transform:translateX(10px);transition:all .2s ease;pointer-events:none;
+}
+.smap-detail.show{opacity:1;transform:translateX(0);pointer-events:auto}
+.smap-detail .dt{font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;font-weight:600}
+.smap-detail .dd{color:var(--muted);line-height:1.6}
+.smap-detail .dd strong{color:var(--text);font-weight:500}
+.smap-detail .dc{margin-top:6px;display:flex;gap:3px;flex-wrap:wrap}
+.smap-detail .dc span{font-size:8px;padding:1px 5px;background:var(--glass);border:1px solid var(--line);border-radius:3px}
 
 /* ── Feed ── */
 .feed{display:flex;flex-direction:column;gap:3px}
@@ -455,7 +497,7 @@ button{cursor:pointer}
     <div class="home-grid">
       <div class="panel">
         <div class="panel-h"><div class="panel-t">System Map</div></div>
-        <div class="panel-b"><div class="smap" id="smap"></div></div>
+        <div class="panel-b" style="position:relative"><div class="smap" id="smap"></div><svg class="smap-lines" id="smap-lines"></svg></div>
       </div>
       <div class="panel">
         <div class="panel-h"><div class="panel-t">Nodes</div></div>
@@ -822,15 +864,33 @@ function pKPI(s){
 function pSmap(s){
   const llm=(s.providers||[]).some(p=>p.available);
   const qd=s.qdrant||{},os=s.os||{},q=s.queue||{};
-  const nd=[
-    {n:'AI Core',on:llm,v:llm?'Online':'Offline'},
-    {n:'Memory',on:qd.available,v:qd.available?'Qdrant':'SQLite'},
-    {n:'Compute',on:true,v:'Active'},
-    {n:'Governor',on:s.governor&&s.governor.strict,v:s.governor&&s.governor.strict?'Strict':'Lax'},
-    {n:'OS',on:os.booted,v:os.booted?'Booted':'Offline'},
-    {n:'Queue',on:true,v:(q.queued||0)+' pending'},
+  const gov=s.governor||{};
+  const nodes=[
+    {n:'AI Core',on:llm,v:llm?'Online':'Offline',det:'Providers: '+(s.providers||[]).filter(p=>p.available).length+'/'+(s.providers||[]).length,caps:['llm','routing']},
+    {n:'Memory',on:qd.available,v:qd.available?'Qdrant':'SQLite',det:'Embed: '+(qd.embed?qd.embed.method:'Hashing'),caps:['storage','semantic']},
+    {n:'Compute',on:true,v:'Active',det:'CPU: '+(s.host&&s.host.cpu_count||'?')+' cores',caps:['cpu','worker']},
+    {n:'Governor',on:gov.strict!=null,v:gov.strict?'Strict':'Lax',det:'Mode: '+(gov.resource_mode||'NORMAL'),caps:['control']},
+    {n:'OS',on:os.booted,v:os.booted?'Booted':'Offline',det:'Uptime: '+(os.uptime_s?Math.floor(os.uptime_s/60)+'min':'?'),caps:['system']},
+    {n:'Queue',on:true,v:(q.queued||0)+' pending',det:'Running: '+(q.running||0),caps:['async']},
   ];
-  $('smap').innerHTML=nd.map(x=>`<div class="sr"><div class="sd ${x.on?'on':'off'}"></div><div class="sn">${x.n}</div><div class="sv">${x.v}</div></div>`).join('');
+  // List view with click handlers
+  $('smap').innerHTML=nodes.map(x=>`<div class="sr" data-node="${x.n}"><div class="sd ${x.on?'on':'off'}"></div><div class="sn">${x.n}</div><div class="sv">${x.v}</div></div>`).join('');
+  // Click handlers for node details
+  document.querySelectorAll('.sr[data-node]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const name=el.dataset.node;
+      const node=nodes.find(n=>n.n===name);
+      if(!node)return;
+      const existing=document.querySelector('.smap-detail');
+      if(existing)existing.remove();
+      const detail=document.createElement('div');
+      detail.className='smap-detail show';
+      detail.innerHTML=`<div class="dt">${node.n}</div><div class="dd"><strong>${node.v}</strong><br>${node.det}<div class="dc">${node.caps.map(c=>`<span>${c}</span>`).join('')}</div></div>`;
+      el.parentElement.appendChild(detail);
+      const close=e=>{if(!detail.contains(e.target)&&!el.contains(e.target)){detail.remove();document.removeEventListener('click',close);}};
+      setTimeout(()=>document.addEventListener('click',close),100);
+    });
+  });
 }
 
 function pFeed(s){
