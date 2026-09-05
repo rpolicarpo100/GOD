@@ -720,6 +720,34 @@ body.font-small{font-size:11px}
   border-radius:4px;
 }
 
+/* Themes */
+body.theme-dawn{
+  --void:#0f0a07;--deep:#150e08;--bg:#1a120c;--surface:rgba(200,150,80,.03);
+  --glass:rgba(200,150,80,.06);--line:rgba(220,170,100,.06);--line2:rgba(220,170,100,.12);
+  --text:#eeddbb;--muted:#9a8060;--dim:#5a4a38;
+  --accent:#e0a050;--accent2:#c08030;--glow:rgba(224,160,80,.12);
+  --ok:#70d890;--info:#60b8d0;--warn:#e0b040;--crit:#d06060;--evo:#c0a070;
+}
+body.theme-neon{
+  --void:#050510;--deep:#08081a;--bg:#0c0c22;--surface:rgba(100,200,255,.03);
+  --glass:rgba(100,200,255,.06);--line:rgba(100,200,255,.06);--line2:rgba(100,200,255,.12);
+  --text:#ddeeff;--muted:#6688aa;--dim:#334466;
+  --accent:#00ccff;--accent2:#0088cc;--glow:rgba(0,204,255,.12);
+  --ok:#00ff88;--info:#00ccff;--warn:#ffcc00;--crit:#ff4466;--evo:#aa88ff;
+}
+
+/* Theme selector */
+.theme-selector{display:flex;gap:4px;align-items:center}
+.theme-dot{
+  width:16px;height:16px;border-radius:50%;cursor:pointer;
+  border:2px solid var(--line);transition:all .15s;
+}
+.theme-dot:hover{border-color:var(--line2);transform:scale(1.1)}
+.theme-dot.active{border-color:var(--accent);box-shadow:0 0 6px rgba(139,108,199,.3)}
+.theme-dot.midnight{background:linear-gradient(135deg,#0a0d16,#8b6cc7)}
+.theme-dot.dawn{background:linear-gradient(135deg,#1a120c,#e0a050)}
+.theme-dot.neon{background:linear-gradient(135deg,#0c0c22,#00ccff)}
+
 /* Export dropdown */
 .export-dropdown{position:relative;display:inline-block}
 .export-menu{
@@ -774,6 +802,11 @@ body.font-small{font-size:11px}
       <div class="header-left"><div class="header-title" id="h-title">GOD · Home</div></div>
       <div class="header-right">
         <div class="a11y-controls">
+          <div class="theme-selector">
+            <div class="theme-dot midnight active" onclick="setTheme('midnight')" title="Midnight"></div>
+            <div class="theme-dot dawn" onclick="setTheme('dawn')" title="Dawn"></div>
+            <div class="theme-dot neon" onclick="setTheme('neon')" title="Neon"></div>
+          </div>
           <button class="a11y-btn" onclick="toggleHighContrast()" title="Alto contraste">◐</button>
           <button class="a11y-btn" onclick="cycleFontSize()" title="Tamanho da fonte">A</button>
         </div>
@@ -2195,6 +2228,29 @@ function cycleFontSize(){
   if(fs&&fontSizes.includes(fs)){
     fontSize=fs;
     if(fs!=='normal')document.body.classList.add('font-'+fs);
+  }
+})();
+
+// ═══════════════════════════════
+// v7.2 — CUSTOM THEMES
+// ═══════════════════════════════
+let currentTheme='midnight';
+
+function setTheme(theme){
+  document.body.classList.remove('theme-dawn','theme-neon');
+  if(theme!=='midnight')document.body.classList.add('theme-'+theme);
+  currentTheme=theme;
+  document.querySelectorAll('.theme-dot').forEach(d=>{
+    d.classList.toggle('active',d.classList.contains(theme));
+  });
+  localStorage.setItem('god-theme',theme);
+}
+
+// Restore theme
+(function(){
+  const saved=localStorage.getItem('god-theme');
+  if(saved&&['midnight','dawn','neon'].includes(saved)){
+    setTheme(saved);
   }
 })();
 

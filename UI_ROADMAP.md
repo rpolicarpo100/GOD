@@ -17,12 +17,12 @@
 - [x] Session stats (requests, tokens, avg latency)
 - [x] Session info in Settings page
 
-### v7.2 — Custom Themes
-- [ ] Theme selector (3 themes)
-- [ ] Midnight (default dark)
-- [ ] Dawn (warm dark)
-- [ ] Neon (vibrant dark)
-- [ ] Theme persistence
+### v7.2 — Custom Themes ✅
+- [x] Theme selector (3 themes: Midnight, Dawn, Neon)
+- [x] Midnight (default dark purple)
+- [x] Dawn (warm dark orange)
+- [x] Neon (vibrant dark blue)
+- [x] Theme persistence (localStorage)
 
 ### v7.3 — Dashboard Polish
 - [ ] Widget grid layout
