@@ -497,15 +497,31 @@ const QA=[{l:'Estado',q:'estado'},{l:'Missão',q:'missão actual'},{l:'Roadmap',
 $('chat-q').innerHTML=QA.map(a=>`<button class="qb" data-q="${esc(a.q)}">${esc(a.l)}</button>`).join('');
 document.querySelectorAll('.qb').forEach(b=>b.addEventListener('click',()=>fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:b.dataset.q})})));
 
-// GOD CORE state
+// GOD CORE state with personality messages
 function setCore(st,label){
   coreSt=st;
   const orb=$('core-orb');
   orb.dataset.state=st;
   const breathing={idle:'slow',ready:'ready',listening:'active',thinking:'active',tools:'active',responding:'fast',error:'active',offline:'slow'};
   orb.dataset.breathing=breathing[st]||'slow';
-  if(label)$('core-st').textContent=label;
-  // Update status color
+  
+  // Personality messages if no custom label
+  if(!label){
+    const msgs={
+      idle:'Em repouso',
+      ready:'Pronta',
+      listening:'A ouvir...',
+      thinking:'A analisar...',
+      tools:'A usar ferramentas...',
+      responding:'A responder...',
+      error:'Atenção necessária',
+      offline:'Offline'
+    };
+    label=msgs[st]||st;
+  }
+  $('core-st').textContent=label;
+  
+  // Status color
   const colors={idle:'var(--dim)',ready:'var(--accent)',listening:'var(--info)',thinking:'var(--accent)',tools:'var(--evo)',responding:'var(--ok)',error:'var(--crit)',offline:'var(--dim)'};
   $('core-st').style.color=colors[st]||'var(--dim)';
 }
@@ -554,7 +570,7 @@ function pKPI(s){
   $('kpis').innerHTML=`
     <div class="kpi"><div class="k">Health</div><div class="v" style="color:${hp>70?'var(--ok)':hp>40?'var(--warn)':'var(--crit)'}">${hp}%</div></div>
     <div class="kpi"><div class="k">AI</div><div class="v" style="font-size:12px">${top?esc(top.model.split('/').pop()):'—'}</div><div class="s">${top?esc(top.provider||''):'Not connected'}</div></div>
-    <div class="kpi"><div class="k">Response</div><div class="v">${lp.latency_ms!=null?lp.latency_ms+'ms':'—'}</div></div>
+    <div class="kpi"><div class="k">Response</div><div class="v">${lp.latency_ms!=null?lp.latency_ms+'ms':'—'}</div><div id="sparkline-container"></div><div class="s">${lp.latency_ms!=null?'Last request':'No data'}</div></div>
     <div class="kpi"><div class="k">Memory</div><div class="v">${fmtN(mem.total||0)}</div></div>
     <div class="kpi"><div class="k">Tokens</div><div class="v">${fmtN(u.session_tokens||0)}</div></div>
     <div class="kpi"><div class="k">CPU</div><div class="v">${h.load1&&h.cpu_count?Math.round(h.load1/h.cpu_count*100)+'%':'—'}</div></div>
@@ -755,21 +771,38 @@ fetch('/api/state').then(r=>r.json()).then(d=>{
 });
 connect();
 
-// Performance display
+// Performance display with sparkline
 function updatePerfDisplay(){
-  // Could add a perf section to the UI if needed
   const stats=perfData.stats||{};
+  const history=perfData.history||[];
   if(stats.n>0){
-    // Update response KPI with measured data
     const kpis=document.querySelectorAll('.kpi');
-    // Response KPI is the3rd one
     if(kpis[2]){
       const v=kpis[2].querySelector('.v');
       const s=kpis[2].querySelector('.s');
       if(v && stats.avg_ms) v.textContent=stats.avg_ms+'ms';
-      if(s) s.textContent=`${stats.n} requests · min ${stats.min_ms}ms · max ${stats.max_ms}ms`;
+      if(s) s.textContent=`${stats.n} req · min ${stats.min_ms}ms · max ${stats.max_ms}ms`;
     }
   }
+  if(history.length>1){
+    const container=$('sparkline-container');
+    if(container){
+      const svg=drawSparkline(history);
+      container.innerHTML=svg;
+    }
+  }
+}
+
+function drawSparkline(data){
+  const w=120,h=24;
+  const values=data.map(d=>d.latency_ms||0).reverse();
+  const max=Math.max(...values,1);
+  const points=values.map((v,i)=>{
+    const x=(i/(values.length-1))*w;
+    const y=h-(v/max)*h;
+    return `${x},${y}`;
+  }).join(' ');
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="display:block;margin:4px auto 0"><polyline points="${points}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
 
 // Visibility

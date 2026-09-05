@@ -219,7 +219,7 @@ def _stage_cache(text, task, pipeline, need_mem, gid, _say, _mark, _set_pipe, _b
                 pipeline["cache"] = "semantic"
     if hit:
         store.incr("cache_hits")
-        bus.emit("CACHE_HIT", "INFO", f"{task['task_id']} {pipeline.get('cache') or 'hash'} cache")
+        bus.emit("CACHE_HIT", "INFO", f"{task['task_id']} {pipeline.get('cache') or 'hash'} cache", god_core_state="ready")
         pipeline["cache"] = pipeline.get("cache") if pipeline.get("cache") == "semantic" else "hit"
         pipeline["route"] = ["CACHE"] if pipeline["cache"] != "semantic" else ["SEMANTIC_CACHE"]
         task["status"] = "done"
@@ -237,7 +237,7 @@ def _stage_cache(text, task, pipeline, need_mem, gid, _say, _mark, _set_pipe, _b
         _broadcast()
         return {"ok": True, "via": "cache"}
     store.incr("cache_misses")
-    bus.emit("CACHE_MISS", "INFO", task["task_id"])
+    bus.emit("CACHE_MISS", "INFO", task["task_id"], god_core_state="thinking")
     _mark(pipeline, "cache")
     return None  # no cache hit, continue
 
@@ -275,7 +275,7 @@ def _stage_firewall(task, pipeline, merged, ctx, _say, _set_pipe, _broadcast, _f
         ctx = ctx2
         merged = slim
         pipeline["context"] = pipeline["context_optimize"]
-        bus.emit("TOKEN_OPTIMIZED", "INFO", f"{task['task_id']} context ESTIMATED saved={pipeline['context_optimize'].get('tokens_saved')}")
+        bus.emit("TOKEN_OPTIMIZED", "INFO", f"{task['task_id']} context ESTIMATED saved={pipeline['context_optimize'].get('tokens_saved')}", god_core_state="thinking")
         fw = ti.gate(task, extra_tokens=ctx["tokens"])
         pipeline["firewall"] = fw
     if fw["action"] == "reject":
@@ -324,12 +324,12 @@ def _stage_tools(text, task, pipeline, p, ctx, _say, _mark, _set_pipe, _broadcas
     for step in p["steps"]:
         if not step.get("tool"):
             continue
-        bus.emit("TOOL_STARTED", "INFO", step["tool"])
+        bus.emit("TOOL_STARTED", "INFO", step["tool"], god_core_state="tools")
         store.incr("tool_calls")
         res = aios.syscall(step["tool"], step.get("args") or {}, actor=task["task_id"])
         tool_results.append(res)
         if res.get("status") != "success":
-            bus.emit("TOOL_FAILED", "WARNING", f"{step['tool']}: {res.get('errors')}")
+            bus.emit("TOOL_FAILED", "WARNING", f"{step['tool']}: {res.get('errors')}", god_core_state="error")
     scores = evaluate(task, tool_results, llm_used=False, tokens_actual=0)
     validation = validate(task, tool_results)
     critique = criticize(pipeline, task, tool_results, scores)
@@ -341,7 +341,7 @@ def _stage_tools(text, task, pipeline, p, ctx, _say, _mark, _set_pipe, _broadcas
     task["via"] = "tools"
     task["rating"] = scores
     store.save_task(task)
-    bus.emit("TASK_COMPLETED", "INFO", f"{task['task_id']} overall {scores['OVERALL']} via tools")
+    bus.emit("TASK_COMPLETED", "INFO", f"{task['task_id']} overall {scores['OVERALL']} via tools", god_core_state="ready")
     pipeline["scores"] = scores
     pipeline["validation"] = validation
     pipeline["critique"] = critique
@@ -393,7 +393,7 @@ def _stage_llm(text, task, pipeline, merged, ctx, *, _say, _mark, _set_pipe, _br
     # No provider available
     if not gw["omniroute"]["available"] and not gw["direct"]["available"]:
         pipeline["route"].append("NO_PROVIDER")
-        bus.emit("MODEL_UNAVAILABLE", "CRITICAL", "OmniRoute down e Direct sem ModelAdapter")
+        bus.emit("MODEL_UNAVAILABLE", "CRITICAL", "OmniRoute down e Direct sem ModelAdapter", god_core_state="error")
         blocked = (
             "Não executei LLM.\n"
             f"Gateway activo: {gw['active']}. OmniRoute {gw['omniroute']['error']}. Direct {gw['direct']['error']}.\n"
@@ -413,7 +413,7 @@ def _stage_llm(text, task, pipeline, merged, ctx, *, _say, _mark, _set_pipe, _br
 
     # Call LLM
     pipeline["route"].append(gw["active"].upper())
-    bus.emit("MODEL_STARTED", "INFO", gw["active"])
+    bus.emit("MODEL_STARTED", "INFO", gw["active"], god_core_state="thinking")
     max_tok = 1024 if task.get("type") == "coding" else 256
     advice = pipeline.get("route_token") or {}
     hardcore = bool(re.search(r"\b(hardcore|HARDCORE)\b", text))
@@ -432,7 +432,7 @@ def _stage_llm(text, task, pipeline, merged, ctx, *, _say, _mark, _set_pipe, _br
 
     # LLM failed
     if res.get("status") != "success":
-        bus.emit("MODEL_FAILED", "WARNING", str(res.get("error")))
+        bus.emit("MODEL_FAILED", "WARNING", str(res.get("error")), god_core_state="error")
         scores = evaluate(task, [], False, 0)
         _record_token(task, pipeline, {}, actual=0, status="fail", provider=gw.get("active"),
                       via="llm_fail", retry_count=int(res.get("retry_count") or 0),
@@ -499,7 +499,7 @@ def run_pipeline(text: str, task: dict, from_worker: bool, *,
     task["status"] = "running"
     store.save_task(task)
     store.audit("user", "task", task["task_id"])
-    bus.emit("TASK_CREATED", "INFO", f"{task['task_id']} · {task['type']} · est {task['estimated_tokens']} tok")
+    bus.emit("TASK_CREATED", "INFO", f"{task['task_id']} · {task['type']} · est {task['estimated_tokens']} tok", god_core_state="thinking")
 
     pipeline = {
         "task": {k: task[k] for k in ("task_id", "type", "complexity", "exec_mode", "reasoning_required", "estimated_tokens", "reasoning_budget", "privacy", "tool_requirement")},
