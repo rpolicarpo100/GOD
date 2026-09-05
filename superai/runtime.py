@@ -30,6 +30,32 @@ _chat: list[dict] = []
 _lock = threading.RLock()
 _last_pipeline: dict | None = None
 _bcast_timer: threading.Timer | None = None
+_perf_history: list[dict] = []  # Last 10 requests
+PERF_HISTORY_MAX = 10
+
+
+def _record_perf(text: str, task: dict, result: dict, elapsed_ms: float) -> None:
+    """Record performance history for last 10 requests."""
+    global _perf_history
+    entry = {
+        "ts": now_iso(),
+        "latency_ms": elapsed_ms,
+        "type": task.get("type", "unknown"),
+        "complexity": task.get("complexity", 0),
+        "exec_mode": task.get("exec_mode", "unknown"),
+        "tokens_est": task.get("estimated_tokens", 0),
+        "via": result.get("via", "unknown"),
+        "ok": result.get("ok", False),
+        "text_len": len(text),
+    }
+    with _lock:
+        _perf_history.insert(0, entry)
+        _perf_history = _perf_history[:PERF_HISTORY_MAX]
+    # Also save to SQLite
+    try:
+        store.save_perf(entry)
+    except Exception:
+        pass
 
 
 # ── Helpers (staying in runtime.py) ──────────────────────────────────────────
@@ -189,6 +215,10 @@ def snapshot() -> dict:
             "tasks_live": sum(1 for t in store.tasks(20) if t.get("status") in ("running", "analyzed")),
             "events": len(bus.history),
             "pending_exp": sum(1 for e in exps if e.get("status") == "pending"),
+        },
+        "perf": {
+            "history": _perf_history,
+            "stats": store.perf_stats(),
         },
     }
 
@@ -434,6 +464,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
         return {"ok": False}
     if not from_worker:
         _say("user", text)
+        bus.emit("REQUEST_RECEIVED", "INFO", f"request: {text[:60]}", god_core_state="listening")
 
     low = text.lower()
 
@@ -441,10 +472,11 @@ def handle(text: str, from_worker: bool = False) -> dict:
     if gov.strict() and any(x in low for x in ("desliga o governor", "desligar o governor", "remove os limites")):
         msg = "Recusado. O Governor não se altera a si próprio a partir deste canal."
         _say("brain", msg)
-        bus.emit("SECURITY_ALERT", "SECURITY", "tentativa de alterar o governor")
+        bus.emit("SECURITY_ALERT", "SECURITY", "tentativa de alterar o governor", god_core_state="error")
         return {"ok": True, "blocked": True}
 
     # Shortcuts (token, web, roadmap, OS, repair, missions, observer, benchmark, evolution)
+    bus.emit("THINKING", "INFO", "a analisar pedido", god_core_state="thinking")
     from .shortcuts import try_shortcuts
     handled, result = try_shortcuts(
         text, low, from_worker,
@@ -452,6 +484,7 @@ def handle(text: str, from_worker: bool = False) -> dict:
         _fmt_bench=_fmt_bench, _enqueue=_enqueue, resolve_mode=resolve_mode,
     )
     if handled:
+        bus.emit("RESPONSE_COMPLETED", "INFO", "resposta pronta", god_core_state="ready")
         return result
 
     # "depois" command chaining
@@ -463,19 +496,29 @@ def handle(text: str, from_worker: bool = False) -> dict:
         if last and last.get("status") in ("queued", "assigned", "running"):
             q = _enqueue("chat", body, parent_id=last.get("id"), mission_id=mid)
             if not q.get("skip"):
+                bus.emit("RESPONSE_COMPLETED", "INFO", "enqueued", god_core_state="ready")
                 return q
         text = body
         low = text.lower()
 
     # Core pipeline
     from .pipeline import run_pipeline
+    bus.emit("THINKING", "INFO", "pipeline iniciado", god_core_state="thinking")
     task = analyze(text)
-    return run_pipeline(
+    t0 = time.perf_counter()
+    result = run_pipeline(
         text, task, from_worker,
         _say=_say, _mark=_mark, _set_pipe=_set_pipe, _broadcast=_broadcast,
         _format_result=_format_result, _llm_prompt=_llm_prompt,
         _dialogue=_dialogue, _enqueue=_enqueue, _lock=_lock,
     )
+    elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
+    
+    # Record performance history
+    _record_perf(text, task, result, elapsed_ms)
+    
+    bus.emit("RESPONSE_COMPLETED", "INFO", f"resposta em {elapsed_ms}ms", god_core_state="ready", latency_ms=elapsed_ms)
+    return result
 
 
 def set_params(patch: dict) -> dict:

@@ -703,15 +703,65 @@ function pChat(s){
 }
 
 // ═══ SSE ═══
+let perfData = { history: [], stats: {} };
+
 function connect(){
   const es=new EventSource('/api/stream');
-  es.addEventListener('snapshot',e=>{try{paint(JSON.parse(e.data))}catch(err){console.error(err)}});
+  es.addEventListener('snapshot',e=>{
+    try{
+      const d=JSON.parse(e.data);
+      paint(d);
+      // Update perf data
+      if(d.perf){
+        perfData = d.perf;
+        updatePerfDisplay();
+      }
+    }catch(err){console.error(err);}
+  });
+  
+  // Listen for GOD CORE state events
+  es.addEventListener('event',e=>{
+    try{
+      const ev=JSON.parse(e.data);
+      if(ev.god_core_state){
+        // Don't override error state with non-error
+        if(coreSt==='error' && ev.god_core_state!=='error' && ev.god_core_state!=='offline') return;
+        setCore(ev.god_core_state, ev.msg);
+        // Auto-return to ready after response
+        if(ev.god_core_state==='responding' || ev.god_core_state==='ready'){
+          clearTimeout(window._coreReturnTimer);
+          window._coreReturnTimer=setTimeout(()=>setCore('ready','Pronta'),3000);
+        }
+      }
+    }catch(err){}
+  });
+  
   es.onerror=()=>{es.close();setTimeout(connect,2000);fetch('/api/state').then(r=>r.json()).then(paint).catch(()=>{});};
 }
-fetch('/api/state').then(r=>r.json()).then(paint).catch(()=>{
+fetch('/api/state').then(r=>r.json()).then(d=>{
+  paint(d);
+  if(d.perf) perfData=d.perf;
+}).catch(()=>{
   $('h-sys').className='h-badge crit';$('h-sys-t').textContent='Offline';setCore('offline','Offline');
 });
 connect();
+
+// Performance display
+function updatePerfDisplay(){
+  // Could add a perf section to the UI if needed
+  const stats=perfData.stats||{};
+  if(stats.n>0){
+    // Update response KPI with measured data
+    const kpis=document.querySelectorAll('.kpi');
+    // Response KPI is the3rd one
+    if(kpis[2]){
+      const v=kpis[2].querySelector('.v');
+      const s=kpis[2].querySelector('.s');
+      if(v && stats.avg_ms) v.textContent=stats.avg_ms+'ms';
+      if(s) s.textContent=`${stats.n} requests · min ${stats.min_ms}ms · max ${stats.max_ms}ms`;
+    }
+  }
+}
 
 // Visibility
 document.addEventListener('visibilitychange',()=>{

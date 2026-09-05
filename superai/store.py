@@ -120,6 +120,19 @@ class Store:
                   source TEXT,
                   verified INTEGER
                 );
+                CREATE TABLE IF NOT EXISTS perf_history (
+                  id TEXT PRIMARY KEY,
+                  ts TEXT,
+                  latency_ms REAL,
+                  type TEXT,
+                  complexity INTEGER,
+                  exec_mode TEXT,
+                  tokens_est INTEGER,
+                  via TEXT,
+                  ok INTEGER,
+                  text_len INTEGER
+                );
+                CREATE INDEX IF NOT EXISTS idx_perf_ts ON perf_history(ts);
                 """
             )
             for k in ("session_tokens", "daily_tokens", "project_tokens", "llm_calls", "tool_calls", "cache_hits", "cache_misses"):
@@ -430,6 +443,46 @@ class Store:
             except Exception:
                 pass
         return out
+
+    def save_perf(self, entry: dict) -> None:
+        """Save performance history entry."""
+        with self._lock, self._conn() as c:
+            c.execute(
+                "INSERT INTO perf_history VALUES(?,?,?,?,?,?,?,?,?,?)",
+                (
+                    uid("ph"),
+                    entry.get("ts"),
+                    entry.get("latency_ms"),
+                    entry.get("type"),
+                    entry.get("complexity"),
+                    entry.get("exec_mode"),
+                    entry.get("tokens_est"),
+                    entry.get("via"),
+                    1 if entry.get("ok") else 0,
+                    entry.get("text_len"),
+                ),
+            )
+
+    def perf_history(self, n: int = 10) -> list[dict]:
+        """Get last N performance history entries."""
+        with self._conn() as c:
+            rows = c.execute("SELECT * FROM perf_history ORDER BY ts DESC LIMIT ?", (n,)).fetchall()
+        return [dict(r) for r in rows]
+
+    def perf_stats(self) -> dict:
+        """Get performance statistics."""
+        with self._conn() as c:
+            row = c.execute(
+                "SELECT COUNT(*) n, AVG(latency_ms) avg_ms, MIN(latency_ms) min_ms, MAX(latency_ms) max_ms FROM perf_history"
+            ).fetchone()
+        if not row or row["n"] == 0:
+            return {"n": 0, "avg_ms": None, "min_ms": None, "max_ms": None}
+        return {
+            "n": int(row["n"]),
+            "avg_ms": round(row["avg_ms"], 1) if row["avg_ms"] else None,
+            "min_ms": round(row["min_ms"], 1) if row["min_ms"] else None,
+            "max_ms": round(row["max_ms"], 1) if row["max_ms"] else None,
+        }
 
 
 store = Store()

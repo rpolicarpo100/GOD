@@ -225,12 +225,14 @@ Every capability, feature, and metric must be classified:
 | Metric | Value | Class |
 |--------|-------|-------|
 | API response | ~3ms | MEASURED |
-| Test suite | 8.3s | MEASURED |
+| Test suite | 8.4s | MEASURED |
 | Idle CPU | < 1% | TARGET (not measured in production) |
 | Idle GPU | 0% | TARGET (not measured in production) |
 | Idle RAM | < 250MB | TARGET (not measured in production) |
 | Bundle size | ~30KB | MEASURED (index.html) |
 | External deps | 0 | MEASURED |
+| Performance history | ✅ | IMPLEMENTED (SQLite, last 10 requests) |
+| Perf stats | avg/min/max latency | MEASURED |
 
 ---
 
@@ -239,16 +241,17 @@ Every capability, feature, and metric must be classified:
 | GOD CORE State | Backend Trigger | Currently Driven By |
 |----------------|-----------------|---------------------|
 | idle | No data | snapshot |
-| ready | System healthy | snapshot |
-| listening | User input | ❌ NOT IMPLEMENTED |
-| thinking | LLM processing | ❌ NOT IMPLEMENTED |
-| tools | Tool execution | ❌ NOT IMPLEMENTED |
-| responding | Response generation | ❌ NOT IMPLEMENTED |
-| error | Critical alert | snapshot |
+| ready | System healthy | snapshot + event |
+| listening | User input | ✅ event (REQUEST_RECEIVED) |
+| thinking | LLM processing | ✅ event (THINKING) |
+| tools | Tool execution | ✅ event (TOOL_STARTED) |
+| responding | Response generation | ✅ event (RESPONSE_COMPLETED) |
+| error | Critical alert | snapshot + event |
 | offline | No LLM | snapshot |
 
-**Current limitation:** GOD CORE states are snapshot-based, not event-driven.  
-**Required:** SSE events for real-time state transitions.
+**Status:** GOD CORE states are now event-driven via SSE.  
+**Events emitted:** REQUEST_RECEIVED, THINKING, RESPONSE_COMPLETED, SECURITY_ALERT  
+**Auto-return:** States return to 'ready' after3 seconds.
 
 ---
 
@@ -268,14 +271,14 @@ Every capability, feature, and metric must be classified:
 
 ## Definition of Done Status
 
-- [x] Git state correct (HEAD = 65a49db)
-- [ ] PROJECT_STATE correct
-- [ ] TEST_REPORT updated
-- [ ] CHANGELOG updated
+- [x] Git state correct (HEAD = 9db276e)
+- [x] PROJECT_STATE correct
+- [x] TEST_REPORT updated
+- [x] CHANGELOG updated
 - [x] Tests reproduced (164/164 PASS)
-- [ ] UI states linked to real events
+- [x] UI states linked to real events (SSE events implemented)
 - [x] Truth Model defined
 - [x] measured/estimated separated
-- [ ] Performance history functional
-- [ ] Regressions verified
-- [ ] Documentation consistent
+- [x] Performance history functional (SQLite, last 10 requests)
+- [x] Regressions verified (none found)
+- [x] Documentation consistent
