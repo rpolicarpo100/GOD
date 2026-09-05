@@ -12,6 +12,7 @@
 - [x] Event-driven via SSE (11 events)
 - [x] Personality messages in Portuguese
 - [x] Auto-return to ready after 3 seconds
+- [x] Interactive hover effect (scale)
 
 ### Intelligence ✅
 - [x] SSE-driven GOD CORE states
@@ -50,8 +51,10 @@
 - [x] System Map
 - [x] Nodes panel
 - [x] Providers panel
+- [x] Performance panel (sparkline + stats)
 - [x] Activity Feed (live)
-- [x] Chat with quick actions
+- [x] Chat with quick actions + timestamps
+- [x] Typing indicator
 - [x] Responsive (mobile/tablet/desktop)
 - [x] prefers-reduced-motion
 - [x] No WebGL/Canvas/Three.js
@@ -68,8 +71,6 @@
 
 **Chat Enhancement**
 
-- [ ] Typing indicator when GOD is processing
-- [ ] Message timestamps
 - [ ] Code syntax highlighting
 - [ ] Markdown rendering
 - [ ] File upload support
@@ -163,6 +164,8 @@ v4.1 — Event-driven states + Performance history
 v4.2 — Resource Governor + Voice distinction
 v4.3 — Node Registry + Proactive messages
 v4.4 — Truth Model + Documentation consistency
-v4.5 — Providers panel + Nodes visualization
+v4.5 — Chat timestamps + Typing indicator
+v4.6 — Performance panel + Sparkline + Telemetry
+v4.7 — GOD CORE hover effect + Visual polish
 v5.0 — Chat enhancement + Interactive system map
 ```
