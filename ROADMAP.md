@@ -120,8 +120,8 @@ flowchart LR
 10. ~~**Providers 10/11**~~ — **FEITO**.
 11. ~~**Token Pricing**~~ — **FEITO** (free tier $0, Claude real pricing).
 12. ~~**164/164 testes**~~ — **FEITO** (0 failures).
-13. **Semantic cache** — embeddings para paráfrases (feature flag `semantic_cache`, MEDIUM RISK).
-14. **Cohere integration** — rerank para search results (trial key, 1000 calls/mês).
+13. ~~**Semantic cache**~~ — **FEITO** (`superai/semantic_cache.py`).
+14. ~~**Cohere integration**~~ — **FEITO** (`superai/cohere_rerank.py`).
 15. **Não** P2 Agent Factory, P3 GOD Factory, P3 mesh, Desktop, swarm, Redis/K8s por aparência.
 
 ## GitHub deploy
