@@ -673,8 +673,10 @@ class GodBuilder(unittest.TestCase):
 
     def test_rollback_restores_purpose(self):
         from superai import gods
+        import uuid
 
-        gid = "rbiso2"
+        # Use unique ID to avoid state pollution across runs
+        gid = f"rbiso-{uuid.uuid4().hex[:8]}"
         a = gods.save({"id": gid, "name": "Rbiso", "capabilities": ["calculator"], "purpose": "versão-um"})
         self.assertTrue(a["ok"], a)
         v1 = int((a.get("god") or {}).get("version") or 1)

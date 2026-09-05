@@ -681,8 +681,40 @@ def api_websearch(body: SearchIn):
 # === RATE LIMITING ===
 
 
-@app.get("/api/system/ratelimit")
-def api_ratelimit():
-    """Estado dos rate limiters por provider."""
-    from superai.ratelimit import status
-    return status()
+class NodeIn(BaseModel):
+    id: str
+    name: str
+    location: str = "remote"
+    capabilities: list[str] = []
+
+
+@app.get("/api/system/nodes")
+def api_nodes():
+    """List registered nodes."""
+    from superai.nodes import registry
+    return registry.status()
+
+
+@app.post("/api/system/nodes")
+def api_register_node(body: NodeIn):
+    """Register a new node."""
+    from superai.nodes import registry
+    from superai.runtime import _broadcast
+    r = registry.register(body.id, body.name, body.location, body.capabilities)
+    if r.get("ok"):
+        _broadcast()
+    return r
+
+
+@app.delete("/api/system/nodes/{node_id}")
+def api_unregister_node(node_id: str):
+    """Unregister a node."""
+    from superai.nodes import registry
+    from superai.runtime import _broadcast
+    r = registry.unregister(node_id)
+    if r.get("ok"):
+        _broadcast()
+    return r
+
+
+# === RATE LIMITING ===

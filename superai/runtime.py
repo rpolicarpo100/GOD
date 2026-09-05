@@ -23,6 +23,7 @@ from .governor import gov
 from .memory_vec import vectors
 from .store import store
 from . import gods
+from .nodes import registry as node_registry
 from .tools import catalog
 from .util import now_iso, uid
 
@@ -181,6 +182,7 @@ def snapshot() -> dict:
         "mission": mission.snapshot(),
         "graph": tq.graph(12),
         "workers": tq.list_workers(),
+        "nodes": node_registry.status(),
         "jobs": tq.jobs(12),
         "away": tq.peek_away(),
         "eye": observer.latest(),
