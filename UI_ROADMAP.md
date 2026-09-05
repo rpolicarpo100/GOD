@@ -119,4 +119,7 @@ v6.1 — Accessibility + High contrast + Font size
 v6.2 — Layout save/restore + Panel visibility
 v6.3 — System dependency graph + Data flow
 v7.0 — Export data + Download
+v7.1 — Session history + Stats
+v7.2 — Custom themes (Midnight/Dawn/Neon)
+v7.3 — Dashboard polish + Panel collapse
 ```
