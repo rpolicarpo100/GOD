@@ -4,6 +4,22 @@
 
 ---
 
+## SECURITY INTEGRATION ✅
+
+### Pipeline (pipeline.py)
+- **P2.1 Sensitive Data Scan** — blocks risk≥5, warns risk≥3
+- **P2.2 Resource Tracking** — start/end per task, tool call tracking
+- **P2.4 Sandbox** — path checks for fs.read/list/write, import checks for python
+
+### Server Endpoints (server.py)
+- `GET /api/security/sensitive/scan` — scan text for sensitive data
+- `GET /api/security/sandbox/check` — check path permissions
+- `GET /api/security/resources` — resource usage stats
+- `GET /api/security/rate-limit` — rate limiter stats
+- `GET /api/security/network` — network control stats
+- `GET /api/security/network/log` — connection log
+- `POST /api/security/network/policy` — set network policy
+
 ## IMPLEMENTED
 
 ### P0.2 — Authentication ✅
