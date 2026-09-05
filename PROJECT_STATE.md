@@ -2,90 +2,102 @@
 
 ## Estado Geral
 
-- **HEAD:** `15e0b24` (main)
-- **Testes:** 162 PASS, 2 FAIL (pré-existentes)
+- **HEAD:** `65a49db` (main)
+- **Commit:** GOD Living Interface v4 — Organic breathing orb + fluid transitions
+- **Testes:** 164 PASS, 0 FAIL
 - **GitHub:** Sincronizado ✅
 - **Working tree:** Clean
 - **GOD Object:** RESOLVIDO ✅
 
-## Arquitectura Final
+---
 
-```
-superai/
-├── runtime.py      (503L) — dispatcher: security → shortcuts → pipeline
-├── pipeline.py     (555L) — core pipeline: 7 stages (cache/mem/fw/decide/tools/state/llm)
-├── shortcuts.py    (247L) — 11 shortcut handlers (token/web/roadmap/OS/repair/missions/etc)
-├── tokens.py       (551L) — token intelligence
-├── providers.py    (550L) — 8 LLM adapters
-├── thirdeye.py     (524L) — pipeline criticism
-├── queue.py        (475L) — job queue + graph
-├── validator.py    (455L) — 12 check types
-├── store.py        (435L) — SQLite + cache
-├── tools.py        (434L) — 12 deterministic tools
-├── capabilities.py (389L) — 15 capabilities
-├── aios.py         (370L) — OS kernel
-├── runtime_protection.py (323L) — GOD Object detection
-├── gods.py         (259L) — GOD profiles
-├── feature_flags.py (247L) — 8 flags
-├── system.py       (206L) — system state
-├── routing.py      (220L) — model router
-├── brain.py        (214L) — analyzer + cache
-├── resources.py    (201L) — host info
-├── health.py       (151L) — liveness/readiness
-├── observer.py     (156L) — alerts
-├── evolution.py    (215L) — controlled evolution
-├── memory_vec.py   (130L) — Qdrant
-├── mission.py      (115L) — SQLite missions
-├── compute.py      (93L)  — in-process worker
-├── governor.py     (83L)  — security
-├── worker.py       (74L)  — remote worker
-├── repair.py       (56L)  — diagnostics
-├── events.py       (55L)  — event bus
-├── benchmark.py    (142L) — golden tests
-├── plane.py        (174L) — Plane.so probe
-├── config.py       (99L)  — config loader
-├── embed.py        (39L)  — hashing vectorizer
-└── util.py         (46L)  — helpers
-```
+## Capacidades
 
-## GOD Object Refactor (COMPLETO)
+| Capability | Status | Tested | Enabled | Active |
+|------------|--------|--------|---------|--------|
+| memory | IMPLEMENTED | ✅ | ✅ | ✅ |
+| voice (TTS) | IMPLEMENTED | ✅ | ✅ | ⚠️ |
+| distributed_compute | PARTIAL | ✅ | ❌ | ❌ |
+| local_llm | PARTIAL | ❌ | ❌ | ❌ |
+| web_search | IMPLEMENTED | ✅ | ✅ | ✅ |
+| llm_api | IMPLEMENTED | ✅ | ✅ | ✅ |
+| missions | IMPLEMENTED | ✅ | ✅ | ✅ |
+| validator | IMPLEMENTED | ✅ | ✅ | ✅ |
+| thirdeye | IMPLEMENTED | ✅ | ✅ | ✅ |
+| evolution | IMPLEMENTED | ✅ | ✅ | ✅ |
+| governor | IMPLEMENTED | ✅ | ✅ | ✅ |
+| parallel_execution | IMPLEMENTED | ✅ | ✅ | ✅ |
+| cost_routing | IMPLEMENTED | ✅ | ✅ | ✅ |
+| feature_flags | IMPLEMENTED | ✅ | ✅ | ✅ |
+| runtime_protection | IMPLEMENTED | ✅ | ✅ | ✅ |
 
-| Métrica | Antes | Depois |
-|---------|-------|--------|
-| runtime.py | 1129L | 503L |
-| handle() | 586L | 53L |
-| handle() complexity | ~80 | 13 |
-| run_pipeline() | N/A | 60L (7 stages) |
-| try_shortcuts() | N/A | 60L (11 handlers) |
-| CRITICAL issues | 2 | 0 |
-| GOD Object | TRUE | FALSE |
+**Summary:** 13/15 implemented, 2 partial
 
-## Runtime Protection Status
+---
 
-- Files: 36
-- Hard blocks: 0
-- Criticals: 0
-- Warnings: 11 (acceptable)
+## Providers
 
-## Feature Flags (8, todas DISABLED)
+| Provider | Available | Status |
+|----------|-----------|--------|
+| Ollama | ❌ | port 11434 closed |
+| Groq | ✅ | available |
+| Cerebras | ✅ | available |
+| Gemini | ✅ | available |
+| OpenRouter | ✅ | available |
+| Inference.net | ✅ | available |
+| Z.ai | ✅ | available |
+| NVIDIA NIM | ✅ | available |
+| SambaNova | ✅ | available |
+| Mistral AI | ✅ | available |
+| Claude | ✅ | available |
 
-| Flag | Risk | Description |
-|------|------|-------------|
-| semantic_cache | LOW | Cache semântico Qdrant |
-| parallel_jobs | LOW | Execução paralela |
-| auto_evolve | HIGH | Auto-aplicar propostas |
-| allow_remote_tools | MEDIUM | Tools em workers remotos |
-| debug_trace | LOW | Trace detalhado |
-| extended_metrics | LOW | Métricas estendidas |
-| cost_routing | MEDIUM | Routing por custo |
-| hardcore_mode | HIGH | Claude como primário |
+**Summary:** 10/11 available
 
-## Próximos Passos Possíveis
+---
 
-1. **P1 Router €** — BLOQUEADO (all free tier)
-2. **P2 Agent Factory** — NÃO (by design)
-3. **Testes de integração** — testar pipeline end-to-end com servidor real
+## Feature Flags
 
-## Bloqueios
+| Flag | Enabled | Risk |
+|------|---------|------|
+| parallel_jobs | ✅ | LOW |
+| auto_evolve | ✅ | MEDIUM |
+| extended_metrics | ✅ | LOW |
+| cost_routing | ✅ | LOW |
+| auto_cleanup | ✅ | LOW |
+| rate_limiting | ✅ | LOW |
+| semantic_cache | ❌ | LOW |
+| allow_remote_tools | ❌ | MEDIUM |
+| debug_trace | ❌ | LOW |
+| hardcore_mode | ❌ | HIGH |
 
-- P1 Router €: Todos os modelos são free tier. Cost-based routing não se aplica sem source verificada de preços.
+**Summary:** 6/10 enabled
+
+---
+
+## Interface
+
+- **Version:** v4 (Living Interface)
+- **GOD CORE:** Organic breathing orb with 8 states
+- **Pages:** 8 (Home, Intelligence, Memory, Compute, Tokens, Evolution, Activity, Settings)
+- **Chat:** Collapsible panel with quick actions
+- **Performance:** CSS/SVG only, no WebGL/Canvas
+- **Bundle:** ~30KB
+
+---
+
+## Known Limitations
+
+1. GOD CORE states are snapshot-based, not event-driven
+2. Voice badge shows MIC but no real-time STT
+3. distributed_compute has no remote workers
+4. local_llm blocked (Ollama not running)
+5. No performance history tracking
+
+---
+
+## Next Steps
+
+1. Event-driven GOD CORE states
+2. Performance history (SQLite)
+3. Truth Model integration in UI
+4. Documentation consistency

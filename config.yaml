@@ -27,12 +27,12 @@ feature_flags:
   auto_cleanup: true
   auto_evolve: true
   cost_routing: true
-  debug_trace: true
+  debug_trace: false
   extended_metrics: true
   hardcore_mode: false
   parallel_jobs: true
   rate_limiting: true
-  semantic_cache: true
+  semantic_cache: false
 feature_flags_meta:
   auto_cleanup:
     enabled_at: '2026-09-05T10:17:32.499521+00:00'
@@ -47,9 +47,9 @@ feature_flags_meta:
     enabled_by: auto
     reason: pricing CALCULATED, free tier first
   debug_trace:
-    enabled_at: '2026-09-05T13:06:24.685261+00:00'
-    enabled_by: startup
-    reason: 'auto-enable on startup: debugging utility'
+    disabled_at: '2026-09-05T13:39:53.375390+00:00'
+    disabled_by: system
+    reason: test cleanup
   extended_metrics:
     enabled_at: '2026-09-05T10:17:32.467458+00:00'
     enabled_by: auto
@@ -63,9 +63,9 @@ feature_flags_meta:
     enabled_by: auto
     reason: protect free tier quotas
   semantic_cache:
-    enabled_at: '2026-09-05T13:06:24.670672+00:00'
-    enabled_by: startup
-    reason: 'auto-enable on startup: neural embeddings working'
+    disabled_at: '2026-09-05T13:39:53.401543+00:00'
+    disabled_by: system
+    reason: test cleanup
 governor:
   deny_names:
   - .env
