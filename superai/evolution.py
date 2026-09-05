@@ -130,6 +130,97 @@ def decide(xid: str, approve: bool) -> str:
     return f"REJECT {xid}. Semantic cache policy=false. Hash cache mantém-se."
 
 
+def classify_risk(proposal: dict) -> dict:
+    """Classifica o risco de uma proposta de evolução.
+
+    Critérios:
+    - LOW: cache/embedding/read-only changes
+    - MEDIUM: routing/priority/queue changes
+    - HIGH: security/governor/code modification/auto-apply
+    """
+    title = (proposal.get("title") or "").lower()
+    hypothesis = (proposal.get("hypothesis") or "").lower()
+    payload = proposal.get("payload") or {}
+    change = (payload.get("change") or "").lower()
+    text = f"{title} {hypothesis} {change}"
+
+    # HIGH RISK indicators
+    high_risk_keywords = [
+        "governor", "security", "strict", "auto-apply", "auto_apply",
+        "code modification", "refactor", "deploy", "production",
+        "disable", "remove limit", "permissão",
+    ]
+    if any(kw in text for kw in high_risk_keywords):
+        return {
+            "risk": "high",
+            "reason": "contém keywords de segurança/governance",
+            "requires_human": True,
+            "kind": "MEASURED",
+        }
+
+    # MEDIUM RISK indicators
+    medium_risk_keywords = [
+        "routing", "priority", "queue", "inflight", "provider",
+        "model", "adapter", "worker", "threshold",
+    ]
+    if any(kw in text for kw in medium_risk_keywords):
+        return {
+            "risk": "medium",
+            "reason": "afecta routing/queue/providers",
+            "requires_human": gov.strict(),
+            "kind": "MEASURED",
+        }
+
+    # LOW RISK (default for cache/embedding)
+    return {
+        "risk": "low",
+        "reason": "cache/embedding/read-only",
+        "requires_human": False,
+        "kind": "MEASURED",
+    }
+
+
+def propose_with_risk(title: str, hypothesis: str, change: str, metric: str,
+                      before: dict, after: dict, obs: dict | None = None) -> dict:
+    """Propor experimento com classificação de risco automática."""
+    proposal = {
+        "title": title,
+        "hypothesis": hypothesis,
+        "payload": {"change": change, "obs": obs},
+    }
+    risk_info = classify_risk(proposal)
+
+    exp = {
+        "id": uid("X"),
+        "title": title,
+        "hypothesis": hypothesis,
+        "status": "pending",
+        "metric": metric,
+        "before": before,
+        "after": after,
+        "risk": risk_info["risk"],
+        "risk_info": risk_info,
+        "requires_human": risk_info["requires_human"],
+        "payload": {
+            "change": change,
+            "obs": obs,
+        },
+        "ts": now_iso(),
+    }
+
+    # Auto-reject HIGH RISK in strict mode (never auto-apply)
+    if risk_info["risk"] == "high" and gov.strict():
+        exp["status"] = "blocked"
+        exp["blocked_reason"] = "Governor strict: HIGH RISK requires human approval outside AI"
+        store.save_experiment(exp)
+        bus.emit("VERSION_REJECTED", "EVOLUTION", f"BLOCKED: {title}")
+        return exp
+
+    store.save_experiment(exp)
+    bus.emit("VERSION_PROPOSED", "EVOLUTION", exp["title"])
+    return exp
+
+
 def run_cycle() -> dict:
     obs = observe()
     bench = benchmark.run(trigger="evolution")

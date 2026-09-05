@@ -1498,5 +1498,214 @@ class P15Endpoints(unittest.TestCase):
         self.assertEqual(r["kind"], "MEASURED")
 
 
+class P15FeatureFlags(unittest.TestCase):
+    """P1.5 Feature Flags — disabled by default, risk-classified."""
+
+    def test_flags_disabled_by_default(self):
+        from superai.feature_flags import is_enabled
+        # All flags should be disabled by default
+        self.assertFalse(is_enabled("semantic_cache"))
+        self.assertFalse(is_enabled("auto_evolve"))
+        self.assertFalse(is_enabled("hardcore_mode"))
+
+    def test_list_flags(self):
+        from superai.feature_flags import list_flags
+        flags = list_flags()
+        self.assertGreater(len(flags), 5)
+        names = [f["name"] for f in flags]
+        self.assertIn("semantic_cache", names)
+        self.assertIn("auto_evolve", names)
+        self.assertIn("hardcore_mode", names)
+
+    def test_enable_low_risk(self):
+        from superai.feature_flags import enable, disable, is_enabled
+        r = enable("semantic_cache", reason="test", actor="test")
+        self.assertTrue(r["ok"])
+        self.assertTrue(is_enabled("semantic_cache"))
+        # Cleanup
+        disable("semantic_cache", reason="test cleanup")
+
+    def test_disable_flag(self):
+        from superai.feature_flags import enable, disable, is_enabled
+        enable("debug_trace", reason="test", actor="test")
+        r = disable("debug_trace", reason="test cleanup")
+        self.assertTrue(r["ok"])
+        self.assertFalse(is_enabled("debug_trace"))
+
+    def test_high_risk_blocked_in_strict(self):
+        from superai.feature_flags import enable, is_enabled
+        from superai.governor import gov
+        if not gov.strict():
+            self.skipTest("governor not strict")
+        r = enable("auto_evolve", reason="test", actor="test")
+        self.assertFalse(r["ok"])
+        self.assertIn("HIGH RISK", r["error"])
+        self.assertFalse(is_enabled("auto_evolve"))
+
+    def test_unknown_flag_rejected(self):
+        from superai.feature_flags import enable
+        r = enable("nonexistent_flag_xyz", reason="test")
+        self.assertFalse(r["ok"])
+        self.assertIn("desconhecida", r["error"])
+
+    def test_flags_summary(self):
+        from superai.feature_flags import flags_summary
+        s = flags_summary()
+        self.assertEqual(s["kind"], "MEASURED")
+        self.assertGreater(s["n"], 0)
+        self.assertIsInstance(s["enabled"], list)
+        self.assertIsInstance(s["disabled"], list)
+        self.assertIn("auto_evolve", s["high_risk"])
+
+    def test_flag_risk_classification(self):
+        from superai.feature_flags import get_flag
+        auto = get_flag("auto_evolve")
+        self.assertEqual(auto["risk"], "high")
+        cache = get_flag("semantic_cache")
+        self.assertEqual(cache["risk"], "low")
+        hc = get_flag("hardcore_mode")
+        self.assertEqual(hc["risk"], "high")
+
+    def test_flags_endpoint(self):
+        from server import api_flags
+        r = api_flags()
+        self.assertEqual(r["kind"], "MEASURED")
+
+
+class P15RuntimeProtection(unittest.TestCase):
+    """P1.5 Runtime Protection — GOD Object anti-pattern detection."""
+
+    def test_inspect_file(self):
+        from superai.runtime_protection import inspect_file
+        from superai.config import ROOT
+        f = ROOT / "superai" / "brain.py"
+        r = inspect_file(f)
+        self.assertEqual(r["kind"], "MEASURED")
+        self.assertIn("lines", r)
+        self.assertIn("ast", r)
+
+    def test_inspect_nonexistent(self):
+        from superai.runtime_protection import inspect_file
+        from pathlib import Path
+        r = inspect_file(Path("/nonexistent/file.py"))
+        self.assertEqual(r["status"], "not_found")
+
+    def test_inspect_all(self):
+        from superai.runtime_protection import inspect_all
+        r = inspect_all()
+        self.assertEqual(r["kind"], "MEASURED")
+        self.assertGreater(r["n_files"], 10)
+        self.assertIn("hard_blocks", r)
+        self.assertIn("criticals", r)
+        self.assertIn("warnings", r)
+
+    def test_god_object_check(self):
+        from superai.runtime_protection import check_god_object
+        r = check_god_object()
+        self.assertEqual(r["kind"], "MEASURED")
+        self.assertEqual(r["file"], "runtime.py")
+        self.assertIn("is_god_object", r)
+        self.assertIn("lines", r)
+        self.assertIn("n_functions", r)
+        self.assertIn("total_complexity", r)
+
+    def test_runtime_py_is_flagged(self):
+        from superai.runtime_protection import check_god_object
+        r = check_god_object()
+        # runtime.py at 1128 lines SHOULD be flagged as GOD Object
+        self.assertTrue(r["is_god_object"], "runtime.py should be flagged as GOD Object")
+        self.assertGreater(len(r["reasons"]), 0)
+
+    def test_brain_py_within_limits(self):
+        from superai.runtime_protection import inspect_file
+        from superai.config import ROOT
+        r = inspect_file(ROOT / "superai" / "brain.py")
+        # brain.py at ~215 lines should be within limits
+        self.assertNotEqual(r["worst_severity"], "HARD_BLOCK")
+
+    def test_protection_report(self):
+        from superai.runtime_protection import protection_report
+        r = protection_report()
+        self.assertIn("god_object", r)
+        self.assertIn("all_files", r)
+        self.assertEqual(r["kind"], "MEASURED")
+
+    def test_god_object_endpoint(self):
+        from server import api_god_object
+        r = api_god_object()
+        self.assertEqual(r["kind"], "MEASURED")
+
+    def test_protection_endpoint(self):
+        from server import api_protection
+        r = api_protection()
+        self.assertIn("god_object", r)
+        self.assertIn("all_files", r)
+
+
+class P15ControlledEvolution(unittest.TestCase):
+    """P1.5 Controlled Evolution — risk classification + feature flags."""
+
+    def test_classify_risk_low(self):
+        from superai.evolution import classify_risk
+        proposal = {
+            "title": "Promover semantic cache",
+            "hypothesis": "Embeddings acertam mais que hash",
+            "payload": {"change": "cache lookup order"},
+        }
+        r = classify_risk(proposal)
+        self.assertEqual(r["risk"], "low")
+        self.assertFalse(r["requires_human"])
+
+    def test_classify_risk_medium(self):
+        from superai.evolution import classify_risk
+        proposal = {
+            "title": "Ajustar routing por prioridade",
+            "hypothesis": "Provider X é mais fiável",
+            "payload": {"change": "routing priority order"},
+        }
+        r = classify_risk(proposal)
+        self.assertEqual(r["risk"], "medium")
+
+    def test_classify_risk_high(self):
+        from superai.evolution import classify_risk
+        proposal = {
+            "title": "Desactivar governor strict",
+            "hypothesis": "Permitir auto-apply de código",
+            "payload": {"change": "governor security settings"},
+        }
+        r = classify_risk(proposal)
+        self.assertEqual(r["risk"], "high")
+        self.assertTrue(r["requires_human"])
+
+    def test_high_risk_blocked_in_evolution(self):
+        from superai.evolution import propose_with_risk
+        from superai.governor import gov
+        if not gov.strict():
+            self.skipTest("governor not strict")
+        exp = propose_with_risk(
+            title="Remover limites do governor",
+            hypothesis="Governor é demasiado restritivo",
+            change="disable governor security",
+            metric="freedom",
+            before={"strict": True},
+            after={"strict": False},
+        )
+        self.assertEqual(exp["status"], "blocked")
+        self.assertIn("blocked_reason", exp)
+
+    def test_low_risk_pending_in_evolution(self):
+        from superai.evolution import propose_with_risk
+        exp = propose_with_risk(
+            title="Semantic cache para paráfrases",
+            hypothesis="Embeddings recuperam mais que hash",
+            change="semantic cache lookup",
+            metric="paraphrase_hits",
+            before={"hash": 1},
+            after={"semantic": 3},
+        )
+        self.assertEqual(exp["status"], "pending")
+        self.assertEqual(exp["risk"], "low")
+
+
 if __name__ == "__main__":
     unittest.main()

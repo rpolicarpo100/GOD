@@ -19,6 +19,8 @@ from superai.system import system_state
 from superai.capabilities import can, get_capability, capabilities_summary
 from superai.trace import get_trace, recent_traces, trace_summary, format_trace
 from superai.health import liveness, readiness, full_health
+from superai import feature_flags as ff
+from superai import runtime_protection as rp
 
 ROOT = Path(__file__).parent
 app = FastAPI(title="SUPER AI")
@@ -501,3 +503,54 @@ def api_traces():
 def api_trace(request_id: str):
     """Trace de um request específico."""
     return trace_summary(request_id)
+
+
+# === FEATURE FLAGS ===
+
+
+@app.get("/api/system/flags")
+def api_flags():
+    """Lista todas as feature flags."""
+    return ff.flags_summary()
+
+
+@app.get("/api/system/flags/{name}")
+def api_flag(name: str):
+    """Detalhe de uma flag."""
+    f = ff.get_flag(name)
+    if not f:
+        raise HTTPException(404, f"flag '{name}' não encontrada")
+    return f
+
+
+@app.post("/api/system/flags/{name}/enable")
+def api_flag_enable(name: str):
+    """Activar uma feature flag."""
+    return ff.enable(name, reason="API request", actor="api")
+
+
+@app.post("/api/system/flags/{name}/disable")
+def api_flag_disable(name: str):
+    """Desactivar uma feature flag."""
+    return ff.disable(name, reason="API request", actor="api")
+
+
+# === RUNTIME PROTECTION ===
+
+
+@app.get("/api/system/protection")
+def api_protection():
+    """Relatório de protecção: GOD Object + inspecção de ficheiros."""
+    return rp.protection_report()
+
+
+@app.get("/api/system/god-object")
+def api_god_object():
+    """Detecção de GOD Object anti-pattern."""
+    return rp.check_god_object()
+
+
+@app.get("/api/system/protection/inspect")
+def api_protection_inspect():
+    """Inspecionar todos os ficheiros fonte."""
+    return rp.inspect_all()

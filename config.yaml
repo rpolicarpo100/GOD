@@ -69,6 +69,18 @@ pc_node:
     gpu_for_llm: false
     note: nunca a totalidade. GT 1030 ~2GB VRAM — LLM local grande não cabe.
 
+# Feature flags — TODAS desactivadas por default.
+# Activar só com razão documentada. Governor bloqueia HIGH RISK em strict mode.
+feature_flags:
+  semantic_cache: false
+  parallel_jobs: false
+  auto_evolve: false
+  allow_remote_tools: false
+  debug_trace: false
+  extended_metrics: false
+  cost_routing: false
+  hardcore_mode: false
+
 unverified_or_absent:
   - PostgreSQL (SQLite em uso)
   - Redis/Valkey (cache SQLite)
