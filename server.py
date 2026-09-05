@@ -912,3 +912,58 @@ def api_unregister_node(node_id: str, authorization: str | None = Header(default
 
 
 # === RATE LIMITING ===
+
+@app.get("/api/security/sensitive/scan")
+def api_sensitive_scan(text: str, authorization: str | None = Header(default=None)):
+    """Scan text for sensitive data. Requires SECURITY_MANAGE."""
+    _require_perm(authorization, auth.Perm.SECURITY_MANAGE)
+    from superai import sensitive
+    return sensitive.scan_text(text)
+
+@app.get("/api/security/sandbox/check")
+def api_sandbox_check(path: str, operation: str = "read", authorization: str | None = Header(default=None)):
+    """Check if a path is allowed. Requires SECURITY_MANAGE."""
+    _require_perm(authorization, auth.Perm.SECURITY_MANAGE)
+    from superai import sandbox
+    return sandbox.check_path(path, operation)
+
+@app.get("/api/security/resources")
+def api_resource_usage(authorization: str | None = Header(default=None)):
+    """Get resource usage stats. Requires SECURITY_MANAGE."""
+    _require_perm(authorization, auth.Perm.SECURITY_MANAGE)
+    from superai import resource_limits
+    return resource_limits.get_tracker().get_stats()
+
+@app.get("/api/security/rate-limit")
+def api_rate_limit_status(authorization: str | None = Header(default=None)):
+    """Get rate limiter stats. Requires SECURITY_MANAGE."""
+    _require_perm(authorization, auth.Perm.SECURITY_MANAGE)
+    from superai import rate_limit
+    return rate_limit.get_limiter().get_stats()
+
+@app.get("/api/security/network")
+def api_network_stats(authorization: str | None = Header(default=None)):
+    """Get network control stats. Requires SECURITY_MANAGE."""
+    _require_perm(authorization, auth.Perm.SECURITY_MANAGE)
+    from superai import network_control
+    return network_control.get_controller().get_stats()
+
+@app.get("/api/security/network/log")
+def api_network_log(limit: int = 50, authorization: str | None = Header(default=None)):
+    """Get network connection log. Requires SECURITY_MANAGE."""
+    _require_perm(authorization, auth.Perm.SECURITY_MANAGE)
+    from superai import network_control
+    return {"log": network_control.get_controller().get_connection_log(limit)}
+
+@app.post("/api/security/network/policy")
+def api_set_network_policy(
+    allow_outbound: bool = False,
+    allow_lan: bool = False,
+    allow_remote: bool = False,
+    authorization: str | None = Header(default=None),
+):
+    """Set network policy. Requires SECURITY_MANAGE."""
+    _require_perm(authorization, auth.Perm.SECURITY_MANAGE)
+    from superai import network_control
+    network_control.set_network_policy(allow_outbound, allow_lan, allow_remote)
+    return {"ok": True, "policy": network_control.get_controller().get_stats().get("policy")}

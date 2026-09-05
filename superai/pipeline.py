@@ -1,7 +1,7 @@
 """Pipeline core — o coração do processamento GOD.
 
 Extraído de runtime.py para reduzir GOD Object.
-Handles: analysis → cache → memory → firewall → plan → tools/state/llm
+Handles: security → analysis → cache → memory → firewall → plan → tools/state/llm
 """
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ from .memory_vec import vectors
 from .store import store
 from . import gods
 from .util import now_iso, uid
+from . import sensitive, rate_limit, resource_limits, sandbox, network_control
 
 
 def _extract_path(text: str) -> str | None:
@@ -321,12 +322,61 @@ def _stage_tools(text, task, pipeline, p, ctx, _say, _mark, _set_pipe, _broadcas
     """Stage 6a: Execute deterministic tools."""
     tool_results = []
     pipeline["route"].append("DETERMINISTIC_TOOLS")
+    
+    # Check resource limits before tools (P2.2)
+    resource_check = resource_limits.check_limits(task["task_id"])
+    if not resource_check.get("ok"):
+        bus.emit("RESOURCE_LIMIT", "WARNING", f"Resource limits exceeded: {resource_check.get('violations')}")
+    
     for step in p["steps"]:
         if not step.get("tool"):
             continue
+        
+        # Sandbox check for file operations (P2.4)
+        args = step.get("args") or {}
+        if step["tool"] in ("fs.read", "fs.list", "fs.write"):
+            path = args.get("path", "")
+            if path:
+                path_check = sandbox.check_path(path, "write" if step["tool"] == "fs.write" else "read")
+                if not path_check.get("ok"):
+                    tool_results.append({
+                        "tool": step["tool"],
+                        "status": "blocked",
+                        "confidence": 1.0,
+                        "findings": [],
+                        "errors": [f"Sandbox: {path_check.get('reason')}"],
+                        "evidence": ["sandbox_block"],
+                    })
+                    continue
+        
+        # Sandbox check for python execution (P2.4)
+        if step["tool"] == "python":
+            code = args.get("code", "")
+            if code:
+                # Check for blocked imports
+                import re as _re
+                imports = _re.findall(r'import\s+(\w+)|from\s+(\w+)\s+import', code)
+                for mod in imports:
+                    mod_name = mod[0] or mod[1]
+                    import_check = sandbox.check_import(mod_name)
+                    if not import_check.get("ok"):
+                        tool_results.append({
+                            "tool": "python",
+                            "status": "blocked",
+                            "confidence": 1.0,
+                            "findings": [],
+                            "errors": [f"Sandbox: {import_check.get('reason')}"],
+                            "evidence": ["sandbox_block"],
+                        })
+                        continue
+        
         bus.emit("TOOL_STARTED", "INFO", step["tool"], god_core_state="tools")
         store.incr("tool_calls")
         res = aios.syscall(step["tool"], step.get("args") or {}, actor=task["task_id"])
+        
+        # Record tool call for resource tracking (P2.2)
+        resource_limits.get_tracker().record_tool_call(task["task_id"], step["tool"])
+        
         tool_results.append(res)
         if res.get("status") != "success":
             bus.emit("TOOL_FAILED", "WARNING", f"{step['tool']}: {res.get('errors')}", god_core_state="error")
@@ -342,6 +392,9 @@ def _stage_tools(text, task, pipeline, p, ctx, _say, _mark, _set_pipe, _broadcas
     task["rating"] = scores
     store.save_task(task)
     bus.emit("TASK_COMPLETED", "INFO", f"{task['task_id']} overall {scores['OVERALL']} via tools", god_core_state="ready")
+    
+    # End resource tracking (P2.2)
+    resource_limits.end_tracking(task["task_id"])
     pipeline["scores"] = scores
     pipeline["validation"] = validation
     pipeline["critique"] = critique
@@ -488,10 +541,24 @@ def _stage_llm(text, task, pipeline, merged, ctx, *, _say, _mark, _set_pipe, _br
 def run_pipeline(text: str, task: dict, from_worker: bool, *,
                  _say, _mark, _set_pipe, _broadcast, _format_result,
                  _llm_prompt, _dialogue, _enqueue, _lock) -> dict:
-    """Core pipeline: analysis → cache → memory → firewall → plan → tools/state/llm.
+    """Core pipeline: security → analysis → cache → memory → firewall → plan → tools/state/llm.
     
     Returns result dict. All _say/_broadcast/etc passed as callbacks to avoid circular imports.
     """
+    # 0 SECURITY SCAN (P2.1)
+    sensitive_scan = sensitive.scan_task_content(task)
+    if sensitive_scan.get("has_sensitive"):
+        risk_score = sensitive_scan.get("risk_score", 0)
+        if risk_score >= 5:
+            # High risk: block
+            bus.emit("SECURITY_BLOCK", "CRITICAL", f"Sensitive data detected (risk={risk_score})", god_core_state="error")
+            _say("brain", f"⚠ BLOCKED: Sensitive data detected in request (risk level {risk_score}/5).\n\n{sensitive.format_detections(sensitive_scan)}\n\nRemove sensitive data and try again.")
+            return {"ok": False, "via": "security", "reason": "sensitive_data", "risk": risk_score}
+        elif risk_score >= 3:
+            # Medium risk: warn but continue
+            bus.emit("SECURITY_WARNING", "WARNING", f"Sensitive data detected (risk={risk_score})", god_core_state="thinking")
+            task["security_warning"] = sensitive.format_detections(sensitive_scan)
+    
     # 1 analyzer
     act_m = __import__('superai.mission', fromlist=['active']).active()
     if act_m:
@@ -500,6 +567,10 @@ def run_pipeline(text: str, task: dict, from_worker: bool, *,
     store.save_task(task)
     store.audit("user", "task", task["task_id"])
     bus.emit("TASK_CREATED", "INFO", f"{task['task_id']} · {task['type']} · est {task['estimated_tokens']} tok", god_core_state="thinking")
+    
+    # Start resource tracking (P2.2)
+    resource_tracker = resource_limits.get_tracker()
+    resource_tracker.start_task(task["task_id"])
 
     pipeline = {
         "task": {k: task[k] for k in ("task_id", "type", "complexity", "exec_mode", "reasoning_required", "estimated_tokens", "reasoning_budget", "privacy", "tool_requirement")},
