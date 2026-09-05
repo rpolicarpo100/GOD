@@ -1,37 +1,39 @@
 {
-  "updated": "2026-09-04",
-  "head": "b26b168",
+  "head": "130a5a2",
   "branch": "main",
+  "date": "2026-09-05",
   "tests": {
-    "total": 113,
-    "pass": 113,
-    "fail": 1,
-    "fail_reason": "pré-existente env-dependent"
+    "total": 141,
+    "pass": 139,
+    "fail": 2,
+    "fail_reason": "pre-existing env-dependent failures"
   },
-  "github": {
-    "synced": true,
-    "repo": "rpolicarpo100/GOD",
-    "branch": "main"
+  "github": "synced",
+  "working_tree": "clean",
+  "p15": {
+    "system_state": "done",
+    "capability_registry": "done",
+    "health_readiness": "done",
+    "decision_trace": "done",
+    "controlled_evolution": "todo",
+    "runtime_protection": "todo"
   },
-  "roadmap": {
-    "p0_fast_path": "DONE",
-    "p0_latency": "DONE",
-    "p0_direct_llm": "DONE",
-    "p0_smart_memory": "DONE",
-    "p1_executive": "DONE",
-    "p1_mission": "DONE",
-    "p1_task_graph": "DONE",
-    "p1_model_router": "DONE",
-    "p1_router_cost": "BLOCKED",
-    "p2_validator": "DONE",
-    "p2_third_eye": "DONE",
-    "p2_factory": "NOT",
-    "p3_factory": "NOT",
-    "p3_mesh": "NOT",
-    "p4_ui": "DONE"
-  },
-  "blocking": {
-    "p1_router_cost": "Todos os modelos são free tier (cost=0). Cost-based routing não se aplica sem source verificada de preços."
-  },
-  "working_tree": "clean"
+  "new_files": [
+    "superai/system.py",
+    "superai/capabilities.py",
+    "superai/health.py",
+    "superai/trace.py"
+  ],
+  "new_endpoints": [
+    "/api/system/state",
+    "/api/system/capabilities",
+    "/api/system/capabilities/{name}",
+    "/api/system/can/{name}",
+    "/api/system/health",
+    "/api/system/liveness",
+    "/api/system/readiness",
+    "/api/system/diagnostics",
+    "/api/system/trace/{request_id}"
+  ],
+  "blocked": ["P1 router € — all free tier"]
 }
