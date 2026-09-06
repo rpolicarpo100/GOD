@@ -418,7 +418,7 @@ echo [%date% %time%] PHASE 5: VERIFY >> "%LOG%"
 REM ── Verify imports ──
 echo  [01/04] Verifying imports...
 set "DEP_OK=1"
-for %%m in (fastapi uvicorn tiktoken numpy httpx pyyaml qdrant_client) do (
+for %%m in (fastapi uvicorn tiktoken numpy httpx yaml qdrant_client) do (
     "%VENV_PY%" -c "import %%m" 2>nul
     if !errorlevel! neq 0 (
         echo          FAIL  %%m not importable

@@ -240,7 +240,7 @@ case "$CMD" in
         printf "  [04] Dependencies...... "
         if [ -f "$VENV_PY" ]; then
             DEP_FAIL=0
-            for mod in fastapi uvicorn tiktoken numpy httpx pyyaml; do
+            for mod in fastapi uvicorn tiktoken numpy httpx yaml; do
                 $VENV_PY -c "import $mod" 2>/dev/null || DEP_FAIL=1
             done
             if [ "$DEP_FAIL" = "1" ]; then
@@ -499,7 +499,7 @@ for r in s.get('rows') or []:
         # 2. Dependencies
         printf "  [02] Dependencies...... "
         DEP_FAIL=0
-        for mod in fastapi uvicorn tiktoken numpy httpx pyyaml qdrant_client; do
+        for mod in fastapi uvicorn tiktoken numpy httpx yaml qdrant_client; do
             $VENV_PY -c "import $mod" 2>/dev/null || DEP_FAIL=1
         done
         if [ "$DEP_FAIL" = "0" ]; then

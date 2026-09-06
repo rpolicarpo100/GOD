@@ -399,7 +399,7 @@ log "PHASE 5: VERIFY"
 # ── Verify imports ──
 printf "  [01/04] Verifying imports... "
 DEP_OK=1
-for mod in fastapi uvicorn tiktoken numpy httpx pyyaml qdrant_client; do
+for mod in fastapi uvicorn tiktoken numpy httpx yaml qdrant_client; do
     $VENV_PY -c "import $mod" 2>/dev/null || DEP_OK=0
 done
 if [ "$DEP_OK" = "1" ]; then

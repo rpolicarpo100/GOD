@@ -64,7 +64,7 @@ echo ""
 
 # --- Verify core dependencies ---
 echo "[*] Verifying dependencies..."
-for mod in fastapi uvicorn tiktoken numpy httpx pyyaml qdrant_client; do
+for mod in fastapi uvicorn tiktoken numpy httpx yaml qdrant_client; do
     $VENV_PY -c "import $mod" 2>/dev/null
     if [ $? -ne 0 ]; then
         echo "[WARN] Module $mod not importable (non-critical)."
