@@ -101,42 +101,80 @@ goto :eof
 :uninstall
 echo.
 echo GOD — Uninstall
+echo ══════════════════════════════════
 echo.
-echo   [1] Remove application only (keep data)
+echo   Current installation:
+if exist "%GOD_DIR%.venv" echo     .venvif exist "%GOD_DIR%data" echo     dataif exist "%GOD_DIR%data\qdrant" echo     data\qdrantif exist "%GOD_DIR%data\sandbox" echo     data\sandboxif exist "%GOD_DIR%data\spine.db" echo     data\spine.db
+if exist "%GOD_DIR%data\auth" echo     data\authif exist "%GOD_DIR%data\gods" echo     data\godsif exist "%GOD_DIR%logs" echo     logsif exist "%GOD_DIR%backups" echo     backupsif exist "%GOD_DIR%.env" echo     .env
+if exist "%GOD_DIR%config.yaml" echo     config.yaml
+echo.
+echo   [1] Remove application only
+echo       Keeps: data, .env, config, backups
 echo   [2] Remove application + cache
-echo   [3] Remove everything
+echo       Keeps: DB, auth, gods, .env
+echo   [3] Remove application + cache + logs
+echo       Keeps: DB, auth, gods, .env
+echo   [4] Backup then remove everything
 echo   [0] Cancel
 echo.
-set /p UCHOICE="Choose: "
-if "%UCHOICE%"=="1" (
+set /p UCHOICE="  Choose: "
+if "!UCHOICE!"=="1" (
     call :stop 2>nul
     rmdir /s /q "%GOD_DIR%.venv" 2>nul
     del "%PID_FILE%" 2>nul
-    echo [OK] Application removed. Data preserved.
+    echo.
+    echo ══════════════════════════════════
+    echo   Application removed. Data preserved.
+    echo.
 )
-if "%UCHOICE%"=="2" (
+if "!UCHOICE!"=="2" (
     call :stop 2>nul
     rmdir /s /q "%GOD_DIR%.venv" 2>nul
     rmdir /s /q "%GOD_DIR%data\qdrant" 2>nul
     rmdir /s /q "%GOD_DIR%data\sandbox" 2>nul
     del "%PID_FILE%" 2>nul
-    echo [OK] Application + cache removed.
-)
-if "%UCHOICE%"=="3" (
     echo.
-    echo WARNING: This permanently removes ALL data.
-    set /p CONFIRM="Type DELETE to confirm: "
+    echo ══════════════════════════════════
+    echo   Application + cache removed.
+    echo   Preserved: DB, auth, gods, .env
+    echo.
+)
+if "!UCHOICE!"=="3" (
+    call :stop 2>nul
+    rmdir /s /q "%GOD_DIR%.venv" 2>nul
+    rmdir /s /q "%GOD_DIR%data\qdrant" 2>nul
+    rmdir /s /q "%GOD_DIR%data\sandbox" 2>nul
+    rmdir /s /q "%GOD_DIR%logs" 2>nul
+    del "%PID_FILE%" 2>nul
+    echo.
+    echo ══════════════════════════════════
+    echo   Removed: app + cache + logs.
+    echo   Preserved: DB, auth, gods, .env
+    echo.
+)
+if "!UCHOICE!"=="4" (
+    call :backup
+    echo.
+    echo WARNING: This permanently removes ALL GOD files.
+    set /p CONFIRM="  Type DELETE to confirm: "
     if "!CONFIRM!"=="DELETE" (
         call :stop 2>nul
         rmdir /s /q "%GOD_DIR%.venv" 2>nul
         rmdir /s /q "%GOD_DIR%data" 2>nul
         rmdir /s /q "%GOD_DIR%logs" 2>nul
-        rmdir /s /q "%GOD_DIR%backups" 2>nul
         del "%GOD_DIR%.env" 2>nul
-        echo [OK] Everything removed.
+        del "%GOD_DIR%config.yaml" 2>nul
+        del "%PID_FILE%" 2>nul
+        echo.
+        echo ══════════════════════════════════
+        echo   Everything removed.
+        echo   Backup preserved in: %GOD_DIR%backups        echo.
     ) else (
-        echo Cancelled.
+        echo   Cancelled. Backup preserved.
     )
+)
+if "!UCHOICE!"=="0" (
+    echo   Cancelled.
 )
 goto :eof
 
@@ -259,42 +297,80 @@ goto :eof
 :uninstall
 echo.
 echo GOD — Uninstall
+echo ══════════════════════════════════
 echo.
-echo   [1] Remove application only (keep data)
+echo   Current installation:
+if exist "%GOD_DIR%.venv" echo     .venvif exist "%GOD_DIR%data" echo     dataif exist "%GOD_DIR%data\qdrant" echo     data\qdrantif exist "%GOD_DIR%data\sandbox" echo     data\sandboxif exist "%GOD_DIR%data\spine.db" echo     data\spine.db
+if exist "%GOD_DIR%data\auth" echo     data\authif exist "%GOD_DIR%data\gods" echo     data\godsif exist "%GOD_DIR%logs" echo     logsif exist "%GOD_DIR%backups" echo     backupsif exist "%GOD_DIR%.env" echo     .env
+if exist "%GOD_DIR%config.yaml" echo     config.yaml
+echo.
+echo   [1] Remove application only
+echo       Keeps: data, .env, config, backups
 echo   [2] Remove application + cache
-echo   [3] Remove everything
+echo       Keeps: DB, auth, gods, .env
+echo   [3] Remove application + cache + logs
+echo       Keeps: DB, auth, gods, .env
+echo   [4] Backup then remove everything
 echo   [0] Cancel
 echo.
-set /p UCHOICE="Choose: "
-if "%UCHOICE%"=="1" (
+set /p UCHOICE="  Choose: "
+if "!UCHOICE!"=="1" (
     call :stop 2>nul
     rmdir /s /q "%GOD_DIR%.venv" 2>nul
     del "%PID_FILE%" 2>nul
-    echo [OK] Application removed. Data preserved.
+    echo.
+    echo ══════════════════════════════════
+    echo   Application removed. Data preserved.
+    echo.
 )
-if "%UCHOICE%"=="2" (
+if "!UCHOICE!"=="2" (
     call :stop 2>nul
     rmdir /s /q "%GOD_DIR%.venv" 2>nul
     rmdir /s /q "%GOD_DIR%data\qdrant" 2>nul
     rmdir /s /q "%GOD_DIR%data\sandbox" 2>nul
     del "%PID_FILE%" 2>nul
-    echo [OK] Application + cache removed.
-)
-if "%UCHOICE%"=="3" (
     echo.
-    echo WARNING: This permanently removes ALL data.
-    set /p CONFIRM="Type DELETE to confirm: "
+    echo ══════════════════════════════════
+    echo   Application + cache removed.
+    echo   Preserved: DB, auth, gods, .env
+    echo.
+)
+if "!UCHOICE!"=="3" (
+    call :stop 2>nul
+    rmdir /s /q "%GOD_DIR%.venv" 2>nul
+    rmdir /s /q "%GOD_DIR%data\qdrant" 2>nul
+    rmdir /s /q "%GOD_DIR%data\sandbox" 2>nul
+    rmdir /s /q "%GOD_DIR%logs" 2>nul
+    del "%PID_FILE%" 2>nul
+    echo.
+    echo ══════════════════════════════════
+    echo   Removed: app + cache + logs.
+    echo   Preserved: DB, auth, gods, .env
+    echo.
+)
+if "!UCHOICE!"=="4" (
+    call :backup
+    echo.
+    echo WARNING: This permanently removes ALL GOD files.
+    set /p CONFIRM="  Type DELETE to confirm: "
     if "!CONFIRM!"=="DELETE" (
         call :stop 2>nul
         rmdir /s /q "%GOD_DIR%.venv" 2>nul
         rmdir /s /q "%GOD_DIR%data" 2>nul
         rmdir /s /q "%GOD_DIR%logs" 2>nul
-        rmdir /s /q "%GOD_DIR%backups" 2>nul
         del "%GOD_DIR%.env" 2>nul
-        echo [OK] Everything removed.
+        del "%GOD_DIR%config.yaml" 2>nul
+        del "%PID_FILE%" 2>nul
+        echo.
+        echo ══════════════════════════════════
+        echo   Everything removed.
+        echo   Backup preserved in: %GOD_DIR%backups        echo.
     ) else (
-        echo Cancelled.
+        echo   Cancelled. Backup preserved.
     )
+)
+if "!UCHOICE!"=="0" (
+    echo   Cancelled.
 )
 goto :eof
 
@@ -404,42 +480,80 @@ goto :eof
 :uninstall
 echo.
 echo GOD — Uninstall
+echo ══════════════════════════════════
 echo.
-echo   [1] Remove application only (keep data)
+echo   Current installation:
+if exist "%GOD_DIR%.venv" echo     .venvif exist "%GOD_DIR%data" echo     dataif exist "%GOD_DIR%data\qdrant" echo     data\qdrantif exist "%GOD_DIR%data\sandbox" echo     data\sandboxif exist "%GOD_DIR%data\spine.db" echo     data\spine.db
+if exist "%GOD_DIR%data\auth" echo     data\authif exist "%GOD_DIR%data\gods" echo     data\godsif exist "%GOD_DIR%logs" echo     logsif exist "%GOD_DIR%backups" echo     backupsif exist "%GOD_DIR%.env" echo     .env
+if exist "%GOD_DIR%config.yaml" echo     config.yaml
+echo.
+echo   [1] Remove application only
+echo       Keeps: data, .env, config, backups
 echo   [2] Remove application + cache
-echo   [3] Remove everything
+echo       Keeps: DB, auth, gods, .env
+echo   [3] Remove application + cache + logs
+echo       Keeps: DB, auth, gods, .env
+echo   [4] Backup then remove everything
 echo   [0] Cancel
 echo.
-set /p UCHOICE="Choose: "
-if "%UCHOICE%"=="1" (
+set /p UCHOICE="  Choose: "
+if "!UCHOICE!"=="1" (
     call :stop 2>nul
     rmdir /s /q "%GOD_DIR%.venv" 2>nul
     del "%PID_FILE%" 2>nul
-    echo [OK] Application removed. Data preserved.
+    echo.
+    echo ══════════════════════════════════
+    echo   Application removed. Data preserved.
+    echo.
 )
-if "%UCHOICE%"=="2" (
+if "!UCHOICE!"=="2" (
     call :stop 2>nul
     rmdir /s /q "%GOD_DIR%.venv" 2>nul
     rmdir /s /q "%GOD_DIR%data\qdrant" 2>nul
     rmdir /s /q "%GOD_DIR%data\sandbox" 2>nul
     del "%PID_FILE%" 2>nul
-    echo [OK] Application + cache removed.
-)
-if "%UCHOICE%"=="3" (
     echo.
-    echo WARNING: This permanently removes ALL data.
-    set /p CONFIRM="Type DELETE to confirm: "
+    echo ══════════════════════════════════
+    echo   Application + cache removed.
+    echo   Preserved: DB, auth, gods, .env
+    echo.
+)
+if "!UCHOICE!"=="3" (
+    call :stop 2>nul
+    rmdir /s /q "%GOD_DIR%.venv" 2>nul
+    rmdir /s /q "%GOD_DIR%data\qdrant" 2>nul
+    rmdir /s /q "%GOD_DIR%data\sandbox" 2>nul
+    rmdir /s /q "%GOD_DIR%logs" 2>nul
+    del "%PID_FILE%" 2>nul
+    echo.
+    echo ══════════════════════════════════
+    echo   Removed: app + cache + logs.
+    echo   Preserved: DB, auth, gods, .env
+    echo.
+)
+if "!UCHOICE!"=="4" (
+    call :backup
+    echo.
+    echo WARNING: This permanently removes ALL GOD files.
+    set /p CONFIRM="  Type DELETE to confirm: "
     if "!CONFIRM!"=="DELETE" (
         call :stop 2>nul
         rmdir /s /q "%GOD_DIR%.venv" 2>nul
         rmdir /s /q "%GOD_DIR%data" 2>nul
         rmdir /s /q "%GOD_DIR%logs" 2>nul
-        rmdir /s /q "%GOD_DIR%backups" 2>nul
         del "%GOD_DIR%.env" 2>nul
-        echo [OK] Everything removed.
+        del "%GOD_DIR%config.yaml" 2>nul
+        del "%PID_FILE%" 2>nul
+        echo.
+        echo ══════════════════════════════════
+        echo   Everything removed.
+        echo   Backup preserved in: %GOD_DIR%backups        echo.
     ) else (
-        echo Cancelled.
+        echo   Cancelled. Backup preserved.
     )
+)
+if "!UCHOICE!"=="0" (
+    echo   Cancelled.
 )
 goto :eof
 
@@ -792,42 +906,80 @@ goto :eof
 :uninstall
 echo.
 echo GOD — Uninstall
+echo ══════════════════════════════════
 echo.
-echo   [1] Remove application only (keep data)
+echo   Current installation:
+if exist "%GOD_DIR%.venv" echo     .venvif exist "%GOD_DIR%data" echo     dataif exist "%GOD_DIR%data\qdrant" echo     data\qdrantif exist "%GOD_DIR%data\sandbox" echo     data\sandboxif exist "%GOD_DIR%data\spine.db" echo     data\spine.db
+if exist "%GOD_DIR%data\auth" echo     data\authif exist "%GOD_DIR%data\gods" echo     data\godsif exist "%GOD_DIR%logs" echo     logsif exist "%GOD_DIR%backups" echo     backupsif exist "%GOD_DIR%.env" echo     .env
+if exist "%GOD_DIR%config.yaml" echo     config.yaml
+echo.
+echo   [1] Remove application only
+echo       Keeps: data, .env, config, backups
 echo   [2] Remove application + cache
-echo   [3] Remove everything
+echo       Keeps: DB, auth, gods, .env
+echo   [3] Remove application + cache + logs
+echo       Keeps: DB, auth, gods, .env
+echo   [4] Backup then remove everything
 echo   [0] Cancel
 echo.
-set /p UCHOICE="Choose: "
-if "%UCHOICE%"=="1" (
+set /p UCHOICE="  Choose: "
+if "!UCHOICE!"=="1" (
     call :stop 2>nul
     rmdir /s /q "%GOD_DIR%.venv" 2>nul
     del "%PID_FILE%" 2>nul
-    echo [OK] Application removed. Data preserved.
+    echo.
+    echo ══════════════════════════════════
+    echo   Application removed. Data preserved.
+    echo.
 )
-if "%UCHOICE%"=="2" (
+if "!UCHOICE!"=="2" (
     call :stop 2>nul
     rmdir /s /q "%GOD_DIR%.venv" 2>nul
     rmdir /s /q "%GOD_DIR%data\qdrant" 2>nul
     rmdir /s /q "%GOD_DIR%data\sandbox" 2>nul
     del "%PID_FILE%" 2>nul
-    echo [OK] Application + cache removed.
-)
-if "%UCHOICE%"=="3" (
     echo.
-    echo WARNING: This permanently removes ALL data.
-    set /p CONFIRM="Type DELETE to confirm: "
+    echo ══════════════════════════════════
+    echo   Application + cache removed.
+    echo   Preserved: DB, auth, gods, .env
+    echo.
+)
+if "!UCHOICE!"=="3" (
+    call :stop 2>nul
+    rmdir /s /q "%GOD_DIR%.venv" 2>nul
+    rmdir /s /q "%GOD_DIR%data\qdrant" 2>nul
+    rmdir /s /q "%GOD_DIR%data\sandbox" 2>nul
+    rmdir /s /q "%GOD_DIR%logs" 2>nul
+    del "%PID_FILE%" 2>nul
+    echo.
+    echo ══════════════════════════════════
+    echo   Removed: app + cache + logs.
+    echo   Preserved: DB, auth, gods, .env
+    echo.
+)
+if "!UCHOICE!"=="4" (
+    call :backup
+    echo.
+    echo WARNING: This permanently removes ALL GOD files.
+    set /p CONFIRM="  Type DELETE to confirm: "
     if "!CONFIRM!"=="DELETE" (
         call :stop 2>nul
         rmdir /s /q "%GOD_DIR%.venv" 2>nul
         rmdir /s /q "%GOD_DIR%data" 2>nul
         rmdir /s /q "%GOD_DIR%logs" 2>nul
-        rmdir /s /q "%GOD_DIR%backups" 2>nul
         del "%GOD_DIR%.env" 2>nul
-        echo [OK] Everything removed.
+        del "%GOD_DIR%config.yaml" 2>nul
+        del "%PID_FILE%" 2>nul
+        echo.
+        echo ══════════════════════════════════
+        echo   Everything removed.
+        echo   Backup preserved in: %GOD_DIR%backups        echo.
     ) else (
-        echo Cancelled.
+        echo   Cancelled. Backup preserved.
     )
+)
+if "!UCHOICE!"=="0" (
+    echo   Cancelled.
 )
 goto :eof
 

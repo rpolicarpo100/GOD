@@ -715,75 +715,132 @@ for r in s.get('rows') or []:
     uninstall)
         echo ""
         echo "GOD — Uninstall"
+        echo "══════════════════════════════════"
         echo ""
-        echo "  [1] Remove application only (keep data)"
+        # Show what exists
+        echo "  Current installation:"
+        [ -d "$GOD_DIR/.venv" ]          && echo "    .venv/           $(du -sh "$GOD_DIR/.venv" 2>/dev/null | cut -f1)"
+        [ -d "$GOD_DIR/data" ]           && echo "    data/            $(du -sh "$GOD_DIR/data" 2>/dev/null | cut -f1)"
+        [ -d "$GOD_DIR/data/qdrant" ]    && echo "      data/qdrant/   $(du -sh "$GOD_DIR/data/qdrant" 2>/dev/null | cut -f1)"
+        [ -d "$GOD_DIR/data/sandbox" ]   && echo "      data/sandbox/  $(du -sh "$GOD_DIR/data/sandbox" 2>/dev/null | cut -f1)"
+        [ -f "$GOD_DIR/data/spine.db" ]  && echo "      data/spine.db  $(du -sh "$GOD_DIR/data/spine.db" 2>/dev/null | cut -f1)"
+        [ -d "$GOD_DIR/data/auth" ]      && echo "      data/auth/     $(du -sh "$GOD_DIR/data/auth" 2>/dev/null | cut -f1)"
+        [ -d "$GOD_DIR/data/gods" ]      && echo "      data/gods/     $(du -sh "$GOD_DIR/data/gods" 2>/dev/null | cut -f1)"
+        [ -d "$GOD_DIR/logs" ]           && echo "    logs/            $(du -sh "$GOD_DIR/logs" 2>/dev/null | cut -f1)"
+        [ -d "$GOD_DIR/backups" ]        && echo "    backups/         $(du -sh "$GOD_DIR/backups" 2>/dev/null | cut -f1)"
+        [ -f "$GOD_DIR/.env" ]           && echo "    .env             (API keys)"
+        [ -f "$GOD_DIR/config.yaml" ]    && echo "    config.yaml"
+        echo ""
+        echo "  Options:"
+        echo ""
+        echo "  [1] Remove application only"
+        echo "      Keeps: data/, .env, config.yaml, backups/"
+        echo "      Remove: .venv/, __pycache__/, god.pid"
+        echo ""
         echo "  [2] Remove application + cache"
-        echo "  [3] Remove everything (application + data + config)"
+        echo "      Keeps: data/spine.db, data/auth/, data/gods/, .env, config.yaml"
+        echo "      Remove: .venv/, data/qdrant/, data/sandbox/, __pycache__/"
+        echo ""
+        echo "  [3] Remove application + cache + logs"
+        echo "      Keeps: data/spine.db, data/auth/, data/gods/, .env"
+        echo "      Remove: .venv/, data/qdrant/, data/sandbox/, logs/"
+        echo ""
         echo "  [4] Backup then remove everything"
+        echo "      Creates backup first, then removes all GOD files."
+        echo ""
         echo "  [0] Cancel"
         echo ""
-        read -p "Choose: " CHOICE
+        read -p "  Choose: " CHOICE
         case "$CHOICE" in
             1)
-                echo "[*] Stopping GOD..."
+                echo ""
                 $0 stop 2>/dev/null || true
-                echo "[*] Removing application files..."
-                rm -rf "$GOD_DIR/.venv"
+                REMOVED=0
+                printf "  Removing .venv/... "
+                if [ -d "$GOD_DIR/.venv" ]; then
+                    rm -rf "$GOD_DIR/.venv"
+                    echo "OK"
+                    ((REMOVED++))
+                else
+                    echo "SKIP (not found)"
+                fi
+                printf "  Removing PID file... "
                 rm -f "$GOD_DIR/data/god.pid"
-                echo "[OK] Application removed. Data preserved in: $GOD_DIR/data/"
-                echo "     To fully remove: rm -rf $GOD_DIR"
+                echo "OK"
+                printf "  Removing __pycache__/... "
+                find "$GOD_DIR" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null
+                echo "OK"
+                echo ""
+                echo "══════════════════════════════════"
+                echo "  Application removed."
+                echo "  Data preserved in: $GOD_DIR"
+                echo "  To fully remove:   rm -rf $GOD_DIR"
+                echo ""
                 ;;
             2)
-                echo "[*] Stopping GOD..."
+                echo ""
                 $0 stop 2>/dev/null || true
-                echo "[*] Removing application + cache..."
-                rm -rf "$GOD_DIR/.venv"
-                rm -rf "$GOD_DIR/data/qdrant"
-                rm -rf "$GOD_DIR/data/sandbox"
-                rm -rf "$GOD_DIR/__pycache__"
+                printf "  Removing .venv/... "
+                rm -rf "$GOD_DIR/.venv" && echo "OK" || echo "SKIP"
+                printf "  Removing data/qdrant/... "
+                rm -rf "$GOD_DIR/data/qdrant" && echo "OK" || echo "SKIP"
+                printf "  Removing data/sandbox/... "
+                rm -rf "$GOD_DIR/data/sandbox" && echo "OK" || echo "SKIP"
+                printf "  Removing __pycache__/... "
+                find "$GOD_DIR" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null
+                echo "OK"
                 rm -f "$GOD_DIR/data/god.pid"
-                echo "[OK] Application + cache removed. Data preserved."
+                echo ""
+                echo "══════════════════════════════════"
+                echo "  Application + cache removed."
+                echo "  Preserved: data/spine.db, data/auth/, data/gods/, .env"
+                echo ""
                 ;;
             3)
                 echo ""
-                echo "WARNING: This permanently removes:"
-                echo "  - Application code"
-                echo "  - Database (data/spine.db)"
-                echo "  - Auth data (data/auth/)"
-                echo "  - GOD profiles (data/gods/)"
-                echo "  - Configuration (.env, config.yaml)"
-                echo "  - Logs"
+                $0 stop 2>/dev/null || true
+                printf "  Removing .venv/... "
+                rm -rf "$GOD_DIR/.venv" && echo "OK" || echo "SKIP"
+                printf "  Removing data/qdrant/... "
+                rm -rf "$GOD_DIR/data/qdrant" && echo "OK" || echo "SKIP"
+                printf "  Removing data/sandbox/... "
+                rm -rf "$GOD_DIR/data/sandbox" && echo "OK" || echo "SKIP"
+                printf "  Removing logs/... "
+                rm -rf "$GOD_DIR/logs" && echo "OK" || echo "SKIP"
+                printf "  Removing __pycache__/... "
+                find "$GOD_DIR" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null
+                echo "OK"
+                rm -f "$GOD_DIR/data/god.pid"
                 echo ""
-                read -p "Type DELETE to confirm: " CONFIRM
-                if [ "$CONFIRM" = "DELETE" ]; then
-                    $0 stop 2>/dev/null || true
-                    rm -rf "$GOD_DIR/.venv"
-                    rm -rf "$GOD_DIR/data"
-                    rm -rf "$GOD_DIR/logs"
-                    rm -rf "$GOD_DIR/backups"
-                    rm -f "$GOD_DIR/.env"
-                    echo "[OK] Everything removed."
-                else
-                    echo "Cancelled."
-                fi
+                echo "══════════════════════════════════"
+                echo "  Removed application + cache + logs."
+                echo "  Preserved: data/spine.db, data/auth/, data/gods/, .env"
+                echo ""
                 ;;
             4)
+                echo ""
                 $0 backup
                 echo ""
-                read -p "Now remove everything? Type DELETE to confirm: " CONFIRM
+                read -p "  Remove everything? Type DELETE to confirm: " CONFIRM
                 if [ "$CONFIRM" = "DELETE" ]; then
                     $0 stop 2>/dev/null || true
                     rm -rf "$GOD_DIR/.venv"
                     rm -rf "$GOD_DIR/data"
                     rm -rf "$GOD_DIR/logs"
                     rm -f "$GOD_DIR/.env"
-                    echo "[OK] Everything removed. Backup preserved in: $GOD_DIR/backups/"
+                    rm -f "$GOD_DIR/config.yaml"
+                    rm -f "$GOD_DIR/data/god.pid"
+                    echo ""
+                    echo "══════════════════════════════════"
+                    echo "  Everything removed."
+                    echo "  Backup preserved in: $GOD_DIR/backups/"
+                    echo ""
                 else
-                    echo "Cancelled. Backup preserved."
+                    echo "  Cancelled. Backup preserved."
                 fi
                 ;;
             *)
-                echo "Cancelled."
+                echo "  Cancelled."
                 ;;
         esac
         ;;
