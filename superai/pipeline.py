@@ -20,7 +20,7 @@ from .memory_vec import vectors
 from .store import store
 from . import gods
 from .util import now_iso, uid
-from . import sensitive, rate_limit, resource_limits, sandbox, network_control
+from . import sensitive, rate_limit, resource_limits, sandbox, network_control, adaptive_routing
 
 
 def _extract_path(text: str) -> str | None:
@@ -127,16 +127,44 @@ def _index_task(task: dict, text: str, scores: dict) -> None:
 
 
 def _extract_and_store_knowledge(query: str, response: str, task: dict) -> None:
-    """Extract knowledge facts from interaction and store persistently."""
+    """Extract knowledge facts from interaction and store persistently.
+    
+    Enhanced: captures task-type + provider performance, user style preferences,
+    and topic-specific knowledge for adaptive learning.
+    """
     try:
-        if task.get("type") in ("math", "status", "git", "files", "parse"):
+        task_type = task.get("type", "general")
+        
+        # Skip trivial task types
+        if task_type in ("math", "status", "git", "files", "parse"):
             return
+        
         low = query.lower()
-        if any(w in low for w in ("prefiro", "gosto de", "quero que", "não gosto")):
-            store.mem_put("knowledge", sha(f"pref:{query[:100]}"), f"Utilizador: {query[:200]}")
+        
+        # 1. User preference detection (expanded keywords)
+        pref_keywords = ("prefiro", "gosto de", "quero que", "não gosto", 
+                        "mais curto", "mais longo", "detalhado", "resumido",
+                        "em português", "em inglês", "com código", "sem código",
+                        "explique", "resume", "faz um resumo")
+        if any(w in low for w in pref_keywords):
+            store.mem_put("knowledge", sha(f"pref:{query[:100]}"), 
+                         f"Utilizador: {query[:200]}")
+        
+        # 2. Style learning from response length
+        if len(response) > 50:
+            style = "long" if len(response) > 500 else "medium" if len(response) > 200 else "short"
+            store.mem_put("style", sha(f"style:{task_type}:{style}"),
+                         f"task_type={task_type} response_style={style} len={len(response)}")
+        
+        # 3. Topic knowledge extraction
         if len(query) > 20 and len(response) > 50:
             summary = f"{query[:120]} -> {response[:200]}"
             store.mem_put("knowledge", sha(f"ep:{summary}"), summary)
+        
+        # 4. Provider performance tracking (for adaptive routing)
+        # This is handled in _record_token but we store task-type context here
+        store.mem_put("task_pattern", sha(f"tp:{task_type}:{query[:60]}"),
+                     f"type={task_type} complexity={task.get('complexity')} query_len={len(query)}")
     except Exception:
         pass
 
@@ -528,6 +556,17 @@ def _stage_llm(text, task, pipeline, merged, ctx, *, _say, _mark, _set_pipe, _br
     store.incr("llm_calls")
     raw_tok = res.get("tokens")
     toks = int(raw_tok) if raw_tok is not None else 0
+    
+    # Record adaptive routing quality (async, non-blocking)
+    try:
+        provider_id = res.get("adapter") or gw.get("active", "")
+        task_type = task.get("type", "general")
+        # We'll record quality after scoring below
+        _adaptive_provider = provider_id
+        _adaptive_task_type = task_type
+    except Exception:
+        _adaptive_provider = None
+        _adaptive_task_type = None
     _record_token(task, pipeline, ctx, actual=toks if raw_tok is not None else None,
                   model=res.get("model"), provider=res.get("adapter") or gw.get("active"),
                   status="ok", raw_usage=res.get("raw_usage"),
@@ -535,6 +574,15 @@ def _stage_llm(text, task, pipeline, merged, ctx, *, _say, _mark, _set_pipe, _br
                   latency_ms=res.get("latency_ms"))
     tool_results = [{"tool": f"llm:{res.get('adapter')}", "status": "success", "confidence": 0.5, "findings": [{"text": res.get("text")}], "errors": [], "evidence": [f"adapter={res.get('adapter')} model={res.get('model')}"]}]
     scores = evaluate(task, tool_results, True, toks)
+    # Record adaptive routing quality
+    try:
+        if _adaptive_provider and _adaptive_task_type:
+            adaptive_routing.record_quality(
+                _adaptive_provider, _adaptive_task_type,
+                (scores.get("OVERALL", 50) or 50) / 100.0
+            )
+    except Exception:
+        pass
     # Self-reflection: if quality is low and we haven't retried, re-prompt
     if scores.get("OVERALL", 1.0) < 0.5 and not pipeline.get("_reflected"):
         pipeline["_reflected"] = True
@@ -626,6 +674,7 @@ def run_pipeline(text: str, task: dict, from_worker: bool, *,
         "route": [],
         "providers": providers.health_all(),
         "t0": time.perf_counter(),
+        "stage_times": {},
     }
     fast = (task.get("exec_mode") or "") == "FAST"
     deep = (task.get("exec_mode") or "") == "DEEP"

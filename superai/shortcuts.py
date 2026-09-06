@@ -9,6 +9,7 @@ import re
 from typing import Any
 
 from . import aios, benchmark, evolution, mission, observer, providers, queue as tq, tokens as ti
+from .store import store as _store
 from .config import cfg
 from .events import bus
 from .governor import gov
@@ -233,10 +234,20 @@ def try_shortcuts(text: str, low: str, from_worker: bool, *,
                   _say, _broadcast, _last_pipeline, _fmt_bench,
                   _enqueue, resolve_mode) -> tuple[bool, dict | None]:
     """Tenta todos os shortcuts. Retorna (handled, result).
-    Shortcuts determinísticos são cached por30s para respostas instantâneas."""
+    Shortcuts determinísticos são cached por30s para respostas instantâneas.
+    Tracks usage frequency for self-improving shortcut promotion."""
     import time as _time
     from .store import Store as _Store
     _sc = _Store()
+    
+    def _track_shortcut(name: str) -> None:
+        """Track shortcut usage for frequency analysis."""
+        try:
+            _sc.mem_put("shortcut_usage", name, 
+                       {"count": ((_sc.mem_get("shortcut_usage", name) or {}).get("count") or 0) + 1,
+                        "last_used": __import__("superai.util", fromlist=["now_iso"]).now_iso()})
+        except Exception:
+            pass
 
     # Deterministic shortcuts that can be cached (30s TTL)
     _CACHEABLE = {

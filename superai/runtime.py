@@ -639,6 +639,34 @@ def set_params(patch: dict) -> dict:
 def boot() -> None:
     gods.ensure()
     _restore_chat()
+    
+    # Pre-warm embeddings in background (non-blocking)
+    import threading as _threading
+    def _warmup():
+        try:
+            from .embed import warmup as _embed_warmup
+            _embed_warmup()
+        except Exception:
+            pass
+        # Pre-warm intent classification
+        try:
+            from .brain import _classify_by_embedding
+            _classify_by_embedding("test warmup")
+        except Exception:
+            pass
+        # Pre-warm cache from recent interactions
+        try:
+            from .store import store as _store
+            recent = _store.tasks(10)
+            from .brain import cache_lookup
+            for t in (recent or [])[:5]:
+                text = t.get("title") or t.get("text") or ""
+                if text:
+                    cache_lookup(text)
+        except Exception:
+            pass
+    _threading.Thread(target=_warmup, name="god-warmup", daemon=True).start()
+    
     if not _chat:
         mode, reason = resolve_mode()
         _say(

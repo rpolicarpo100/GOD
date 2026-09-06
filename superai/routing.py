@@ -17,6 +17,9 @@ OMNI_HOST = "127.0.0.1"
 OMNI_PORT = 20128
 OMNI_BASE = f"http://{OMNI_HOST}:{OMNI_PORT}/v1"
 
+# Shared httpx client with connection pooling
+_omni_client = httpx.Client(base_url=OMNI_BASE, timeout=30.0)
+
 
 def _port(host: str, port: int) -> bool:
     s = socket.socket()
@@ -49,7 +52,7 @@ class OmniRouteAdapter(RoutingAdapter):
         err = None
         if up:
             try:
-                r = httpx.get(f"{OMNI_BASE}/models", timeout=1.0)
+                r = _omni_client.get("/v1/models", timeout=1.0)
                 if r.status_code == 200:
                     models = [m.get("id") for m in r.json().get("data", []) if m.get("id")]
                 else:
@@ -76,10 +79,9 @@ class OmniRouteAdapter(RoutingAdapter):
             return {"status": "unavailable", "adapter": self.id, "error": h["error"]}
         model = kw.get("model") or (h["models"][0] if h["models"] else "default")
         try:
-            r = httpx.post(
-                f"{OMNI_BASE}/chat/completions",
+            r = _omni_client.post(
+                "/v1/chat/completions",
                 json={"model": model, "messages": [{"role": "user", "content": prompt}], "max_tokens": int(kw.get("max_tokens") or 256)},
-                timeout=30.0,
             )
             r.raise_for_status()
             data = r.json()

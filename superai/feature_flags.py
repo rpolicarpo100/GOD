@@ -66,6 +66,18 @@ _FLAG_DEFS: dict[str, dict] = {
         "description": "Claude como provider primário (precisa API key + budget). Último fallback exceto em hardcore.",
         "requires": ["claude_api_key"],
     },
+    "auto_learning": {
+        "default": False,
+        "risk": "low",
+        "description": "Auto-learning: adaptive routing, knowledge extraction, shortcut tracking",
+        "requires": [],
+    },
+    "adaptive_routing": {
+        "default": False,
+        "risk": "medium",
+        "description": "Route queries to providers based on learned per-task-type quality scores",
+        "requires": ["auto_learning"],
+    },
     "auto_cleanup": {
         "default": False,
         "risk": "low",
