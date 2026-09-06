@@ -420,8 +420,21 @@ def get_risk_level(permission: str) -> int:
 # ═══════════════════════════════
 
 def _audit(action: str, user_id: str | None, details: dict | None = None):
-    """Write audit event."""
+    """Write audit event. Rotates log when > 5000 lines."""
     _ensure_auth_dir()
+    # Rotate if too large
+    _MAX_LINES = 5000
+    if AUDIT_FILE.exists():
+        try:
+            size = AUDIT_FILE.stat().st_size
+            if size > 1_000_000:  # > 1MB
+                lines = AUDIT_FILE.read_text().strip().split("\n")
+                if len(lines) > _MAX_LINES:
+                    # Keep last 2000 lines
+                    keep = lines[-2000:]
+                    AUDIT_FILE.write_text("\n".join(keep) + "\n")
+        except Exception:
+            pass  # Never block audit on rotation failure
     event = {
         "id": secrets.token_hex(8),
         "ts": time.time(),
