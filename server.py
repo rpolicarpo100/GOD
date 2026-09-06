@@ -5,6 +5,8 @@ import json
 import os
 from pathlib import Path
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 
@@ -24,7 +26,6 @@ from superai import runtime_protection as rp
 from superai import auth
 
 ROOT = Path(__file__).parent
-app = FastAPI(title="SUPER AI")
 WORKER_TOKEN = os.environ.get("SUPERAI_WORKER_TOKEN") or ""
 
 def _get_session(authorization: str | None) -> str | None:
@@ -127,18 +128,6 @@ def _worker_auth(authorization: str | None, location: str = "remote") -> None:
         raise HTTPException(401, "Worker token inválido")
 
 
-@app.on_event("startup")
-def _startup():
-    compute.start_local_worker()
-    # Ensure worker has a fresh heartbeat
-    tq.heartbeat(compute.LOCAL_ID)
-    aios.boot()
-    # Initialize auth system
-    auth.init()
-    # Auto-enable critical feature flags
-    _ensure_flags()
-
-
 def _ensure_flags():
     """Ensure critical flags are always enabled on startup."""
     from superai.feature_flags import enable, is_enabled
@@ -155,6 +144,21 @@ def _ensure_flags():
     for name, reason in critical:
         if not is_enabled(name):
             enable(name, reason=reason, actor="startup")
+
+
+@asynccontextmanager
+async def _lifespan(app):
+    # Startup
+    compute.start_local_worker()
+    tq.heartbeat(compute.LOCAL_ID)
+    aios.boot()
+    auth.init()
+    _ensure_flags()
+    yield
+    # Shutdown (nothing to clean up — local-first)
+
+
+app = FastAPI(title="SUPER AI", lifespan=_lifespan)
 
 
 @app.get("/")

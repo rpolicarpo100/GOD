@@ -22,11 +22,9 @@ GitHub: [rpolicarpo100/GOD](https://github.com/rpolicarpo100/GOD)
 
 Adicionar `threading.Lock()` a `_sessions`, `_overrides`, `_approvals`.
 
-### 2. FastAPI Deprecation (P3-1)
+### ~~2. FastAPI Deprecation (P3-1)~~ ✅
 
-**Impacto**: BAIXO | **Risco**: BAIXO | **Esforço**: BAIXO
-
-Migrar `@app.on_event("startup")` para lifespan context manager.
+Migrado `@app.on_event("startup")` para `lifespan` context manager. 0 deprecation warnings.
 
 ### ~~3. Remove Unused Functions (P2-3)~~ ✅
 
