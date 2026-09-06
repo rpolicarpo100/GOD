@@ -992,6 +992,13 @@ body.theme-neon{
   <span class="mood-label" id="mood-label">Contente</span>
 </div>
 
+<!-- Voice STT Indicator -->
+<div id="voice-stt-status" style="position:fixed;bottom:50px;left:76px;z-index:100;display:none;align-items:center;gap:6px;padding:6px 12px;background:var(--crit-dim);border:1px solid rgba(232,96,96,.2);border-radius:20px;font-size:10px;color:var(--crit)">
+  <span style="animation:iris-active 1s infinite">🔴</span>
+  <span id="voice-stt-text">A ouvir...</span>
+  <button onclick="stopVoiceSTT()" style="background:transparent;border:1px solid var(--line);color:var(--dim);border-radius:4px;padding:1px 6px;font-size:9px;cursor:pointer">Parar</button>
+</div>
+
 <!-- Loading Overlay -->
 <div id="loading-overlay" style="position:fixed;inset:0;z-index:2000;background:rgba(3,4,10,.92);display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px;backdrop-filter:blur(8px)">
   <div style="width:80px;height:80px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite"></div>
@@ -1585,7 +1592,64 @@ $('chat-h').addEventListener('click',()=>{
   cOpen=!cOpen;$('chat-b').classList.toggle('open',cOpen);
   $('chat-a').style.transform=cOpen?'rotate(180deg)':'rotate(0)';
 });
-$('chat-f').addEventListener('submit',e=>{e.preventDefault();const v=$('chat-i').value.trim();if(v||pendingFile){const payload={text:v||''};if(pendingFile){payload.attachment={name:pendingFile.name,size:pendingFile.size,type:pendingFile.type,content:pendingFile.content};chatFiles[S&&S.chat?S.chat.length:0]=pendingFile;}fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});$('chat-i').value='';removeAttachment();}});
+$('chat-f').addEventListener('submit',e=>{
+  e.preventDefault();
+  const v=$('chat-i').value.trim();
+  if(!v&&!pendingFile)return;
+  const payload={text:v||''};
+  if(pendingFile){
+    payload.attachment={name:pendingFile.name,size:pendingFile.size,type:pendingFile.type,content:pendingFile.content};
+    chatFiles[S&&S.chat?S.chat.length:0]=pendingFile;
+  }
+  $('chat-i').value='';
+  removeAttachment();
+  // Show user message immediately
+  if(v){
+    const userMsg=document.createElement('div');
+    userMsg.className='m user';
+    userMsg.innerHTML='<div class="w">You</div>'+esc(v);
+    $('chat-m').appendChild(userMsg);
+    $('chat-m').scrollTop=$('chat-m').scrollHeight;
+  }
+  // Show typing indicator
+  const ti=$('typing-indicator');
+  if(ti)ti.style.display='flex';
+  // Streaming brain response
+  const brainMsg=document.createElement('div');
+  brainMsg.className='m brain new-msg';
+  brainMsg.innerHTML='<div class="w">GOD</div><span class="stream-text"></span>';
+  $('chat-m').appendChild(brainMsg);
+  const streamSpan=brainMsg.querySelector('.stream-text');
+  fetch('/api/chat/stream',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload)
+  }).then(resp=>{
+    if(!resp.ok)throw new Error('stream failed');
+    const reader=resp.body.getReader();
+    const decoder=new TextDecoder();
+    let buffer='';
+    function readChunk(){
+      return reader.read().then(({done,value})=>{
+        if(done)return;
+        buffer+=decoder.decode(value,{stream:true});
+        const lines=buffer.split('\n');
+        buffer=lines.pop()||'';
+        for(const line of lines){
+          if(!line.startsWith('data: '))continue;
+          try{
+            const d=JSON.parse(line.slice(6));
+            if(d.token){streamSpan.textContent+=d.token;$('chat-m').scrollTop=$('chat-m').scrollHeight;}
+            if(d.done){if(ti)ti.style.display='none';return;}
+          }catch(ex){}
+        }
+        return readChunk();
+      });
+    }
+    return readChunk();
+  }).catch(()=>{
+    fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  }).finally(()=>{if(ti)ti.style.display='none';});
+});
 const QA=[{l:'Estado',q:'estado'},{l:'Missão',q:'missão actual'},{l:'Roadmap',q:'roadmap'},{l:'Tokens',q:'economia de tokens'},{l:'Benchmark',q:'corre benchmark'}];
 $('chat-q').innerHTML=QA.map(a=>`<button class="qb" data-q="${esc(a.q)}">${esc(a.l)}</button>`).join('');
 document.querySelectorAll('.qb').forEach(b=>b.addEventListener('click',()=>fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:b.dataset.q})})));
@@ -2398,6 +2462,63 @@ document.addEventListener('click',e=>{
     exportMenuOpen=false;
     $('export-menu').classList.remove('show');
   }
+});
+
+// ═══════════════════════════════
+// VOICE STT (Web Speech API)
+// ═══════════════════════════════
+let sttRecognition=null;
+let sttActive=false;
+
+function startVoiceSTT(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){addAlert('warn','Voice','Web Speech API nao disponivel');return;}
+  if(sttActive){stopVoiceSTT();return;}
+  sttRecognition=new SR();
+  sttRecognition.lang='pt-PT';
+  sttRecognition.continuous=true;
+  sttRecognition.interimResults=true;
+  sttRecognition.onstart=()=>{
+    sttActive=true;
+    const el=$('voice-stt-status');
+    if(el)el.style.display='flex';
+    const badge=$('h-voice');
+    if(badge){badge.classList.add('ok');badge.innerHTML='<div class="h-dot"></div> STT · Live';}
+  };
+  sttRecognition.onresult=(ev)=>{
+    let transcript='';
+    for(let i=ev.resultIndex;i<ev.results.length;i++){
+      transcript+=ev.results[i][0].transcript;
+    }
+    const el=$('voice-stt-text');
+    if(el)el.textContent=transcript.slice(0,60)+(transcript.length>60?'...':'');
+    if(ev.results[ev.results.length-1].isFinal){
+      $('chat-i').value=transcript.trim();
+      if(transcript.trim().length>3){$('chat-f').dispatchEvent(new Event('submit'));}
+    }
+  };
+  sttRecognition.onerror=(ev)=>{
+    if(ev.error!=='no-speech'){addAlert('warn','Voice STT',ev.error);stopVoiceSTT();}
+  };
+  sttRecognition.onend=()=>{
+    if(sttActive){try{sttRecognition.start();}catch(ex){stopVoiceSTT();}}
+  };
+  sttRecognition.start();
+}
+
+function stopVoiceSTT(){
+  sttActive=false;
+  if(sttRecognition){try{sttRecognition.stop();}catch(ex){}}
+  const el=$('voice-stt-status');
+  if(el)el.style.display='none';
+  const badge=$('h-voice');
+  if(badge){badge.classList.remove('ok');badge.innerHTML='<div class="h-dot"></div> MIC';}
+}
+
+$('h-voice').addEventListener('click',()=>startVoiceSTT());
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='m'&&e.ctrlKey&&!e.shiftKey){e.preventDefault();startVoiceSTT();}
 });
 
 // ═══════════════════════════════

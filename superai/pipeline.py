@@ -482,7 +482,17 @@ def _stage_llm(text, task, pipeline, merged, ctx, *, _say, _mark, _set_pipe, _br
     # Call LLM
     pipeline["route"].append(gw["active"].upper())
     bus.emit("MODEL_STARTED", "INFO", gw["active"], god_core_state="thinking")
-    max_tok = 1024 if task.get("type") == "coding" else 256
+    # Multi-model strategy: token budget by task type and complexity
+    task_type = task.get("type", "general")
+    cx = int(task.get("complexity") or 0)
+    if task_type == "coding":
+        max_tok = 2048 if cx >= 7 else 1024
+    elif task_type == "research":
+        max_tok = 1024 if cx >= 5 else 512
+    elif task_type in ("math", "status"):
+        max_tok = 256
+    else:
+        max_tok = 512 if cx >= 5 else 256
     advice = pipeline.get("route_token") or {}
     hardcore = bool(re.search(r"\b(hardcore|HARDCORE)\b", text))
     if hardcore:

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 import socket
+import threading
 import time
 from typing import Any
 
@@ -174,7 +175,8 @@ class OllamaAdapter(Provider):
 
 
 class OpenAICompatAdapter(Provider):
-    """OpenAI-compatible chat.completions. Probe GET /models before available=True."""
+    """OpenAI-compatible chat.completions. Probe GET /models before available=True.
+    Supports streaming via on_token callback."""
 
     def __init__(self, id: str, name: str, env: str, base: str, kind: str = "api", headers: dict | None = None):
         self.id = id
@@ -252,14 +254,58 @@ class OpenAICompatAdapter(Provider):
         if not model:
             return {"status": "unavailable", "provider": self.id, "error": "sem model de chat (só guard/whisper/tts)"}
         try:
+            on_token = kw.pop("on_token", None)
+            payload = {
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": int(kw.get("max_tokens") or 256),
+            }
+
+            if on_token and callable(on_token):
+                # Streaming mode
+                payload["stream"] = True
+                collected: list[str] = []
+                try:
+                    with httpx.stream(
+                        "POST",
+                        f"{self._base}/chat/completions",
+                        headers=self._headers(),
+                        json=payload,
+                        timeout=30.0,
+                    ) as resp:
+                        resp.raise_for_status()
+                        for line in resp.iter_lines():
+                            if not line or not line.startswith("data: "):
+                                continue
+                            data_str = line[6:]
+                            if data_str.strip() == "[DONE]":
+                                break
+                            try:
+                                chunk = json.loads(data_str)
+                                delta = (chunk.get("choices") or [{}])[0].get("delta") or {}
+                                token = delta.get("content") or ""
+                                if token:
+                                    collected.append(token)
+                                    on_token(token)
+                            except (json.JSONDecodeError, KeyError, IndexError):
+                                continue
+                    text = "".join(collected)
+                    if not text:
+                        return {"status": "error", "provider": self.id, "adapter": self.id,
+                                "model": model, "text": "", "tokens": None,
+                                "error": "stream vazio"}
+                    return {"status": "success", "provider": self.id, "adapter": self.id,
+                            "model": model, "text": text, "tokens": None, "raw_usage": None,
+                            "streaming": True}
+                except Exception as se:
+                    # Streaming failed — fall through to non-streaming
+                    pass
+
+            # Non-streaming (original)
             r = httpx.post(
                 f"{self._base}/chat/completions",
                 headers=self._headers(),
-                json={
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": int(kw.get("max_tokens") or 256),
-                },
+                json=payload,
                 timeout=12.0,
             )
             r.raise_for_status()
@@ -537,17 +583,85 @@ ADAPTERS: list[Provider] = [
 
 _hcache: list[dict] | None = None
 _ht = 0.0
+_recovery_timer = None
+
+
+def _schedule_recovery(providers_list: list[dict]) -> None:
+    """Background recovery: re-probe failed providers every 60s."""
+    global _recovery_timer
+    failed = [h for h in providers_list if not h.get("available")]
+    if not failed:
+        return
+    if _recovery_timer is not None:
+        return
+
+    def _recover():
+        global _recovery_timer, _hcache, _ht
+        _recovery_timer = None
+        _hcache = None
+        _ht = 0.0
+        try:
+            from .events import bus
+            new_health = [a.health() for a in ADAPTERS]
+            recovered = [h for h in new_health if h.get("available")]
+            if recovered:
+                names = [h["id"] for h in recovered]
+                bus.emit("PROVIDER_RECOVERED", "INFO", f"providers recuperados: {names}")
+                _hcache = new_health
+                _ht = time.time()
+        except Exception:
+            pass
+
+    _recovery_timer = threading.Timer(60.0, _recover)
+    _recovery_timer.daemon = True
+    _recovery_timer.start()
 
 
 def health_all() -> list[dict]:
+    """Probe every registered provider. Results cached 5s. Auto-recovery."""
     global _hcache, _ht
     now = time.time()
     if _hcache is not None and now - _ht < 5.0:
         return _hcache
     _hcache = [a.health() for a in ADAPTERS]
     _ht = now
+    _schedule_recovery(_hcache)
     return _hcache
 
 
 def any_llm() -> bool:
     return any(h["available"] for h in health_all())
+
+
+# ═══════════════════════════════
+# PER-PROVIDER RATE LIMITING
+# ═══════════════════════════════
+
+_provider_requests: dict[str, list[float]] = {}
+_PROVIDER_RPM = 60  # max requests per minute per provider
+_PROVIDER_429_COOLDOWN: dict[str, float] = {}  # provider -> cooldown_until timestamp
+
+
+def _check_provider_rate_limit(provider_id: str) -> bool:
+    """Check if provider is rate-limited. Returns True if OK, False if limited."""
+    now = time.time()
+    # Check cooldown from 429
+    cooldown = _PROVIDER_429_COOLDOWN.get(provider_id, 0)
+    if now < cooldown:
+        return False
+    # Check RPM
+    reqs = _provider_requests.get(provider_id, [])
+    # Clean old requests (>60s)
+    reqs = [t for t in reqs if now - t < 60]
+    _provider_requests[provider_id] = reqs
+    return len(reqs) < _PROVIDER_RPM
+
+
+def _record_provider_request(provider_id: str) -> None:
+    """Record a request to provider."""
+    _provider_requests.setdefault(provider_id, []).append(time.time())
+
+
+def _provider_429_cooldown(provider_id: str, retry_after: float = 60) -> None:
+    """Set cooldown after 429 response."""
+    _PROVIDER_429_COOLDOWN[provider_id] = time.time() + retry_after

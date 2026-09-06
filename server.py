@@ -369,6 +369,48 @@ def chat(body: ChatIn):
     return handle(body.text, from_worker=body.from_worker)
 
 
+@app.post("/api/chat/stream")
+async def chat_stream(body: ChatIn):
+    """Streaming chat via SSE."""
+    from starlette.responses import StreamingResponse
+    import asyncio, json as _json
+
+    async def _stream():
+        tokens: list[str] = []
+        done = asyncio.Event()
+        result_holder: dict = {}
+
+        def on_token(token: str):
+            tokens.append(token)
+
+        def _run():
+            try:
+                result_holder["r"] = handle(body.text, from_worker=body.from_worker, on_token=on_token)
+            except Exception as e:
+                result_holder["r"] = {"ok": False, "error": str(e)}
+            done.set()
+
+        import threading
+        t = threading.Thread(target=_run, daemon=True)
+        t.start()
+
+        last_idx = 0
+        while not done.is_set() or last_idx < len(tokens):
+            if last_idx < len(tokens):
+                for tok in tokens[last_idx:]:
+                    yield f"data: {_json.dumps({'token': tok})}\n\n"
+                last_idx = len(tokens)
+            elif not done.is_set():
+                await asyncio.sleep(0.05)
+            else:
+                break
+
+        r = result_holder.get("r", {})
+        yield f"data: {_json.dumps({'done': True, 'via': r.get('via', 'unknown')})}\n\n"
+
+    return StreamingResponse(_stream(), media_type="text/event-stream")
+
+
 @app.post("/api/benchmark")
 def api_bench(authorization: str | None = Header(default=None)):
     """Run benchmark. Requires BENCHMARK_RUN."""

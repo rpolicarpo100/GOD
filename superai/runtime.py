@@ -28,6 +28,37 @@ from .tools import catalog
 from .util import now_iso, uid
 
 _chat: list[dict] = []
+_chat_persist_ts = 0.0
+
+
+def _persist_chat() -> None:
+    """Persist chat to SQLite every 30s for recovery after restart."""
+    global _chat_persist_ts
+    import time as _time
+    now = _time.time()
+    if now - _chat_persist_ts < 30:
+        return
+    _chat_persist_ts = now
+    try:
+        with _lock:
+            msgs = list(_chat[-200:])
+        store.mem_put("system", "__chat_backup__", msgs)
+    except Exception:
+        pass
+
+
+def _restore_chat() -> None:
+    """Restore chat from SQLite on startup."""
+    global _chat
+    try:
+        rows = store.mem_search("__chat_backup__", limit=1, kinds=["system"])
+        if rows:
+            import json
+            msgs = json.loads(rows[0]["value"]) if isinstance(rows[0]["value"], str) else rows[0]["value"]
+            if isinstance(msgs, list) and msgs:
+                _chat.extend(msgs[-20:])
+    except Exception:
+        pass
 _lock = threading.RLock()
 _last_pipeline: dict | None = None
 _bcast_timer: threading.Timer | None = None
@@ -77,6 +108,7 @@ def _say(role: str, text: str, replace_prefix: str | None = None) -> dict:
             del _chat[:-80]
     bus.emit("CHAT", "INFO", f"{role}: {text[:80]}")
     _broadcast()
+    _persist_chat()
     return msg
 
 
@@ -603,6 +635,7 @@ def set_params(patch: dict) -> dict:
 
 def boot() -> None:
     gods.ensure()
+    _restore_chat()
     if not _chat:
         mode, reason = resolve_mode()
         _say(
