@@ -1004,11 +1004,16 @@ body.theme-custom {
         <div class="a" id="chat-a">▲</div>
       </div>
       <div class="chat-b" id="chat-b">
+        <div class="chat-tabs">
+          <div class="chat-tab active" id="tab-chat" onclick="switchChatTab('chat')">Chat</div>
+          <div class="chat-tab" id="tab-log" onclick="switchChatTab('log')">Actividade <span class="badge" id="log-badge" style="display:none">0</span></div>
+        </div>
         <div class="chat-search" id="chat-search">
           <input id="chat-search-input" placeholder="Pesquisar mensagens..." oninput="searchChat(this.value)"/>
           <button onclick="clearSearch();$('chat-search-input').value=''">Limpar</button>
         </div>
         <div class="chat-msgs" id="chat-m"></div>
+        <div class="activity-log" id="activity-log"></div>
         <div class="chat-q" id="chat-q"></div>
         <div class="chat-attach" id="chat-attach">
           <span class="attach-preview" id="attach-preview"></span>
@@ -3104,6 +3109,115 @@ setTimeout(function() {
     }
   } catch(e) {}
 }, 500);
+
+
+// ═══════════════════════════════
+// ACTIVITY LOG — captures thinking/processing separately
+// ═══════════════════════════════
+var _activityLog = [];
+var _logUnread = 0;
+
+function addActivityLog(type, msg) {
+  var ts = new Date().toLocaleTimeString('pt-PT');
+  _activityLog.push({type: type, msg: msg, ts: ts});
+  if (_activityLog.length > 200) _activityLog.shift();
+
+  var el = document.getElementById('activity-log');
+  if (!el) return;
+
+  var div = document.createElement('div');
+  div.className = 'log-entry';
+  div.innerHTML = '<span class="ts">' + ts + '</span><span class="type ' + type + '">' + type + '</span><span class="msg">' + esc(msg).substring(0, 200) + '</span>';
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+
+  // Badge
+  if (!_isLogVisible()) {
+    _logUnread++;
+    var badge = document.getElementById('log-badge');
+    if (badge) {
+      badge.textContent = _logUnread > 9 ? '9+' : _logUnread;
+      badge.style.display = 'inline-flex';
+    }
+  }
+}
+
+function _isLogVisible() {
+  var el = document.getElementById('activity-log');
+  return el && el.classList.contains('visible');
+}
+
+function switchChatTab(tab) {
+  var chatMsgs = document.getElementById('chat-m');
+  var logEl = document.getElementById('activity-log');
+  var tabChat = document.getElementById('tab-chat');
+  var tabLog = document.getElementById('tab-log');
+
+  if (tab === 'log') {
+    chatMsgs.style.display = 'none';
+    logEl.classList.add('visible');
+    tabChat.classList.remove('active');
+    tabLog.classList.add('active');
+    _logUnread = 0;
+    var badge = document.getElementById('log-badge');
+    if (badge) badge.style.display = 'none';
+  } else {
+    chatMsgs.style.display = 'block';
+    logEl.classList.remove('visible');
+    tabChat.classList.add('active');
+    tabLog.classList.remove('active');
+  }
+}
+
+// Hook into paint to capture activity
+var _origPaintLog = window.paint;
+window.paint = function(s) {
+  if (_origPaintLog) {
+    try { _origPaintLog(s); } catch(e) {}
+  }
+  if (!s) return;
+  try {
+    var state = s.god_core_state || '';
+    if (state === 'thinking') addActivityLog('think', 'A processar pedido...');
+    else if (state === 'researching') addActivityLog('research', 'A pesquisar na web...');
+    else if (state === 'learning') addActivityLog('learn', 'A aprender...');
+    else if (state === 'tools') addActivityLog('tool', 'A executar ferramentas...');
+    else if (state === 'error') addActivityLog('error', 'Erro no sistema');
+    else if (state === 'ready') addActivityLog('cache', 'Resposta pronta');
+    if (s.last_pipeline) {
+      var p = s.last_pipeline;
+      if (p.cache === 'hit') addActivityLog('cache', 'Cache hit');
+      if (p.llm_adapter) addActivityLog('tool', 'LLM: ' + p.llm_adapter + ' ' + (p.llm_ms || '') + 'ms');
+      if (p.research_sources) addActivityLog('research', 'Pesquisa: ' + p.research_sources.length + ' fontes');
+    }
+  } catch(e) {}
+};
+
+// ═══════════════════════════════
+// CLEAN CHAT — only show user + final brain messages
+// ═══════════════════════════════
+// Override pChat to filter out "Um momento" messages
+var _origPChat = window.pChat;
+if (_origPChat) {
+  window.pChat = function(s) {
+    // Filter: only show user + final brain (not "Um momento" intermediaries)
+    try {
+      var msgs = s._chat || [];
+      var filtered = msgs.filter(function(m) {
+        if (m.role === 'brain' && m.text && m.text.indexOf('Um momento') === 0) {
+          addActivityLog('think', m.text.substring(0, 100));
+          return false; // hide from chat
+        }
+        return true;
+      });
+      // Call original with filtered
+      var s2 = Object.assign({}, s, {_chat: filtered});
+      _origPChat(s2);
+    } catch(e) {
+      _origPChat(s);
+    }
+  };
+}
 
 </script>
 </body>

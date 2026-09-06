@@ -77,14 +77,20 @@ def diagnostics() -> dict:
     """DIAGNOSTICS: Componentes disponíveis, falhados, porquê."""
     components = []
 
-    # Providers
+    # Providers — count as ONE component (at least 1 provider up = ok)
     health = providers.health_all()
-    for p in health:
-        components.append({
-            "name": f"provider:{p['id']}",
-            "status": "ok" if p.get("available") else "down",
-            "error": p.get("error"),
-        })
+    any_provider_up = any(p.get("available") for p in health)
+    providers_up = [p["id"] for p in health if p.get("available")]
+    providers_down = [p["id"] for p in health if not p.get("available")]
+    components.append({
+        "name": "providers",
+        "status": "ok" if any_provider_up else "down",
+        "n_available": len(providers_up),
+        "n_total": len(health),
+        "available": providers_up,
+        "down": providers_down,
+        "error": None if any_provider_up else "nenhum provider com API key válida",
+    })
 
     # Gateway
     gw = routing.health()
@@ -126,8 +132,10 @@ def diagnostics() -> dict:
             "msg": a.get("msg"),
         })
 
-    n_ok = sum(1 for c in components if c["status"] == "ok")
-    n_down = sum(1 for c in components if c["status"] in ("down", "dead"))
+    # Score: only count infrastructure, not alerts
+    infra = [c for c in components if c["status"] != "alert"]
+    n_ok = sum(1 for c in infra if c["status"] == "ok")
+    n_down = sum(1 for c in infra if c["status"] in ("down", "dead"))
     n_alert = sum(1 for c in components if c["status"] == "alert")
 
     return {
