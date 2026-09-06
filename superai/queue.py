@@ -150,50 +150,32 @@ def claim(worker_id: str) -> dict | None:
     from .resources import inflight_cap
 
     cap = int((inflight_cap() or {}).get("applied") or 1)
-    with store._lock:
-        # Single connection for entire claim to avoid Windows WAL visibility issues
-        import sqlite3
-        c = sqlite3.connect(str(store.path), timeout=5)
-        c.row_factory = sqlite3.Row
-        try:
-            c.execute("PRAGMA journal_mode=WAL")
-            c.execute("PRAGMA busy_timeout=3000")
-        except Exception:
-            pass
-        try:
-            n = c.execute(
-                "SELECT COUNT(*) FROM jobs WHERE worker_id=? AND status IN ('assigned','running')",
-                (worker_id,),
-            ).fetchone()[0]
-            if int(n) >= cap:
-                return None
-            rows = c.execute(
-                "SELECT * FROM jobs WHERE status='queued' ORDER BY COALESCE(priority,0) DESC, ts ASC LIMIT 20"
-            ).fetchall()
-            r = None
-            for cand in rows:
-                pid = cand["parent_id"] if "parent_id" in cand.keys() else None
-                if pid:
-                    parent = c.execute("SELECT status FROM jobs WHERE id=?", (pid,)).fetchone()
-                    if parent and parent["status"] not in ("completed", "failed", "killed"):
-                        continue
-                r = cand
-                break
-            if not r:
-                return None
-            c.execute(
-                "UPDATE jobs SET status='assigned', worker_id=?, updated=? WHERE id=?",
-                (worker_id, now_iso(), r["id"]),
-            )
-            c.commit()
-        except Exception:
-            try:
-                c.rollback()
-            except Exception:
-                pass
-            raise
-        finally:
-            c.close()
+    with store._lock, store._conn() as c:
+        # Inflight check inside same connection to avoid Windows WAL visibility issues
+        n = c.execute(
+            "SELECT COUNT(*) FROM jobs WHERE worker_id=? AND status IN ('assigned','running')",
+            (worker_id,),
+        ).fetchone()[0]
+        if int(n) >= cap:
+            return None
+        rows = c.execute(
+            "SELECT * FROM jobs WHERE status='queued' ORDER BY COALESCE(priority,0) DESC, ts ASC LIMIT 20"
+        ).fetchall()
+        r = None
+        for cand in rows:
+            pid = cand["parent_id"] if "parent_id" in cand.keys() else None
+            if pid:
+                parent = c.execute("SELECT status FROM jobs WHERE id=?", (pid,)).fetchone()
+                if parent and parent["status"] not in ("completed", "failed", "killed"):
+                    continue
+            r = cand
+            break
+        if not r:
+            return None
+        c.execute(
+            "UPDATE jobs SET status='assigned', worker_id=?, updated=? WHERE id=?",
+            (worker_id, now_iso(), r["id"]),
+        )
     bus.emit("TASK_STARTED", "INFO", f"{r['id']} assigned {worker_id}")
     return _job_row(r, status="assigned", worker_id=worker_id)
 
