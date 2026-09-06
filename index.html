@@ -978,6 +978,14 @@ body.theme-neon{
   <span class="mood-label" id="mood-label">Contente</span>
 </div>
 
+<!-- Loading Overlay -->
+<div id="loading-overlay" style="position:fixed;inset:0;z-index:2000;background:rgba(3,4,10,.92);display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px;backdrop-filter:blur(8px)">
+  <div style="width:80px;height:80px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite"></div>
+  <div style="font-size:14px;color:var(--muted);letter-spacing:.1em" id="loading-msg">A ligar ao GOD...</div>
+  <div style="font-size:11px;color:var(--dim);max-width:300px;text-align:center" id="loading-sub">Se demorar, verifica que o servidor está a correr</div>
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
 <!-- Keyboard Shortcuts Overlay -->
 <div class="shortcuts-overlay" id="shortcuts-overlay" onclick="if(event.target===this)toggleShortcuts()">
   <div class="shortcuts-panel">
@@ -1947,28 +1955,47 @@ function pChat(s){
 // ═══ SSE ═══
 let perfData = { history: [], stats: {} };
 
+// Connection status
+let connected=false;
+let reconnectAttempts=0;
+
+function setConnected(c){
+  connected=c;
+  const badge=$('h-sys');
+  const overlay=$('loading-overlay');
+  if(c){
+    badge.className='h-badge ok';
+    $('h-sys-t').textContent='Connected';
+    reconnectAttempts=0;
+    if(overlay)overlay.style.display='none';
+  }else{
+    badge.className='h-badge warn';
+    $('h-sys-t').textContent='Connecting...';
+    if(reconnectAttempts>1&&overlay){
+      overlay.style.display='flex';
+      $('loading-msg').textContent='A reconectar ao GOD...';
+      $('loading-sub').textContent='Tentativa '+reconnectAttempts+' — tentando novamente em '+Math.round(Math.min(2000*Math.pow(1.5,reconnectAttempts),30000)/1000)+'s';
+    }
+  }
+}
+
 function connect(){
   const es=new EventSource('/api/stream');
+  es.onopen=()=>{setConnected(true);};
   es.addEventListener('snapshot',e=>{
     try{
       const d=JSON.parse(e.data);
       paint(d);
-      // Update perf data
-      if(d.perf){
-        perfData = d.perf;
-        updatePerfDisplay();
-      }
-    }catch(err){console.error(err);}
+      setConnected(true);
+      if(d.perf){perfData=d.perf;updatePerfDisplay();}
+    }catch(err){}
   });
-  
-  // Listen for GOD CORE state events
   es.addEventListener('event',e=>{
     try{
       const ev=JSON.parse(e.data);
       if(ev.god_core_state){
-        if(coreSt==='error' && ev.god_core_state!=='error' && ev.god_core_state!=='offline') return;
-        setCore(ev.god_core_state, ev.msg);
-        // Show/hide typing indicator
+        if(coreSt==='error'&&ev.god_core_state!=='error'&&ev.god_core_state!=='offline') return;
+        setCore(ev.god_core_state,ev.msg);
         const ti=$('typing-indicator');
         if(ti){
           ti.style.display=['thinking','tools','responding'].includes(ev.god_core_state)?'flex':'none';
@@ -1981,8 +2008,14 @@ function connect(){
       }
     }catch(err){}
   });
-  
-  es.onerror=()=>{es.close();setTimeout(connect,2000);fetch('/api/state').then(r=>r.json()).then(paint).catch(()=>{});};
+  es.onerror=()=>{
+    es.close();
+    setConnected(false);
+    reconnectAttempts++;
+    const delay=Math.min(2000*Math.pow(1.5,reconnectAttempts),30000);
+    setTimeout(connect,delay);
+    fetch('/api/state').then(r=>{setConnected(true);return r.json();}).then(paint).catch(()=>{});
+  };
 }
 fetch('/api/state').then(r=>r.json()).then(d=>{
   paint(d);
