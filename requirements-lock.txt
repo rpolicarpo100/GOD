@@ -1,0 +1,28 @@
+# GOD — Pinned dependencies (2026-09-06)
+# Use requirements.txt for loose constraints, this file for reproducible installs.
+# Install: pip install -r requirements-lock.txt
+
+# Core
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+pydantic==2.13.4
+pyyaml==6.0.3
+httpx==0.28.1
+
+# Token counting
+tiktoken==0.14.0
+
+# Data / ML
+numpy==2.3.5
+scikit-learn==1.6.1
+lxml==6.1.1
+
+# Vector memory (Qdrant embedded)
+qdrant-client==1.19.0
+
+# Neural embeddings (optional — fallback to HashingVectorizer)
+fastembed==0.8.0
+onnxruntime==1.29.0
+
+# Voice TTS (optional)
+edge-tts==7.2.8

@@ -98,12 +98,17 @@ echo ""
 # --- Check .env ---
 if [ ! -f ".env" ]; then
     echo "[WARN] No .env file found."
-    echo "       Create .env with your API keys:"
-    echo "         GROQ_API_KEY=gsk_..."
-    echo "         CEREBRAS_API_KEY=csk-..."
-    echo "         GOOGLE_API_KEY=AI..."
-    echo "         OPENROUTER_API_KEY=sk-or-..."
-    echo "         ANTHROPIC_API_KEY=sk-ant-..."
+    if [ -f ".env.example" ]; then
+        echo "       Copy .env.example to .env and fill in your API keys:"
+        echo "         cp .env.example .env"
+    else
+        echo "       Create .env with your API keys:"
+        echo "         GROQ_API_KEY=gsk_..."
+        echo "         CEREBRAS_API_KEY=csk-..."
+        echo "         GOOGLE_API_KEY=AI..."
+        echo "         OPENROUTER_API_KEY=sk-or-..."
+        echo "         ANTHROPIC_API_KEY=sk-ant-..."
+    fi
     echo ""
     echo "       Without .env, GOD runs in OFFLINE mode (no LLM)."
 else

@@ -3,6 +3,7 @@
 
 GOD_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_PY="$GOD_DIR/.venv/bin/python"
+GOD_PORT="${GOD_PORT:-8000}"
 
 # Fallback to system Python if no venv
 if [ ! -f "$VENV_PY" ]; then
@@ -19,14 +20,14 @@ CMD="${1:-help}"
 case "$CMD" in
     start)
         BIND="127.0.0.1"
-        echo "Starting GOD on port 8000..."
-        echo "Dashboard: http://localhost:8000"
-        echo "API docs:  http://localhost:8000/docs"
+        echo "Starting GOD on port $GOD_PORT..."
+        echo "Dashboard: http://localhost:$GOD_PORT"
+        echo "API docs:  http://localhost:$GOD_PORT/docs"
         echo "Bind:      $BIND (localhost only)"
         echo "Auth:      Required for admin endpoints"
         echo "Press Ctrl+C to stop."
         echo ""
-        $VENV_PY -m uvicorn server:app --host $BIND --port 8000
+        $VENV_PY -m uvicorn server:app --host $BIND --port $GOD_PORT
         ;;
     start-lan)
         BIND="0.0.0.0"
@@ -34,13 +35,13 @@ case "$CMD" in
         echo "⚠  This exposes GOD to your local network."
         echo "⚠  Authentication is required for admin endpoints."
         echo ""
-        echo "Starting GOD on port 8000..."
-        echo "Dashboard: http://localhost:8000"
+        echo "Starting GOD on port $GOD_PORT..."
+        echo "Dashboard: http://localhost:$GOD_PORT"
         echo "Bind:      $BIND (LAN accessible)"
         echo "Auth:      Required for admin endpoints"
         echo "Press Ctrl+C to stop."
         echo ""
-        $VENV_PY -m uvicorn server:app --host $BIND --port 8000
+        $VENV_PY -m uvicorn server:app --host $BIND --port $GOD_PORT
         ;;
     stop)
         echo "Stopping GOD..."
@@ -53,12 +54,12 @@ case "$CMD" in
         ;;
     status)
         echo "Checking GOD status..."
-        if curl -s http://127.0.0.1:8000/api/health >/dev/null 2>&1; then
-            echo "[OK] GOD is running on port 8000."
-            curl -s http://127.0.0.1:8000/api/health | $VENV_PY -m json.tool 2>/dev/null
+        if curl -s http://127.0.0.1:$GOD_PORT/api/health >/dev/null 2>&1; then
+            echo "[OK] GOD is running on port $GOD_PORT."
+            curl -s http://127.0.0.1:$GOD_PORT/api/health | $VENV_PY -m json.tool 2>/dev/null
             echo ""
             echo "Auth status:"
-            curl -s http://127.0.0.1:8000/api/auth/status | $VENV_PY -m json.tool 2>/dev/null
+            curl -s http://127.0.0.1:$GOD_PORT/api/auth/status | $VENV_PY -m json.tool 2>/dev/null
         else
             echo "[WARN] GOD is not running. Start with: ./god.sh start"
         fi

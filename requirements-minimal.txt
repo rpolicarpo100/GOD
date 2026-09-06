@@ -1,0 +1,24 @@
+# GOD — Minimal dependencies (API/offline mode)
+# For systems without GPU or when you don't need local embeddings/voice.
+# Install: pip install -r requirements-minimal.txt
+#
+# Excludes: fastembed (~300MB), onnxruntime (~200MB), edge-tts, lxml
+# GOD will use HashingVectorizer fallback for embeddings.
+# Voice TTS will be unavailable.
+
+# Core
+fastapi
+uvicorn[standard]
+pydantic
+pyyaml
+httpx
+
+# Token counting
+tiktoken
+
+# Data / ML
+numpy
+scikit-learn
+
+# Vector memory (Qdrant embedded)
+qdrant-client

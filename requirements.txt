@@ -1,25 +1,29 @@
 # GOD — Python dependencies
-# Core
+# Install: pip install -r requirements.txt
+# Minimal: pip install -r requirements-minimal.txt  (no fastembed/onnx/voice)
+# Pinned:  pip install -r requirements-lock.txt      (exact versions)
+
+# Core (required)
 fastapi
 uvicorn[standard]
 pydantic
 pyyaml
 httpx
 
-# Token counting
+# Token counting (required)
 tiktoken
 
-# Data / ML
+# Data / ML (required)
 numpy
 scikit-learn
 lxml
 
-# Vector memory (Qdrant embedded)
+# Vector memory — Qdrant embedded (required)
 qdrant-client
 
-# Neural embeddings (optional — fallback to HashingVectorizer)
+# Neural embeddings — ~500MB total (optional, fallback to HashingVectorizer)
 fastembed
 onnxruntime
 
-# Voice TTS (optional — no API key needed)
+# Voice TTS — no API key needed (optional)
 edge-tts
