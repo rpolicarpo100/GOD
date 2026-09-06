@@ -299,6 +299,134 @@ def _propose_provider_experiment(obs: dict) -> dict | None:
     }
 
 
+
+def generate_usage_experiments() -> list[dict]:
+    """Generate experiments from actual usage patterns.
+    
+    Analyzes recent tasks to propose improvements:
+    - Cache effectiveness per task type
+    - Prompt compression opportunities
+    - Provider routing improvements
+    """
+    experiments = []
+    try:
+        tasks = store.tasks(50)
+        if not tasks or len(tasks) < 10:
+            return experiments
+        
+        # 1. Analyze cache effectiveness per task type
+        cache_misses_by_type: dict[str, int] = {}
+        cache_hits_by_type: dict[str, int] = {}
+        for t in tasks:
+            ttype = t.get("type", "general")
+            if t.get("cache_hit"):
+                cache_hits_by_type[ttype] = cache_hits_by_type.get(ttype, 0) + 1
+            else:
+                cache_misses_by_type[ttype] = cache_misses_by_type.get(ttype, 0) + 1
+        
+        for ttype, misses in cache_misses_by_type.items():
+            hits = cache_hits_by_type.get(ttype, 0)
+            total = hits + misses
+            if total >= 5 and hits / total < 0.2:
+                exp = {
+                    "id": uid("X"),
+                    "title": f"Cache improvement for '{ttype}' tasks ({hits}/{total} hit rate)",
+                    "hypothesis": f"Task type '{ttype}' has low cache hit rate. Consider longer TTL or broader matching.",
+                    "status": "pending",
+                    "metric": "cache_hit_rate",
+                    "before": {"hits": hits, "misses": misses, "rate": round(hits / total, 2)},
+                    "after": {"target_rate": 0.4},
+                    "risk": "low",
+                    "risk_info": classify_risk({"title": "cache improvement", "hypothesis": "cache", "payload": {"change": "cache"}}),
+                    "payload": {"change": f"Increase cache sensitivity for {ttype}", "source": "usage_analysis"},
+                    "ts": now_iso(),
+                }
+                experiments.append(exp)
+        
+        # 2. Analyze self-reflection frequency (indicates prompt quality issues)
+        reflections = sum(1 for t in tasks if "SELF_REFLECTION" in str(t.get("route") or ""))
+        if reflections >= 3 and reflections / len(tasks) > 0.15:
+            exp = {
+                "id": uid("X"),
+                "title": f"High self-reflection rate ({reflections}/{len(tasks)}) — prompt optimization needed",
+                "hypothesis": "Too many queries trigger self-reflection. System prompt or context may need improvement.",
+                "status": "pending",
+                "metric": "reflection_rate",
+                "before": {"reflections": reflections, "total": len(tasks)},
+                "after": {"target_rate": 0.05},
+                "risk": "medium",
+                "risk_info": classify_risk({"title": "prompt optimization", "hypothesis": "prompt", "payload": {"change": "prompt"}}),
+                "payload": {"change": "Optimize system prompt or context packing", "source": "usage_analysis"},
+                "ts": now_iso(),
+            }
+            experiments.append(exp)
+        
+        # 3. Analyze task complexity distribution for token budget optimization
+        complex_tasks = [t for t in tasks if (t.get("complexity") or 0) >= 7]
+        if len(complex_tasks) >= 5:
+            avg_tokens = sum(t.get("estimated_tokens", 0) for t in complex_tasks) / len(complex_tasks)
+            if avg_tokens > 5000:
+                exp = {
+                    "id": uid("X"),
+                    "title": f"High-complexity tasks averaging {int(avg_tokens)} tokens — consider context compression",
+                    "hypothesis": "Complex tasks use many tokens. Context compression could reduce cost.",
+                    "status": "pending",
+                    "metric": "token_efficiency",
+                    "before": {"avg_tokens": int(avg_tokens), "n": len(complex_tasks)},
+                    "after": {"target_avg": int(avg_tokens * 0.7)},
+                    "risk": "low",
+                    "risk_info": classify_risk({"title": "context compression", "hypothesis": "tokens", "payload": {"change": "context"}}),
+                    "payload": {"change": "Compress context for complex tasks", "source": "usage_analysis"},
+                    "ts": now_iso(),
+                }
+                experiments.append(exp)
+        
+        # Save experiments
+        for exp in experiments:
+            store.save_experiment(exp)
+            bus.emit("VERSION_PROPOSED", "EVOLUTION", exp["title"])
+        
+    except Exception:
+        pass
+    return experiments
+
+
+def knowledge_gaps_summary() -> dict:
+    """Summarize detected knowledge gaps."""
+    try:
+        gaps = store.mem_search("", kinds=["knowledge_gap"])
+        if not gaps:
+            return {"kind": "MEASURED", "gaps": [], "total": 0}
+        
+        gap_list = []
+        for g in gaps[:10]:
+            val = g.get("value") or {}
+            if isinstance(val, str):
+                import json
+                try:
+                    val = json.loads(val)
+                except Exception:
+                    val = {}
+            gap_list.append({
+                "topic": val.get("topic", ""),
+                "type": val.get("type", ""),
+                "count": val.get("count", 0),
+                "last_score": val.get("last_score"),
+            })
+        
+        # Sort by count descending
+        gap_list.sort(key=lambda x: x["count"], reverse=True)
+        
+        return {
+            "kind": "MEASURED",
+            "gaps": gap_list,
+            "total": len(gap_list),
+            "ts": now_iso(),
+        }
+    except Exception:
+        return {"kind": "MEASURED", "gaps": [], "total": 0}
+
+
 def pending() -> list[dict]:
     return [e for e in store.experiments(20) if e.get("status") == "pending"]
 

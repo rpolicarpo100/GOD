@@ -525,6 +525,54 @@ def chat(body: ChatIn):
     return handle(body.text, from_worker=body.from_worker)
 
 
+
+@app.get("/api/adaptive-routing")
+def adaptive_routing_stats():
+    from superai.adaptive_routing import get_stats
+    return get_stats()
+
+
+@app.get("/api/knowledge-graph")
+def knowledge_graph_stats():
+    from superai.knowledge_graph import stats, get_user_preferences
+    return {"stats": stats(), "preferences": get_user_preferences()}
+
+
+@app.get("/api/knowledge-gaps")
+def knowledge_gaps():
+    from superai.evolution import knowledge_gaps_summary
+    return knowledge_gaps_summary()
+
+
+@app.get("/api/evolution/auto-experiments")
+def auto_experiments():
+    from superai.evolution import generate_usage_experiments, experiments_summary
+    return {"generated": generate_usage_experiments(), "summary": experiments_summary()}
+
+
+@app.get("/api/embedding-cache")
+def embedding_cache_stats():
+    from superai.embed import cache_stats
+    return cache_stats()
+
+
+@app.get("/api/pipeline/timing")
+def pipeline_timing():
+    from superai.runtime import _last_pipeline
+    lp = _last_pipeline
+    if not lp:
+        return {"kind": "MEASURED", "available": False}
+    return {
+        "kind": "MEASURED",
+        "available": True,
+        "stage_times": lp.get("stage_times", {}),
+        "total_ms": round((time.perf_counter() - lp.get("t0", time.perf_counter())) * 1000, 1) if lp.get("t0") else None,
+        "llm_ms": lp.get("llm_ms"),
+        "route": lp.get("route"),
+        "cache": lp.get("cache"),
+        "memory_hits": lp.get("memory_hits"),
+    }
+
 @app.post("/api/chat/stream")
 async def chat_stream(body: ChatIn):
     """Streaming chat via SSE — runs handle() then streams result text to frontend."""

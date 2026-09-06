@@ -370,22 +370,25 @@ def _build_conversation_summary() -> str:
 
 
 def _dialogue(n: int = 4, current: str | None = None) -> list[str]:
-    """Últimos turnos do chat vivo. Inclui sumário conversacional."""
+    """Últimos turnos do chat vivo. Compressão de turnos antigos.
+    
+    Recent turns (<4): full text (truncated to 180 chars)
+    Older turns (>4): compressed to 1-line summaries
+    """
     with _lock:
         msgs = list(_chat)
     cur = (current or "").strip()
-    out: list[str] = []
+    recent: list[str] = []
+    older: list[str] = []
     skipped_current = False
 
     summary = _build_conversation_summary()
-    if summary:
-        out.append("CONTEXTO: " + summary)
-
-    for m in reversed(msgs):
+    
+    user_msgs = [m for m in msgs if m.get("role") in ("user", "brain") and str(m.get("text") or "").strip()]
+    
+    for i, m in enumerate(reversed(user_msgs)):
         role = m.get("role")
         text = str(m.get("text") or "").strip()
-        if role not in ("user", "brain") or not text:
-            continue
         if text.startswith("Um momento"):
             continue
         if role == "user" and cur and text == cur and not skipped_current:
@@ -394,15 +397,32 @@ def _dialogue(n: int = 4, current: str | None = None) -> list[str]:
         if role == "brain" and "\n\n— GOD ·" in text:
             text = text.split("\n\n— GOD ·", 1)[0].strip()
         who = "TU" if role == "user" else "GOD"
-        out.append(f"{who}: {text[:180]}")
-        if len(out) >= n + 1:
-            break
-    out.reverse()
+        
+        if i < n:
+            # Recent: full text
+            recent.append(f"{who}: {text[:180]}")
+        elif i < n * 3:
+            # Older: compressed summary (first 60 chars)
+            compressed = text[:60].replace("\n", " ").strip()
+            if compressed:
+                older.append(f"{who}({compressed}...)")
+    
+    out: list[str] = []
+    if summary:
+        out.append("CONTEXTO: " + summary)
+    if older:
+        out.append("HISTÓRICO: " + " | ".join(reversed(older[-4:])))
+    out.extend(reversed(recent))
     return out
 
 
-def _llm_prompt(text: str, merged: list[dict], dialogue: list[str] | None = None) -> str:
-    """Pedido + diálogo curto + memória. Sem dump TASK/TYPE."""
+def _llm_prompt(text: str, merged: list[dict], dialogue: list[str] | None = None, task_type: str = "general") -> str:
+    """Pedido + diálogo curto + memória. Context-aware: adapts prompt to task type.
+    
+    Status/math: minimal context (no history, no memory)
+    Coding: include relevant code context
+    Research: include broader knowledge
+    """
     parts = [
         "És a GOD. Falas no feminino. Inteligência profissional, analítica, orientada a resultados. "
         "Compreende o objectivo antes de responder. Não inventes APIs, dados, ferramentas, preços, resultados nem capacidades. "
@@ -414,13 +434,17 @@ def _llm_prompt(text: str, merged: list[dict], dialogue: list[str] | None = None
         "Usa o diálogo recente se o pedido for anafórico (isto, isso, e o CSS, continua). "
         "Prioridade: Verdade → Precisão → Segurança → Utilidade → Eficiência → Simplicidade."
     ]
+    
+    # Task-type specific context optimization
+    _skip_dialogue = task_type in ("math", "status", "parse") and len(text) < 80
+    _max_memory = 5 if task_type in ("coding", "research") else 3
     ov = gods.prompt_overlay()
     if ov:
         parts.append(ov)
-    if dialogue:
+    if dialogue and not _skip_dialogue:
         parts.append("Diálogo:\n" + "\n".join(dialogue[:4]))
     mem: list[str] = []
-    for m in (merged or [])[:3]:
+    for m in (merged or [])[:_max_memory]:
         v = str(m.get("value") or m.get("text") or "").strip()
         if v:
             mem.append(v[:240])

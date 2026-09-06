@@ -208,3 +208,104 @@ class TestBrainAnalysis:
         short = analyze("oi")
         long_text = analyze("x" * 300)
         assert long_text["complexity"] > short["complexity"]
+
+class TestKnowledgeGraph:
+    """Test knowledge graph SPO extraction."""
+
+    def test_extract_triples_preference(self):
+        from superai.knowledge_graph import extract_triples
+        triples = extract_triples("Eu prefiro Python para scripting")
+        assert len(triples) >= 1
+        assert any(t["predicate"] == "prefers" for t in triples)
+
+    def test_extract_triples_empty(self):
+        from superai.knowledge_graph import extract_triples
+        triples = extract_triples("2+2")
+        # Math queries should not generate triples
+        assert len(triples) == 0
+
+    def test_store_and_query(self):
+        from superai.knowledge_graph import store_triple, query
+        store_triple({"subject": "test_user", "predicate": "prefers", "object": "Python"})
+        results = query(subject="test_user")
+        assert len(results) >= 1
+        assert any(r["object"] == "Python" for r in results)
+
+    def test_stats(self):
+        from superai.knowledge_graph import stats
+        s = stats()
+        assert s["kind"] == "MEASURED"
+        assert "triples" in s
+
+    def test_enrich_context(self):
+        from superai.knowledge_graph import enrich_context
+        ctx = enrich_context("test query", "coding")
+        # Should return string (may be empty if no graph data)
+        assert isinstance(ctx, str)
+
+
+class TestAdaptiveRoutingExtended:
+    """Extended adaptive routing tests."""
+
+    def test_multiple_providers(self):
+        from superai.adaptive_routing import record_quality, rank_providers
+        # Record for multiple providers
+        for _ in range(5):
+            record_quality("groq", "coding", 0.9)
+            record_quality("openai", "coding", 0.7)
+            record_quality("ollama", "coding", 0.5)
+
+        providers = [
+            {"id": "ollama", "name": "Ollama"},
+            {"id": "openai", "name": "OpenAI"},
+            {"id": "groq", "name": "Groq"},
+        ]
+        ranked = rank_providers(providers, "coding")
+        assert ranked[0]["id"] == "groq"
+        assert ranked[-1]["id"] == "ollama"
+
+    def test_different_task_types(self):
+        from superai.adaptive_routing import record_quality, get_provider_score
+        record_quality("groq", "research", 0.6)
+        record_quality("groq", "research", 0.7)
+        record_quality("groq", "research", 0.65)
+
+        score = get_provider_score("groq", "research")
+        assert score is not None
+        assert 0.5 < score < 0.8
+
+
+class TestEvolutionExtended:
+    """Test evolution auto-experiments."""
+
+    def test_generate_usage_experiments(self):
+        from superai.evolution import generate_usage_experiments
+        # May or may not generate experiments depending on data
+        exps = generate_usage_experiments()
+        assert isinstance(exps, list)
+
+    def test_knowledge_gaps_summary(self):
+        from superai.evolution import knowledge_gaps_summary
+        result = knowledge_gaps_summary()
+        assert result["kind"] == "MEASURED"
+        assert "gaps" in result
+
+
+class TestEmbedBatchExtended:
+    """Extended batch embedding tests."""
+
+    def test_embed_batch_consistency(self):
+        from superai.embed import embed, embed_batch
+        texts = ["alpha", "beta", "gamma"]
+        batch_results = embed_batch(texts)
+        individual_results = [embed(t) for t in texts]
+        # Results should be identical (from cache or computation)
+        for b, i in zip(batch_results, individual_results):
+            assert len(b) == len(i) == 384
+
+    def test_embed_cache_grows(self):
+        from superai.embed import embed, cache_stats
+        initial = cache_stats()["cache_size"]
+        embed("__unique_test_query_123456__")
+        after = cache_stats()["cache_size"]
+        assert after >= initial

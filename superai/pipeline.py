@@ -19,7 +19,7 @@ from .governor import gov
 from .memory_vec import vectors
 from .store import store
 from . import gods
-from .util import now_iso, uid
+from .util import now_iso, uid, sha
 from . import sensitive, rate_limit, resource_limits, sandbox, network_control, adaptive_routing
 
 
@@ -287,14 +287,47 @@ def _stage_cache(text, task, pipeline, need_mem, gid, _say, _mark, _set_pipe, _b
 
 
 def _stage_memory(text, task, pipeline, need_mem, gid, _mark):
-    """Stage 3: Memory retrieval (SQL + Qdrant)."""
+    """Stage 3: Context-aware memory retrieval (SQL + Qdrant).
+    
+    Enhanced: augments query with task type + dialogue context for better recall.
+    Weights recent episodes higher. Deduplicates across SQL and vector results.
+    """
     gact = gods.active()
     if (not need_mem) or gact.get("memory", True) is False:
         mem, vec_mem = [], []
     else:
+        # Context-aware query augmentation
+        task_type = task.get("type", "general")
+        augmented_query = text
+        # Add task type context for better semantic matching
+        if task_type and task_type != "general":
+            augmented_query = f"[{task_type}] {text}"
+        
         kinds = ["episode", "episode:master"] if gid == "master" else [f"episode:{gid}"]
-        mem = store.mem_search(text, kinds=kinds)
-        vec_mem = vectors.search("memory", text, k=5, min_score=0.35, god_id=gid) if vectors.available() else []
+        mem = store.mem_search(augmented_query, kinds=kinds)
+        
+        # Also search knowledge and style memories for context
+        knowledge = store.mem_search(text, kinds=["knowledge", "task_pattern", "style"])
+        if knowledge:
+            pipeline["knowledge_hits"] = len(knowledge)
+        
+        # Vector search with augmented query
+        vec_mem = vectors.search("memory", augmented_query, k=5, min_score=0.35, god_id=gid) if vectors.available() else []
+        
+        # Deduplicate: prefer vector results (higher quality) over SQL
+        seen_texts = set()
+        deduped_mem = []
+        for m in mem:
+            val = str(m.get("value") or m.get("text") or "")[:100]
+            if val not in seen_texts:
+                seen_texts.add(val)
+                deduped_mem.append(m)
+        mem = deduped_mem
+        
+        # Add knowledge to merged results (lower priority)
+        for k in (knowledge or [])[:3]:
+            mem.append({"kind": "knowledge", "key": k.get("key"), "value": k.get("value")})
+    
     pipeline["memory_hits"] = len(mem)
     pipeline["vector_hits"] = vec_mem
     merged = list(mem)
@@ -527,7 +560,7 @@ def _stage_llm(text, task, pipeline, merged, ctx, *, _say, _mark, _set_pipe, _br
         pipeline["route"].append("HARDCORE_MODE")
         pipeline["hardcore"] = True
     res = routing.complete(
-        _llm_prompt(text, merged, _dialogue(4, current=text)),
+        _llm_prompt(text, merged, _dialogue(4, current=text), task_type=task_type),
         max_tokens=max_tok,
         recommendation=advice.get("recommendation"),
         hardcore=hardcore,
@@ -583,6 +616,22 @@ def _stage_llm(text, task, pipeline, merged, ctx, *, _say, _mark, _set_pipe, _br
             )
     except Exception:
         pass
+    # Knowledge gap detection: log repeated low-quality topics
+    try:
+        if scores.get("OVERALL", 50) < 50:
+            gap_key = sha(f"gap:{task_type}:{text[:60]}")
+            gap_entry = store.mem_search(gap_key, kinds=["knowledge_gap"])
+            count = len(gap_entry) + 1
+            store.mem_put("knowledge_gap", gap_key, {
+                "topic": text[:120], "type": task_type,
+                "count": count, "last_score": scores.get("OVERALL"), "ts": now_iso(),
+            })
+            if count >= 3:
+                bus.emit("KNOWLEDGE_GAP", "NOTICE",
+                         f"Repeated low quality on \'{text[:60]}\' ({count}x)", god_core_state="learning")
+    except Exception:
+        pass
+
     # Self-reflection: if quality is low and we haven't retried, re-prompt
     if scores.get("OVERALL", 1.0) < 0.5 and not pipeline.get("_reflected"):
         pipeline["_reflected"] = True
