@@ -1676,7 +1676,7 @@ $('chat-f').addEventListener('submit',e=>{
   const ti=$('typing-indicator');
   if(ti)ti.style.display='flex';
   // Streaming brain response
-  streamingActive=true;
+  streamingActive=true;_thinkBuffer='';_inThink=false;
   const brainMsg=document.createElement('div');
   brainMsg.className='m brain new-msg';
   brainMsg.innerHTML='<div class="w">GOD</div><span class="stream-text"></span>';
@@ -1700,7 +1700,7 @@ $('chat-f').addEventListener('submit',e=>{
           if(!line.startsWith('data: '))continue;
           try{
             const d=JSON.parse(line.slice(6));
-            if(d.token){streamSpan.textContent+=d.token;$('chat-m').scrollTop=$('chat-m').scrollHeight;}
+            if(d.token){var ft=filterThinkToken(d.token);if(ft)streamSpan.textContent+=ft;$('chat-m').scrollTop=$('chat-m').scrollHeight;}
             if(d.done){if(ti)ti.style.display='none';return;}
           }catch(ex){}
         }
@@ -2108,7 +2108,7 @@ function pChat(s){
   cLen=msgs.length;
   $('chat-m').innerHTML=msgs.map((m,i)=>{
     const ts=m.ts?new Date(m.ts).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'}):'';
-    const content=m.role==='brain'?renderMd(m.text):esc(m.text);
+    const content=m.role==='brain'?renderMd(filterThink(m.text)):esc(m.text);
     const reactions=chatReactions[i]||{};
     const reactHtml=Object.entries(reactions).map(([e,c])=>`<button class="react-btn active" onclick="toggleReaction(${i},'${e}')">${e}${c>1?c:''}</button>`).join('');
     const isEditing=editingIdx===i&&m.role==='user';
@@ -3221,10 +3221,43 @@ if (_origPChat) {
 
 
 // ═══ FILTER <think> BLOCKS FROM LLM OUTPUT ═══
+var _thinkBuffer = '';
+var _inThink = false;
+
 function filterThink(text) {
   if (!text) return text;
   // Remove <think>...</think> blocks (Qwen thinking mode)
-  return text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  var result = text.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  // Also handle unclosed <think> at end (during streaming)
+  result = result.replace(/<think>[\s\S]*$/gi, '');
+  return result.trim();
+}
+
+function filterThinkToken(token) {
+  // Token-by-token filter for streaming
+  _thinkBuffer += token;
+  // Check if we're entering a think block
+  if (!_inThink) {
+    var thinkStart = _thinkBuffer.indexOf('<think>');
+    if (thinkStart !== -1) {
+      _inThink = true;
+      _thinkBuffer = '';
+      // Return only the part before <think>
+      return token.indexOf('<think>') !== -1 ? '' : token;
+    }
+    // No think block — return as-is, but keep last 7 chars as buffer for partial tag
+    if (_thinkBuffer.length > 7) {
+      var safe = _thinkBuffer.slice(0, -7);
+      _thinkBuffer = _thinkBuffer.slice(-7);
+      return safe;
+    }
+    return '';
+  }
+  // We're inside a think block — look for</think>  var thinkEnd = _thinkBuffer.indexOf('</think>  if (thinkEnd !== -1) {
+    _inThink = false;
+    _thinkBuffer = '';
+  }
+  return '';
 }
 
 </script>
