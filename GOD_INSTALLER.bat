@@ -419,7 +419,7 @@ echo [%date% %time%] PHASE 5: VERIFY >> "%LOG%"
 REM ── Verify imports ──
 echo  [01/04] Verifying imports...
 set "DEP_OK=1"
-for %%m in (fastapi uvicorn tiktoken numpy httpx yaml qdrant_client) do (
+for %%m in (fastapi uvicorn tiktoken numpy lxml httpx yaml sklearn qdrant_client) do (
     "%VENV_PY%" -c "import %%m" 2>nul
     if !errorlevel! neq 0 (
         echo          FAIL  %%m not importable
@@ -461,34 +461,42 @@ if !errorlevel! equ 0 (
 
 REM ── Generate manifest ──
 echo  [04/04] Generating manifest...
-"%VENV_PY%" -c "
-import json, platform, sys, os
-from datetime import datetime, timezone
-manifest = {
-    'timestamp': datetime.now(timezone.utc).isoformat(),
-    'run_id': '%RUN_ID%',
-    'god_version': '0.3.0',
-    'profile': '%PROFILE%',
-    'python_version': sys.version.split()[0],
-    'platform': platform.system(),
-    'architecture': platform.machine(),
-    'port': %GOD_PORT%,
-    'components': {
-        'server': os.path.exists('server.py'),
-        'worker': os.path.exists('worker.py'),
-        'ui': os.path.exists('index.html'),
-        'database': os.path.exists(os.path.join('data', 'spine.db')),
-        'auth': os.path.exists(os.path.join('data', 'auth')),
-    },
-}
-try:
-    import subprocess
-    manifest['commit'] = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], text=True).strip()
-except:
-    manifest['commit'] = 'unknown'
-open(os.path.join('data', 'install_manifest.json'), 'w').write(json.dumps(manifest, indent=2))
-" 2>nul
-echo          PASS
+set "MANIFEST_PY=%TEMP%\god_manifest_%RUN_ID%.py"
+(
+    echo import json, platform, sys, os
+    echo from datetime import datetime, timezone
+    echo manifest = {
+    echo     'timestamp': datetime.now(timezone.utc).isoformat(),
+    echo     'run_id': '%RUN_ID%',
+    echo     'god_version': '0.3.0',
+    echo     'profile': '%PROFILE%',
+    echo     'python_version': sys.version.split()[0],
+    echo     'platform': platform.system(),
+    echo     'architecture': platform.machine(),
+    echo     'port': %GOD_PORT%,
+    echo     'components': {
+    echo         'server': os.path.exists('server.py'),
+    echo         'worker': os.path.exists('worker.py'),
+    echo         'ui': os.path.exists('index.html'),
+    echo         'database': os.path.exists(os.path.join('data', 'spine.db')),
+    echo         'auth': os.path.exists(os.path.join('data', 'auth')),
+    echo     },
+    echo }
+    echo try:
+    echo     import subprocess
+    echo     manifest['commit'] = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], text=True).strip()
+    echo except Exception:
+    echo     manifest['commit'] = 'unknown'
+    echo open(os.path.join('data', 'install_manifest.json'), 'w').write(json.dumps(manifest, indent=2))
+) > "%MANIFEST_PY%"
+"%VENV_PY%" "%MANIFEST_PY%" >nul 2>&1
+if !errorlevel! equ 0 (
+    echo          PASS
+) else (
+    echo          WARN  Manifest generation failed
+    set /a WARNINGS+=1
+)
+del "%MANIFEST_PY%" 2>nul
 
 echo.
 echo [%date% %time%] VERIFY complete: !ERRORS! errors, !WARNINGS! warnings >> "%LOG%"
@@ -545,14 +553,17 @@ REM ═════════════════════════�
 :repair
 echo.
 echo Running repair...
-"%VENV_PY%" -c "
-from superai import repair
-r = repair.run()
-print(f'REPAIR {r[\"kind\"]} ok={r[\"ok\"]}')
-for a in r.get('actions') or []:
-    st = 'OK' if a.get('ok') else 'FAIL'
-    print(f'  [{st}] {a[\"check\"]} {a.get(\"error\") or a.get(\"fix\") or \"\"}')
-"
+set "_PY_SCRIPT=%TEMP%\god_repair.py"
+(
+    echo from superai import repair
+    echo r = repair.run^(^)
+    echo print^(f'REPAIR {r["kind"]} ok={r["ok"]}'^)
+    echo for a in r.get^('actions'^) or []^:
+    echo     st = 'OK' if a.get^('ok'^) else 'FAIL'
+    echo     print^(f'  [{st}] {a["check"]} {a.get^("error"^) or a.get^("fix"^) or ""}'^)
+) > "%_PY_SCRIPT%"
+"%VENV_PY%" "%_PY_SCRIPT%"
+del "%_PY_SCRIPT%" 2>nul
 echo.
 pause
 goto :eof

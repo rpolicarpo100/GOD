@@ -1,6 +1,7 @@
 """Qdrant MemoryAdapter — embedded local client (no Docker server)."""
 from __future__ import annotations
 
+import atexit
 import os
 import threading
 import uuid
@@ -38,6 +39,17 @@ class VectorMemory:
         except Exception as e:
             self.c = None
             self.error = str(e)
+        atexit.register(self.close)
+
+    def close(self) -> None:
+        """Explicit cleanup to avoid __del__ shutdown warnings."""
+        c = self.c
+        if c is not None:
+            self.c = None
+            try:
+                c.close()
+            except Exception:
+                pass
 
     def _ensure(self, name: str) -> None:
         with self._lock:

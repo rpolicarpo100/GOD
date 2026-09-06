@@ -25,12 +25,34 @@ from .util import now_iso
 # PATH RESTRICTIONS
 # ═══════════════════════════════
 
+import sys as _sys
+
 # Allowed base directories (everything else is blocked)
+# Cross-platform: Linux, macOS, Windows
 _ALLOWED_BASES = [
     "/home/user",
     "/tmp",
     "/var/tmp",
 ]
+
+# Add Windows-specific bases
+if _sys.platform == "win32":
+    # Resolve the actual project root and common Windows paths
+    import pathlib as _pl
+    _project_root = str(_pl.Path(__file__).resolve().parent.parent)
+    _allowed_win = [
+        _project_root,
+        _pl.Path.home().as_posix(),  # C:\Users\<user>
+    ]
+    # Also add drive-letter versions of /home/user equivalent
+    for p in _allowed_win:
+        if p not in _ALLOWED_BASES:
+            _ALLOWED_BASES.append(p)
+    # Windows temp dirs
+    import tempfile
+    _tmp = tempfile.gettempdir()
+    if _tmp not in _ALLOWED_BASES:
+        _ALLOWED_BASES.append(_tmp)
 
 # Always blocked paths
 _BLOCKED_PATHS = [
@@ -43,6 +65,14 @@ _BLOCKED_PATHS = [
     "/dev",
     "/boot",
 ]
+
+# Add Windows blocked paths
+if _sys.platform == "win32":
+    _BLOCKED_PATHS.extend([
+        "C:\\Windows\\System32",
+        "C:\\Windows\\SysWOW64",
+        "C:\\Windows\\System",
+    ])
 
 # Blocked patterns
 _BLOCKED_PATTERNS = [

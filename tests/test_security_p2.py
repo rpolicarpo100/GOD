@@ -75,12 +75,14 @@ class TestSensitiveDataDetection(unittest.TestCase):
     def test_scan_file(self):
         """Scan file for sensitive data."""
         from superai import sensitive
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+        f = tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False)
+        try:
             f.write('password = "secret123"\napi_key = "sk-1234567890abcdef"')
-            f.flush()
+            f.close()
             result = sensitive.scan_file(f.name)
             self.assertTrue(result.get("has_sensitive"))
-            Path(f.name).unlink()
+        finally:
+            Path(f.name).unlink(missing_ok=True)
 
     def test_risk_assessment(self):
         """Risk levels are correctly assigned."""

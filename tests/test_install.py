@@ -139,9 +139,12 @@ class TestConfig:
         assert "budgets" in cfg
 
     def test_config_has_feature_flags(self):
-        import yaml
-        cfg = yaml.safe_load((ROOT / "config.yaml").read_text())
-        assert "feature_flags" in cfg
+        """Feature flags are loaded from config.yaml or data/state.yaml (merged)."""
+        from superai.config import cfg
+        flags = cfg.get("feature_flags")
+        assert flags is not None, "feature_flags not found in merged config"
+        assert isinstance(flags, dict), "feature_flags should be a dict"
+        assert len(flags) > 0, "feature_flags should not be empty"
 
 
 class TestGodProfiles:
@@ -189,29 +192,29 @@ class TestScripts:
         assert (ROOT / "setup.bat").is_file()
 
     def test_god_sh_has_start(self):
-        text = (ROOT / "god.sh").read_text()
+        text = (ROOT / "god.sh").read_text(encoding="utf-8")
         assert "start)" in text
 
     def test_god_sh_has_stop(self):
-        text = (ROOT / "god.sh").read_text()
+        text = (ROOT / "god.sh").read_text(encoding="utf-8")
         assert "stop)" in text
 
     def test_god_sh_has_backup(self):
-        text = (ROOT / "god.sh").read_text()
+        text = (ROOT / "god.sh").read_text(encoding="utf-8")
         assert "backup)" in text
 
     def test_god_sh_has_doctor(self):
-        text = (ROOT / "god.sh").read_text()
+        text = (ROOT / "god.sh").read_text(encoding="utf-8")
         assert "doctor)" in text
 
     def test_god_sh_has_repair(self):
-        text = (ROOT / "god.sh").read_text()
+        text = (ROOT / "god.sh").read_text(encoding="utf-8")
         assert "repair)" in text
 
     def test_god_sh_has_uninstall(self):
-        text = (ROOT / "god.sh").read_text()
+        text = (ROOT / "god.sh").read_text(encoding="utf-8")
         assert "uninstall)" in text
 
     def test_god_sh_has_update(self):
-        text = (ROOT / "god.sh").read_text()
+        text = (ROOT / "god.sh").read_text(encoding="utf-8")
         assert "update)" in text

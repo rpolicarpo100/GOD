@@ -232,7 +232,7 @@ echo   [02] Python version.....
 if !errorlevel! equ 0 (echo PASS  3.10+) else (echo FAIL  requires 3.10+ & set /a DOC_ERR+=1)
 
 echo   [03] Dependencies...... 
-"%PY%" -c "import fastapi,uvicorn,tiktoken,numpy,httpx,yaml,qdrant_client" 2>nul
+"%PY%" -c "import fastapi,uvicorn,tiktoken,numpy,lxml,httpx,yaml,sklearn,qdrant_client" 2>nul
 if !errorlevel! equ 0 (echo PASS) else (echo FAIL  some imports failed & set /a DOC_ERR+=1)
 
 echo   [04] PyYAML............ 
@@ -282,16 +282,19 @@ if not exist "%PY%" (
     exit /b 1
 )
 echo Running repair...
-"%PY%" -c "
-from superai import repair
-r = repair.run()
-print(f'REPAIR {r[\"kind\"]} ok={r[\"ok\"]}')
-for a in r.get('actions') or []:
-    st = 'OK' if a.get('ok') else 'FAIL'
-    print(f'  [{st}] {a[\"check\"]} {a.get(\"error\") or a.get(\"fix\") or \"\"}')
-print()
-print(r.get('note') or '')
-"
+set "_PY_SCRIPT=%TEMP%\god_repair.py"
+(
+    echo from superai import repair
+    echo r = repair.run^(^)
+    echo print^(f'REPAIR {r["kind"]} ok={r["ok"]}'^)
+    echo for a in r.get^('actions'^) or []^:
+    echo     st = 'OK' if a.get^('ok'^) else 'FAIL'
+    echo     print^(f'  [{st}] {a["check"]} {a.get^("error"^) or a.get^("fix"^) or ""}'^)
+    echo print^(^)
+    echo print^(r.get^('note'^) or ''^)
+) > "%_PY_SCRIPT%"
+"%PY%" "%_PY_SCRIPT%"
+del "%_PY_SCRIPT%" 2>nul
 goto :eof
 
 :benchmark
@@ -300,14 +303,17 @@ if not exist "%PY%" (
     exit /b 1
 )
 echo Running benchmark...
-"%PY%" -c "
-from superai.benchmark import run
-s = run('cli')
-print(f'BENCHMARK {s[\"run_id\"]}  n={s[\"n\"]}  passed={s[\"passed\"]}  skipped={s[\"skipped\"]}')
-for r in s.get('rows') or []:
-    st = 'SKIP' if r.get('skipped') else ('PASS' if r.get('passed') else 'FAIL')
-    print(f'  {st} {r[\"case_id\"]}  score={r.get(\"score\")}  {r.get(\"latency_ms\")}ms')
-"
+set "_PY_SCRIPT=%TEMP%\god_benchmark.py"
+(
+    echo from superai.benchmark import run
+    echo s = run^('cli'^)
+    echo print^(f'BENCHMARK {s["run_id"]}  n={s["n"]}  passed={s["passed"]}  skipped={s["skipped"]}'^)
+    echo for r in s.get^('rows'^) or []^:
+    echo     st = 'SKIP' if r.get^('skipped'^) else ^('PASS' if r.get^('passed'^) else 'FAIL'^)
+    echo     print^(f'  {st} {r["case_id"]}  score={r.get^("score"^)}  {r.get^("latency_ms"^)}ms'^)
+) > "%_PY_SCRIPT%"
+"%PY%" "%_PY_SCRIPT%"
+del "%_PY_SCRIPT%" 2>nul
 goto :eof
 
 :backup

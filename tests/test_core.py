@@ -742,10 +742,12 @@ class RepairMemBudget(unittest.TestCase):
 
     def test_cache_namespaced_by_god(self):
         from superai.brain import cache_lookup, cache_store
-
-        cache_store("hello-ns-iso", {"summary": "mini-only"}, 1, ns="mini")
-        self.assertIsNone(cache_lookup("hello-ns-iso", ns="master"))
-        self.assertIsNotNone(cache_lookup("hello-ns-iso", ns="mini"))
+        import time
+        # Use unique key to avoid collision with other tests
+        unique_key = f"hello-ns-iso-{time.time_ns()}"
+        cache_store(unique_key, {"summary": "mini-only"}, 1, ns="mini")
+        self.assertIsNone(cache_lookup(unique_key, ns="master"))
+        self.assertIsNotNone(cache_lookup(unique_key, ns="mini"))
 
     def test_vector_god_filter(self):
         from superai.memory_vec import vectors

@@ -1,6 +1,8 @@
 __pycache__/
 *.py[cod]
 data/*.db
+data/*.db-shm
+data/*.db-wal
 data/qdrant/
 data/sandbox/
 data/auth/
