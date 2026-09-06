@@ -12,14 +12,12 @@ cd "$GOD_DIR"
 echo "[OK] Project directory: $GOD_DIR"
 echo ""
 
-# --- Check Python ---
+# --- Check Python 3 ---
 PY=""
 if command -v python3 &>/dev/null; then
     PY="python3"
-elif command -v python &>/dev/null; then
-    PY="python"
 else
-    echo "[FAIL] Python not found."
+    echo "[FAIL] Python 3 not found."
     echo "       Install Python 3.10+: https://www.python.org/downloads/"
     exit 1
 fi
@@ -44,26 +42,30 @@ else
 fi
 
 # --- Activate ---
-source .venv/bin/activate 2>/dev/null || PY=".venv/bin/python"
+VENV_PY="$GOD_DIR/.venv/bin/python"
+if [ ! -f "$VENV_PY" ]; then
+    echo "[FAIL] Virtual environment corrupted. Remove .venv and retry."
+    exit 1
+fi
+source .venv/bin/activate 2>/dev/null || true
 echo ""
 
 # --- Upgrade pip ---
 echo "[*] Upgrading pip..."
-$PY -m pip install --upgrade pip --quiet 2>/dev/null
+$VENV_PY -m pip install --upgrade pip --quiet 2>/dev/null
 echo "[OK] pip upgraded."
 echo ""
 
 # --- Install requirements ---
 echo "[*] Installing dependencies..."
-$PY -m pip install -r requirements.txt --quiet 2>&1
+$VENV_PY -m pip install -r requirements.txt --quiet 2>&1
 echo "[OK] Dependencies installed."
 echo ""
 
 # --- Verify core dependencies ---
 echo "[*] Verifying dependencies..."
-DEP_OK=1
 for mod in fastapi uvicorn tiktoken numpy httpx pyyaml qdrant_client; do
-    $PY -c "import $mod" 2>/dev/null
+    $VENV_PY -c "import $mod" 2>/dev/null
     if [ $? -ne 0 ]; then
         echo "[WARN] Module $mod not importable (non-critical)."
     fi
@@ -89,7 +91,7 @@ fi
 echo ""
 
 # --- Create data directories ---
-mkdir -p data/sandbox data/projects data/gods data/voice
+mkdir -p data/sandbox data/projects data/gods data/voice data/auth data/qdrant
 echo "[OK] Data directories ready."
 echo ""
 
@@ -112,11 +114,11 @@ echo ""
 
 # --- Run tests ---
 echo "[*] Running tests..."
-$PY -m unittest tests.test_core -q 2>/dev/null
+$VENV_PY -m pytest tests/ -q 2>/dev/null
 if [ $? -eq 0 ]; then
     echo "[OK] All tests passed."
 else
-    echo "[WARN] Some tests failed. Run: python -m unittest tests.test_core -v"
+    echo "[WARN] Some tests failed. Run: python -m pytest tests/ -v"
 fi
 echo ""
 
@@ -126,10 +128,6 @@ echo "========================================"
 echo ""
 echo "To start GOD:"
 echo ""
-echo "  source .venv/bin/activate"
-echo "  python -m uvicorn server:app --host 0.0.0.0 --port 8000"
-echo ""
-echo "  # Or use the helper script:"
 echo "  ./god.sh start"
 echo ""
 echo "Then open: http://localhost:8000"

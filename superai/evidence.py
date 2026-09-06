@@ -165,24 +165,7 @@ def http_status(url: str, expected_status: int = 200) -> dict:
             "kind": "MEASURED",
         }
 
-def command_output(cmd: str, expected_contains: str = None) -> dict:
-    """Evidence: command output matches expectations."""
-    import subprocess
-    try:
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
-        output = result.stdout + result.stderr
-        evidence = {
-            "type": "command_output",
-            "cmd": cmd[:100],
-            "exit_code": result.returncode,
-            "output_len": len(output),
-            "kind": "MEASURED",
-        }
-        if expected_contains:
-            evidence["contains"] = expected_contains in output
-        return evidence
-    except Exception as e:
-        return {"type": "command_output", "cmd": cmd[:100], "error": str(e), "kind": "MEASURED"}
+
 
 def git_state() -> dict:
     """Evidence: git repository state."""

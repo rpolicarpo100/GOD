@@ -2,14 +2,12 @@
 # GOD — Command helper (Linux/Mac)
 
 GOD_DIR="$(cd "$(dirname "$0")" && pwd)"
-PY="$GOD_DIR/.venv/bin/python"
+VENV_PY="$GOD_DIR/.venv/bin/python"
 
-if [ ! -f "$PY" ]; then
-    # Fallback to system Python
+# Fallback to system Python if no venv
+if [ ! -f "$VENV_PY" ]; then
     if command -v python3 &>/dev/null; then
-        PY="python3"
-    elif command -v python &>/dev/null; then
-        PY="python"
+        VENV_PY="python3"
     else
         echo "[FAIL] Python not found. Run ./setup.sh first."
         exit 1
@@ -21,7 +19,6 @@ CMD="${1:-help}"
 case "$CMD" in
     start)
         BIND="127.0.0.1"
-        EXTRA_MSG=""
         echo "Starting GOD on port 8000..."
         echo "Dashboard: http://localhost:8000"
         echo "API docs:  http://localhost:8000/docs"
@@ -29,7 +26,7 @@ case "$CMD" in
         echo "Auth:      Required for admin endpoints"
         echo "Press Ctrl+C to stop."
         echo ""
-        $PY -m uvicorn server:app --host $BIND --port 8000
+        $VENV_PY -m uvicorn server:app --host $BIND --port 8000
         ;;
     start-lan)
         BIND="0.0.0.0"
@@ -43,31 +40,36 @@ case "$CMD" in
         echo "Auth:      Required for admin endpoints"
         echo "Press Ctrl+C to stop."
         echo ""
-        $PY -m uvicorn server:app --host $BIND --port 8000
+        $VENV_PY -m uvicorn server:app --host $BIND --port 8000
         ;;
     stop)
         echo "Stopping GOD..."
-        pkill -f "uvicorn server:app" 2>/dev/null && echo "[OK] Stopped." || echo "[WARN] Not running."
+        if pgrep -f "uvicorn server:app" > /dev/null; then
+            pkill -f "uvicorn server:app"
+            echo "[OK] Stopped."
+        else
+            echo "[WARN] Not running."
+        fi
         ;;
     status)
         echo "Checking GOD status..."
         if curl -s http://127.0.0.1:8000/api/health >/dev/null 2>&1; then
             echo "[OK] GOD is running on port 8000."
-            curl -s http://127.0.0.1:8000/api/health | $PY -m json.tool 2>/dev/null
+            curl -s http://127.0.0.1:8000/api/health | $VENV_PY -m json.tool 2>/dev/null
             echo ""
             echo "Auth status:"
-            curl -s http://127.0.0.1:8000/api/auth/status | $PY -m json.tool 2>/dev/null
+            curl -s http://127.0.0.1:8000/api/auth/status | $VENV_PY -m json.tool 2>/dev/null
         else
             echo "[WARN] GOD is not running. Start with: ./god.sh start"
         fi
         ;;
     test)
         echo "Running tests..."
-        $PY -m pytest tests/ -v
+        $VENV_PY -m pytest tests/ -v
         ;;
     benchmark)
         echo "Running benchmark..."
-        $PY -c "
+        $VENV_PY -c "
 from superai.benchmark import run
 s = run('cli')
 print(f'BENCHMARK {s[\"run_id\"]}  n={s[\"n\"]}  passed={s[\"passed\"]}  skipped={s[\"skipped\"]}')
@@ -78,7 +80,7 @@ for r in s.get('rows') or []:
         ;;
     doctor)
         echo "Running diagnostics..."
-        $PY -c "
+        $VENV_PY -c "
 from superai import repair
 r = repair.run()
 print(f'REPAIR {r[\"kind\"]} ok={r[\"ok\"]}')

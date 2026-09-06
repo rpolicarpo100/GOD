@@ -100,8 +100,8 @@ Sem `.env`, GOD corre em modo OFFLINE (tools only, sem LLM).
 ## Testes
 
 ```bash
-python -m unittest tests.test_core -q
-# 164/164 PASS
+python -m pytest tests/ -q
+# 252/252 PASS
 ```
 
 ## API Endpoints
