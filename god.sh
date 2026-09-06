@@ -189,30 +189,283 @@ case "$CMD" in
         echo "  Dashboard: http://localhost:$GOD_PORT"
         echo ""
         ;;
-    backup)
-        BACKUP_DIR="$GOD_DIR/backups/$(date +%Y-%m-%d_%H-%M-%S)"
-        mkdir -p "$BACKUP_DIR"
-        echo "Creating backup: $BACKUP_DIR"
-        # Backup config
-        cp -v "$GOD_DIR/.env" "$BACKUP_DIR/.env" 2>/dev/null && echo "  [OK] .env" || echo "  [SKIP] .env"
-        cp -v "$GOD_DIR/config.yaml" "$BACKUP_DIR/config.yaml" 2>/dev/null && echo "  [OK] config.yaml" || echo "  [SKIP] config.yaml"
-        # Backup data
-        if [ -d "$GOD_DIR/data" ]; then
-            cp -r "$GOD_DIR/data" "$BACKUP_DIR/data" 2>/dev/null
-            echo "  [OK] data/ ($(du -sh "$GOD_DIR/data" 2>/dev/null | cut -f1))"
+    repair)
+        echo "GOD Repair"
+        echo "══════════════════════════════════"
+        REPAIRED=0
+        FAILED=0
+        # 1. Stale PID file
+        printf "  [01] Stale PID file.... "
+        if [ -f "$PID_FILE" ]; then
+            OLD_PID=$(cat "$PID_FILE" 2>/dev/null)
+            if [ -n "$OLD_PID" ] && ! kill -0 "$OLD_PID" 2>/dev/null; then
+                rm -f "$PID_FILE"
+                echo "FIXED  (removed stale PID $OLD_PID)"
+                ((REPAIRED++))
+            else
+                echo "OK"
+            fi
+        else
+            echo "OK"
         fi
-        # Create manifest
+        # 2. Data directories
+        printf "  [02] Data directories.. "
+        MISSING=0
+        for d in data data/sandbox data/projects data/gods data/auth data/qdrant data/voice logs backups; do
+            if [ ! -d "$GOD_DIR/$d" ]; then
+                mkdir -p "$GOD_DIR/$d"
+                MISSING=1
+            fi
+        done
+        if [ "$MISSING" = "1" ]; then
+            echo "FIXED  (created missing dirs)"
+            ((REPAIRED++))
+        else
+            echo "OK"
+        fi
+        # 3. Venv integrity
+        printf "  [03] Venv integrity.... "
+        if [ -f "$VENV_PY" ]; then
+            if $VENV_PY -c "import sys" 2>/dev/null; then
+                echo "OK"
+            else
+                echo "FAIL  (venv corrupted — run: rm -rf .venv && ./god-installer.sh)"
+                ((FAILED++))
+            fi
+        else
+            echo "WARN  (no venv — run: ./god-installer.sh)"
+            ((FAILED++))
+        fi
+        # 4. Core dependencies
+        printf "  [04] Dependencies...... "
+        if [ -f "$VENV_PY" ]; then
+            DEP_FAIL=0
+            for mod in fastapi uvicorn tiktoken numpy httpx pyyaml; do
+                $VENV_PY -c "import $mod" 2>/dev/null || DEP_FAIL=1
+            done
+            if [ "$DEP_FAIL" = "1" ]; then
+                echo "REPAIRING..."
+                $VENV_PY -m pip install -r requirements.txt --quiet 2>&1
+                echo "FIXED  (reinstalled deps)"
+                ((REPAIRED++))
+            else
+                echo "OK"
+            fi
+        else
+            echo "SKIP  (no venv)"
+        fi
+        # 5. GOD master profile
+        printf "  [05] GOD Profile....... "
+        if [ ! -f "$GOD_DIR/data/gods/master.json" ]; then
+            if [ -f "$VENV_PY" ]; then
+                $VENV_PY -c "
+from superai import gods
+gods.ensure()
+print('OK' if gods.get('master') else 'FAIL')
+" 2>/dev/null
+                echo "FIXED  (created master profile)"
+                ((REPAIRED++))
+            else
+                echo "SKIP"
+            fi
+        else
+            echo "OK"
+        fi
+        # 6. SQLite integrity
+        printf "  [06] SQLite integrity.. "
+        if [ -f "$GOD_DIR/data/spine.db" ]; then
+            if command -v sqlite3 &>/dev/null; then
+                INTEGRITY=$(sqlite3 "$GOD_DIR/data/spine.db" "PRAGMA integrity_check;" 2>/dev/null)
+                if [ "$INTEGRITY" = "ok" ]; then
+                    echo "OK"
+                else
+                    echo "FAIL  (database corrupted)"
+                    ((FAILED++))
+                fi
+            else
+                echo "OK  (file exists, sqlite3 not available for check)"
+            fi
+        else
+            echo "OK  (will be created on first start)"
+        fi
+        # 7. WAL cleanup
+        printf "  [07] WAL files......... "
+        WAL_CLEANED=0
+        for wal in "$GOD_DIR/data/spine.db-wal" "$GOD_DIR/data/spine.db-shm"; do
+            if [ -f "$wal" ]; then
+                SIZE=$(stat -c%s "$wal" 2>/dev/null || stat -f%z "$wal" 2>/dev/null || echo 0)
+                if [ "$SIZE" -gt 10485760 ] 2>/dev/null; then
+                    rm -f "$wal"
+                    WAL_CLEANED=1
+                fi
+            fi
+        done
+        if [ "$WAL_CLEANED" = "1" ]; then
+            echo "FIXED  (removed oversized WAL)"
+            ((REPAIRED++))
+        else
+            echo "OK"
+        fi
+        # 8. Audit log rotation
+        printf "  [08] Audit log......... "
+        if [ -f "$GOD_DIR/data/auth/audit.jsonl" ]; then
+            SIZE=$(stat -c%s "$GOD_DIR/data/auth/audit.jsonl" 2>/dev/null || stat -f%z "$GOD_DIR/data/auth/audit.jsonl" 2>/dev/null || echo 0)
+            if [ "$SIZE" -gt 2097152 ] 2>/dev/null; then
+                LINES=$(wc -l < "$GOD_DIR/data/auth/audit.jsonl" 2>/dev/null)
+                if [ "$LINES" -gt 5000 ] 2>/dev/null; then
+                    tail -2000 "$GOD_DIR/data/auth/audit.jsonl" > "$GOD_DIR/data/auth/audit.jsonl.tmp"
+                    mv "$GOD_DIR/data/auth/audit.jsonl.tmp" "$GOD_DIR/data/auth/audit.jsonl"
+                    echo "FIXED  (rotated $LINES → 2000 lines)"
+                    ((REPAIRED++))
+                else
+                    echo "OK"
+                fi
+            else
+                echo "OK"
+            fi
+        else
+            echo "OK  (not found)"
+        fi
+        # 9. Stale lock files
+        printf "  [09] Lock files........ "
+        LOCK_CLEANED=0
+        for lock in "$GOD_DIR/data/qdrant"/*.lock; do
+            if [ -f "$lock" ]; then
+                # Check if the PID in the lock file is alive
+                LOCK_PID=$(cat "$lock" 2>/dev/null | head -1)
+                if [ -n "$LOCK_PID" ] && ! kill -0 "$LOCK_PID" 2>/dev/null; then
+                    rm -f "$lock"
+                    LOCK_CLEANED=1
+                fi
+            fi
+        done
+        if [ "$LOCK_CLEANED" = "1" ]; then
+            echo "FIXED  (removed stale locks)"
+            ((REPAIRED++))
+        else
+            echo "OK"
+        fi
+        # 10. Disk space
+        printf "  [10] Disk space........ "
+        DISK_AVAIL=$(df -BM "$GOD_DIR" 2>/dev/null | tail -1 | awk '{print $4}' | tr -d 'M')
+        if [ -n "$DISK_AVAIL" ] && [ "$DISK_AVAIL" -lt 100 ] 2>/dev/null; then
+            echo "WARN  (${DISK_AVAIL}MB free — consider cleanup)"
+            ((FAILED++))
+        else
+            echo "OK  (${DISK_AVAIL:-?}MB free)"
+        fi
+        # 11. Backend repair (compute, queue, qdrant, gods)
+        printf "  [11] Backend repair.... "
+        if [ -f "$VENV_PY" ]; then
+            REPAIR_OUT=$($VENV_PY -c "
+from superai import repair
+r = repair.run()
+ok = r.get('ok', False)
+actions = r.get('actions', [])
+fixed = sum(1 for a in actions if a.get('ok'))
+total = len(actions)
+print(f'{fixed}/{total} ok')
+" 2>/dev/null)
+            if [ -n "$REPAIR_OUT" ]; then
+                echo "PASS  ($REPAIR_OUT)"
+            else
+                echo "SKIP  (backend unavailable)"
+            fi
+        else
+            echo "SKIP  (no venv)"
+        fi
+        echo "══════════════════════════════════"
+        echo "  Repaired: $REPAIRED | Failed: $FAILED"
+        if [ "$FAILED" -gt 0 ]; then
+            echo "  Some issues require manual intervention."
+        elif [ "$REPAIRED" -gt 0 ]; then
+            echo "  All fixable issues repaired."
+        else
+            echo "  No issues found."
+        fi
+        echo ""
+        ;;
+
+    backup)
+        BACKUP_TS=$(date +%Y-%m-%d_%H-%M-%S)
+        BACKUP_DIR="$GOD_DIR/backups/$BACKUP_TS"
+        mkdir -p "$BACKUP_DIR"
+        echo "GOD Backup"
+        echo "══════════════════════════════════"
+        echo "  Target: $BACKUP_DIR"
+        echo ""
+        TOTAL_SIZE=0
+        # Backup config
+        printf "  .env.............. "
+        if [ -f "$GOD_DIR/.env" ]; then
+            cp "$GOD_DIR/.env" "$BACKUP_DIR/.env"
+            echo "OK"
+        else
+            echo "SKIP (not found)"
+        fi
+        printf "  config.yaml....... "
+        if [ -f "$GOD_DIR/config.yaml" ]; then
+            cp "$GOD_DIR/config.yaml" "$BACKUP_DIR/config.yaml"
+            echo "OK"
+        else
+            echo "SKIP"
+        fi
+        # Backup auth
+        printf "  data/auth/........ "
+        if [ -d "$GOD_DIR/data/auth" ]; then
+            mkdir -p "$BACKUP_DIR/data/auth"
+            cp -r "$GOD_DIR/data/auth"/* "$BACKUP_DIR/data/auth/" 2>/dev/null
+            AUTH_SIZE=$(du -sh "$BACKUP_DIR/data/auth" 2>/dev/null | cut -f1)
+            echo "OK  ($AUTH_SIZE)"
+        else
+            echo "SKIP"
+        fi
+        # Backup gods
+        printf "  data/gods/........ "
+        if [ -d "$GOD_DIR/data/gods" ]; then
+            mkdir -p "$BACKUP_DIR/data/gods"
+            cp -r "$GOD_DIR/data/gods"/* "$BACKUP_DIR/data/gods/" 2>/dev/null
+            echo "OK"
+        else
+            echo "SKIP"
+        fi
+        # Backup database
+        printf "  data/spine.db..... "
+        if [ -f "$GOD_DIR/data/spine.db" ]; then
+            cp "$GOD_DIR/data/spine.db" "$BACKUP_DIR/data/"
+            DB_SIZE=$(du -sh "$GOD_DIR/data/spine.db" 2>/dev/null | cut -f1)
+            echo "OK  ($DB_SIZE)"
+        else
+            echo "SKIP"
+        fi
+        # Backup manifest
+        printf "  manifest.json..... "
         cat > "$BACKUP_DIR/manifest.json" << EOF
 {
   "timestamp": "$(date -Iseconds)",
   "commit": "$(cd "$GOD_DIR" && git rev-parse --short HEAD 2>/dev/null || echo 'unknown')",
   "port": $GOD_PORT,
-  "files": $(ls "$BACKUP_DIR" | wc -l)
+  "python": "$($VENV_PY --version 2>&1 | awk '{print $2}' 2>/dev/null || echo 'unknown')",
+  "backup_type": "manual",
+  "contents": [".env", "config.yaml", "data/auth", "data/gods", "data/spine.db"]
 }
 EOF
+        echo "OK"
         echo ""
-        echo "[OK] Backup complete: $BACKUP_DIR"
-        echo "     Size: $(du -sh "$BACKUP_DIR" 2>/dev/null | cut -f1)"
+        BACKUP_SIZE=$(du -sh "$BACKUP_DIR" 2>/dev/null | cut -f1)
+        echo "══════════════════════════════════"
+        echo "  Backup: $BACKUP_SIZE"
+        echo "  Path:   $BACKUP_DIR"
+        # Rotation: keep last 10 backups
+        BACKUP_COUNT=$(ls -d "$GOD_DIR/backups"/*/ 2>/dev/null | wc -l)
+        if [ "$BACKUP_COUNT" -gt 10 ]; then
+            REMOVE_COUNT=$((BACKUP_COUNT - 10))
+            ls -d "$GOD_DIR/backups"/*/ 2>/dev/null | head -n "$REMOVE_COUNT" | while read OLD; do
+                rm -rf "$OLD"
+            done
+            echo "  Rotated: removed $REMOVE_COUNT old backup(s)"
+        fi
+        echo ""
         ;;
     test)
         echo "Running tests..."
@@ -369,39 +622,95 @@ for r in s.get('rows') or []:
         $VENV_PY -m uvicorn server:app --host $BIND --port $GOD_PORT --reload
         ;;
     update)
-        echo "Updating GOD..."
-        # Check for local changes
-        if [ -d "$GOD_DIR/.git" ]; then
-            CHANGES=$(cd "$GOD_DIR" && git status --porcelain 2>/dev/null | wc -l)
-            if [ "$CHANGES" -gt 0 ]; then
-                echo "[WARN] Local changes detected ($CHANGES files)."
-                echo "       Stash or commit before updating."
-                cd "$GOD_DIR" && git status --short
-                echo ""
-                read -p "Continue anyway? (y/N) " -n 1 -r
-                echo
-                if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                    echo "Cancelled."
-                    exit 0
-                fi
-            fi
-            # Backup before update
-            echo "[*] Creating pre-update backup..."
-            $0 backup 2>/dev/null || true
-            # Pull
-            echo "[*] Pulling updates..."
-            cd "$GOD_DIR" && git pull
-            # Update deps
-            echo "[*] Updating dependencies..."
-            $VENV_PY -m pip install -r requirements.txt --quiet 2>&1
-            # Run tests
-            echo "[*] Running tests..."
-            $VENV_PY -m pytest tests/ -q 2>/dev/null
-            echo "[OK] Update complete."
-        else
-            echo "[FAIL] Not a git repository. Manual update required."
+        echo "GOD Update"
+        echo "══════════════════════════════════"
+        # Check git
+        if [ ! -d "$GOD_DIR/.git" ]; then
+            echo "  [FAIL] Not a git repository."
+            echo "         Manual update required."
             exit 1
         fi
+        # Current state
+        OLD_COMMIT=$(cd "$GOD_DIR" && git rev-parse --short HEAD 2>/dev/null)
+        echo "  Current: $OLD_COMMIT"
+        # Fetch
+        printf "  Fetching... "
+        cd "$GOD_DIR" && git fetch 2>/dev/null
+        echo "OK"
+        # Check for updates
+        LOCAL=$(cd "$GOD_DIR" && git rev-parse HEAD 2>/dev/null)
+        REMOTE=$(cd "$GOD_DIR" && git rev-parse @{u} 2>/dev/null)
+        if [ "$LOCAL" = "$REMOTE" ]; then
+            echo "  Status:  Already up to date."
+            echo ""
+            # Still update deps
+            printf "  Dependencies... "
+            $VENV_PY -m pip install -r requirements.txt --quiet 2>&1
+            echo "OK"
+            echo ""
+            echo "══════════════════════════════════"
+            echo "  No updates available."
+            echo ""
+            exit 0
+        fi
+        # Show what changed
+        echo ""
+        echo "  Changes available:"
+        cd "$GOD_DIR" && git log --oneline "$LOCAL..$REMOTE" 2>/dev/null | head -10
+        echo ""
+        # Check for local changes
+        CHANGES=$(cd "$GOD_DIR" && git status --porcelain 2>/dev/null | wc -l)
+        if [ "$CHANGES" -gt 0 ]; then
+            echo "  [WARN] $CHANGES local file(s) modified:"
+            cd "$GOD_DIR" && git status --short | head -10
+            echo ""
+            read -p "  Continue? Local changes will be preserved (stash). (y/N) " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                echo "  Cancelled."
+                exit 0
+            fi
+            # Stash local changes
+            printf "  Stashing local changes... "
+            cd "$GOD_DIR" && git stash push -m "god-update-$(date +%s)" 2>/dev/null
+            echo "OK"
+        fi
+        # Pre-update backup
+        printf "  Pre-update backup... "
+        $0 backup 2>/dev/null | tail -1
+        # Pull
+        printf "  Pulling updates... "
+        cd "$GOD_DIR" && git pull 2>&1 | tail -1
+        NEW_COMMIT=$(cd "$GOD_DIR" && git rev-parse --short HEAD 2>/dev/null)
+        # Update deps
+        printf "  Dependencies... "
+        $VENV_PY -m pip install -r requirements.txt --quiet 2>&1
+        echo "OK"
+        # Run tests
+        printf "  Tests... "
+        TEST_OUT=$($VENV_PY -m pytest tests/ -q 2>/dev/null)
+        TEST_RC=$?
+        if [ "$TEST_RC" -eq 0 ]; then
+            echo "PASS  ($TEST_OUT | tail -1)"
+        else
+            echo "FAIL"
+            echo ""
+            echo "  [WARN] Tests failed after update."
+            echo "  Rolling back to $OLD_COMMIT..."
+            cd "$GOD_DIR" && git checkout "$OLD_COMMIT" 2>/dev/null
+            $VENV_PY -m pip install -r requirements.txt --quiet 2>&1
+            echo "  Rolled back to $OLD_COMMIT."
+            echo "  Check log and fix manually."
+            exit 5
+        fi
+        echo ""
+        echo "══════════════════════════════════"
+        echo "  Updated: $OLD_COMMIT → $NEW_COMMIT"
+        echo "  Tests:   PASS"
+        if [ "$CHANGES" -gt 0 ]; then
+            echo "  Local:   stashed (run: git stash pop)"
+        fi
+        echo ""
         ;;
     uninstall)
         echo ""

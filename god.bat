@@ -660,24 +660,48 @@ for r in s.get('rows') or []:
 goto :eof
 
 :backup
+echo GOD Backup
+echo ══════════════════════════════════
 set "BACKUP_DIR=%GOD_DIR%backups\%DATE:~10,4%-%DATE:~4,2%-%DATE:~7,2%_%TIME:~0,2%-%TIME:~3,2%-%TIME:~6,2%"
 set "BACKUP_DIR=%BACKUP_DIR: =0%"
 mkdir "%BACKUP_DIR%" 2>nul
-echo Creating backup: %BACKUP_DIR%
+mkdir "%BACKUP_DIR%\data" 2>nul
+echo   Target: %BACKUP_DIR%
+echo.
 if exist "%GOD_DIR%.env" (
     copy "%GOD_DIR%.env" "%BACKUP_DIR%\.env" >nul
-    echo   [OK] .env
+    echo   .env.............. OK
+) else (
+    echo   .env.............. SKIP
 )
 if exist "%GOD_DIR%config.yaml" (
     copy "%GOD_DIR%config.yaml" "%BACKUP_DIR%\config.yaml" >nul
-    echo   [OK] config.yaml
+    echo   config.yaml....... OK
+) else (
+    echo   config.yaml....... SKIP
 )
-if exist "%GOD_DIR%data" (
-    xcopy "%GOD_DIR%data" "%BACKUP_DIR%\data\" /E /I /Q >nul 2>&1
-    echo   [OK] data/
+if exist "%GOD_DIR%data\auth" (
+    xcopy "%GOD_DIR%data\auth" "%BACKUP_DIR%\data\auth\" /E /I /Q >nul 2>&1
+    echo   data/auth/........ OK
+) else (
+    echo   data/auth/........ SKIP
+)
+if exist "%GOD_DIR%data\gods" (
+    xcopy "%GOD_DIR%data\gods" "%BACKUP_DIR%\data\gods\" /E /I /Q >nul 2>&1
+    echo   data/gods/........ OK
+) else (
+    echo   data/gods/........ SKIP
+)
+if exist "%GOD_DIR%data\spine.db" (
+    copy "%GOD_DIR%data\spine.db" "%BACKUP_DIR%\data\" >nul
+    echo   data/spine.db..... OK
+) else (
+    echo   data/spine.db..... SKIP
 )
 echo.
-echo [OK] Backup complete: %BACKUP_DIR%
+echo ══════════════════════════════════
+echo   Backup: %BACKUP_DIR%
+echo.
 goto :eof
 
 
