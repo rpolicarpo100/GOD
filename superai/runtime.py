@@ -365,7 +365,8 @@ def _build_conversation_summary() -> str:
         parts.append("Último pedido: " + recent_user[-1])
 
     summary = " | ".join(parts) if parts else ""
-    _conv_summary = {"text": summary, "turns": n, "ts": now}
+    with _lock:
+        _conv_summary = {"text": summary, "turns": n, "ts": now}
     return summary
 
 
@@ -667,6 +668,13 @@ def boot() -> None:
     # Pre-warm embeddings in background (non-blocking)
     import threading as _threading
     def _warmup():
+        # Configure GitHub from environment
+        try:
+            from .github import configure_from_env
+            configure_from_env()
+        except Exception:
+            pass
+        # Warmup embeddings
         try:
             from .embed import warmup as _embed_warmup
             _embed_warmup()

@@ -14,6 +14,8 @@ _INTENT_EXAMPLES: dict[str, list[str]] = {
     "status": ["estado do sistema", "como esta o kernel", "qual e o status do servidor"],
     "coding": ["escreve codigo", "programa em python", "cria uma funcao", "faz um script"],
     "research": ["pesquisa sobre como funciona a internet", "o que e machine learning em detalhe", "explica-me como funciona o protocolo tcp"],
+    "web_search": ["pesquisa na web", "o que diz a internet sobre", "noticias de hoje", "como esta o tempo", "preço do bitcoin"],
+    "github": ["ve o repositorio", "mostra o codigo", "o que tem no repo", "commits recentes", "ficheiro no github"],
     "math": ["quanto e", "calcula", "soma", "multiplica"],
     "tool": ["executa", "corre o comando", "roda o script", "instala"],
 }
@@ -70,7 +72,9 @@ TYPE_RULES = [
     ("files", r"\b(ficheiro|arquivo|lista|ls\b|l[eê] |cat |directoria|diretório|path|ler o)\b"),
     ("python", r"\b(python|executa(r)? este c[oó]digo|corre este)\b"),
     ("regex", r"\b(regex|express[aã]o regular)\b"),
-    ("research", r"\b(pesquisa|search|github|paper|alternativ|osint|web)\b"),
+    ("research", r"\b(pesquisa|search|paper|alternativ|osint)\b"),
+    ("web_search", r"\b(pesquisa na (web|internet)|search the web|not[ií]cias|pre[çc]o|cota[çc][aã]o|tempo hoje|como est[aá] o)\b"),
+    ("github", r"\b(github|reposit[oó]rio|repo|commits?|branch|pull request|PR|ficheiro no git)\b"),
     ("coding", r"\b(c[oó]digo|refactor|implement|debug|arquitect|lint|teste|website|landing|html|css|\bsite\b|p[aá]gina web|cria(r)? (um |uma )?(app|site|p[aá]gina))\b"),
 ]
 

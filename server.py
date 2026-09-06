@@ -573,6 +573,59 @@ def pipeline_timing():
         "memory_hits": lp.get("memory_hits"),
     }
 
+
+@app.get("/api/web/search")
+def web_search_endpoint(q: str = "", max_results: int = 5):
+    from superai.websearch import search
+    return search(q, max_results=max_results)
+
+
+@app.get("/api/web/fetch")
+def web_fetch_endpoint(url: str = ""):
+    from superai.websearch import fetch_page
+    return fetch_page(url)
+
+
+@app.get("/api/web/health")
+def web_health():
+    from superai.websearch import health
+    return health()
+
+
+@app.post("/api/github/configure")
+def github_configure(body: dict = {}):
+    from superai import github
+    token = body.get("token", "")
+    if token:
+        github.configure(token)
+        return {"ok": True, "authenticated": True}
+    github.configure_from_env()
+    return {"ok": True, "from_env": True}
+
+
+@app.get("/api/github/repos")
+def github_repos(owner: str = ""):
+    from superai.github import list_repos
+    return list_repos(owner)
+
+
+@app.get("/api/github/file")
+def github_file(owner: str, repo: str, path: str, ref: str = "main"):
+    from superai.github import get_file
+    return get_file(owner, repo, path, ref)
+
+
+@app.get("/api/github/search")
+def github_search_endpoint(q: str = "", owner: str = "", repo: str = ""):
+    from superai.github import search_code
+    return search_code(q, owner=owner, repo=repo)
+
+
+@app.get("/api/github/health")
+def github_health():
+    from superai.github import health
+    return health()
+
 @app.post("/api/chat/stream")
 async def chat_stream(body: ChatIn):
     """Streaming chat via SSE — runs handle() then streams result text to frontend."""

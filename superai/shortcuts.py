@@ -24,7 +24,7 @@ def _handle_web_refusal(_say, _broadcast) -> dict:
 
 
 def _handle_web_search(query, _say, _broadcast) -> dict:
-    """Search the web using available backends."""
+    """Search the web in real-time using DDG HTML + SearXNG."""
     from .websearch import search
     r = search(query, max_results=5)
     if r.get("status") == "success":

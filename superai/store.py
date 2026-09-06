@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 import threading
 from contextlib import contextmanager
@@ -9,6 +10,8 @@ from typing import Any
 
 from .config import DATA
 from .util import now_iso, uid
+
+_log = logging.getLogger("superai.store")
 
 DB = DATA / "spine.db"
 
@@ -29,8 +32,8 @@ class Store:
             try:
                 c.execute("PRAGMA journal_mode=WAL")
                 c.execute("PRAGMA busy_timeout=3000")
-            except Exception:
-                pass
+            except Exception as e:
+                _log.warning("store error: %s", e)
             self._tls.conn = c
         return c
 
@@ -43,8 +46,8 @@ class Store:
         except Exception:
             try:
                 c.rollback()
-            except Exception:
-                pass
+            except Exception as e:
+                _log.warning("store error: %s", e)
             raise
 
     def _init(self) -> None:
@@ -173,8 +176,8 @@ class Store:
         for r in rows:
             try:
                 out.append(json.loads(r["payload"]))
-            except Exception:
-                pass
+            except Exception as e:
+                _log.warning("store error: %s", e)
         return out
 
     def incr(self, k: str, n: int = 1) -> int:
@@ -303,8 +306,8 @@ class Store:
             it["skipped"] = bool(it["skipped"])
             try:
                 it["detail"] = json.loads(it["detail"]) if it["detail"] else None
-            except Exception:
-                pass
+            except Exception as e:
+                _log.warning("store error: %s", e)
         return {
             "run_id": r["run_id"],
             "n": len(items),
@@ -447,8 +450,8 @@ class Store:
         for r in rows:
             try:
                 out.append(json.loads(r["scores"]))
-            except Exception:
-                pass
+            except Exception as e:
+                _log.warning("store error: %s", e)
         return out
 
     def save_perf(self, entry: dict) -> None:

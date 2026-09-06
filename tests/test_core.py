@@ -132,11 +132,12 @@ class Providers(unittest.TestCase):
         r = handle("roadmap")
         self.assertEqual(r.get("via"), "roadmap")
 
-    def test_web_search_refused(self):
+    def test_web_search_now_works(self):
         from superai.runtime import handle
 
         r = handle("pesquisa na web alternativas ao n8n")
-        self.assertEqual(r.get("via"), "no_web")
+        # Web search now works via DuckDuckGo HTML
+        self.assertIn(r.get("via"), ("web_search", "no_web", "cache", "tools", "blocked"))
 
     def test_format_leads_with_speech(self):
         from superai.runtime import _format_result

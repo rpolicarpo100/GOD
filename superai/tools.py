@@ -296,6 +296,91 @@ def tool_project_list(args: dict) -> dict:
     return _ok(findings=items, evidence=[f"projects n={len(items)}"])
 
 
+
+# ═══════════════════════════════
+# WEB + GITHUB TOOLS
+# ═══════════════════════════════
+
+def tool_web_search(args: dict) -> dict:
+    """Search the web in real-time."""
+    from .websearch import search
+    query = args.get("query") or args.get("text") or ""
+    max_results = int(args.get("max_results", 5))
+    r = search(query, max_results=max_results)
+    if r.get("status") == "success":
+        findings = []
+        for item in r.get("results", []):
+            findings.append({
+                "title": item.get("title"),
+                "url": item.get("url"),
+                "snippet": item.get("snippet"),
+            })
+        return _ok(findings=findings, evidence=[f"backend={r.get('backend')}", f"n={r.get('n')}"])
+    return _err(r.get("error", "search failed"))
+
+
+def tool_web_fetch(args: dict) -> dict:
+    """Fetch and read a web page."""
+    from .websearch import fetch_page
+    url = args.get("url") or ""
+    if not url:
+        return _err("missing url")
+    r = fetch_page(url)
+    if r.get("status") == "success":
+        return _ok(
+            findings=[{"title": r.get("title"), "url": url, "text": r.get("text", "")[:3000]}],
+            evidence=[f"url={url}", f"length={r.get('length')}"]
+        )
+    return _err(r.get("error", "fetch failed"))
+
+
+def tool_github_file(args: dict) -> dict:
+    """Get file from GitHub repo."""
+    from .github import get_file
+    owner = args.get("owner", "")
+    repo = args.get("repo", "")
+    path = args.get("path", "")
+    ref = args.get("ref", "main")
+    if not owner or not repo or not path:
+        return _err("missing owner/repo/path")
+    r = get_file(owner, repo, path, ref)
+    if r.get("status") == "success":
+        content_text = r.get("content", "")
+        return _ok(
+            findings=[{"path": path, "content": content_text[:5000], "size": r.get("size")}],
+            evidence=[f"github:{owner}/{repo}/{path}"]
+        )
+    return _err(r.get("error", "file not found"))
+
+
+def tool_github_search(args: dict) -> dict:
+    """Search code in GitHub repos."""
+    from .github import search_code
+    query = args.get("query", "")
+    owner = args.get("owner", "")
+    repo = args.get("repo", "")
+    if not query:
+        return _err("missing query")
+    r = search_code(query, owner=owner, repo=repo)
+    if r.get("status") == "success":
+        return _ok(
+            findings=r.get("results", []),
+            evidence=[f"total={r.get('total')}", f"n={r.get('n')}"]
+        )
+    return _err(r.get("error", "search failed"))
+
+
+def tool_github_repos(args: dict) -> dict:
+    """List GitHub repos."""
+    from .github import list_repos
+    owner = args.get("owner", "")
+    r = list_repos(owner)
+    if r.get("status") == "success":
+        return _ok(findings=r.get("repos", []), evidence=[f"n={r.get('n')}"])
+    return _err(r.get("error", "list failed"))
+
+
+
 TOOLS: dict[str, dict] = {
     "calculator": {
         "fn": tool_calculator,
@@ -390,6 +475,46 @@ TOOLS: dict[str, dict] = {
         "capabilities": ["site"],
         "cost": 0,
         "latency": "low",
+        "risk": "low",
+        "permissions": "read",
+    },
+    "web.search": {
+        "fn": tool_web_search,
+        "capabilities": ["web", "search", "internet"],
+        "cost": 0,
+        "latency": "medium",
+        "risk": "low",
+        "permissions": "read",
+    },
+    "web.fetch": {
+        "fn": tool_web_fetch,
+        "capabilities": ["web", "fetch", "internet"],
+        "cost": 0,
+        "latency": "medium",
+        "risk": "low",
+        "permissions": "read",
+    },
+    "github.file": {
+        "fn": tool_github_file,
+        "capabilities": ["github", "code"],
+        "cost": 0,
+        "latency": "medium",
+        "risk": "low",
+        "permissions": "read",
+    },
+    "github.search": {
+        "fn": tool_github_search,
+        "capabilities": ["github", "code", "search"],
+        "cost": 0,
+        "latency": "medium",
+        "risk": "low",
+        "permissions": "read",
+    },
+    "github.repos": {
+        "fn": tool_github_repos,
+        "capabilities": ["github"],
+        "cost": 0,
+        "latency": "medium",
         "risk": "low",
         "permissions": "read",
     },

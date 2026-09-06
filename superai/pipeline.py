@@ -20,6 +20,9 @@ from .memory_vec import vectors
 from .store import store
 from . import gods
 from .util import now_iso, uid, sha
+import logging
+
+_log = logging.getLogger("superai.pipeline")
 from . import sensitive, rate_limit, resource_limits, sandbox, network_control, adaptive_routing
 
 
@@ -102,6 +105,27 @@ def plan(task: dict) -> dict:
     elif ttype == "regex":
         needs_llm = True
         reason.append("regex sem padrão explícito — não adivinhar")
+    elif ttype == "web_search":
+        # Extract search query from the text
+        query = text
+        for prefix in ("pesquisa na web", "pesquisa na internet", "search the web",
+                       "pesquisa na web:", "pesquisa na internet:", "search the web:"):
+            if prefix in query.lower():
+                query = query.lower().split(prefix, 1)[1].strip()
+                break
+        steps.append({"tool": "web.search", "args": {"query": query or text}})
+        needs_llm = True  # Also get LLM to synthesize results
+        reason.append("web search + LLM synthesis")
+    elif ttype == "github":
+        # Try to extract owner/repo from text
+        import re as _re
+        gh = _re.search(r"(?:github\.com/)?(\w[\w.-]+)/(\w[\w.-]+)", text)
+        if gh:
+            steps.append({"tool": "github.file", "args": {"owner": gh.group(1), "repo": gh.group(2), "path": ""}})
+        else:
+            steps.append({"tool": "github.repos", "args": {}})
+        needs_llm = True
+        reason.append("github + LLM interpretation")
     elif ttype in ("research", "coding", "general"):
         needs_llm = True
         reason.append(f"tipo {ttype} não tem ferramenta determinística suficiente")
@@ -122,8 +146,8 @@ def _index_task(task: dict, text: str, scores: dict) -> None:
         gid = gods.active_id()
         vectors.upsert("memory", task["task_id"], text, {"type": task.get("type"), "overall": scores.get("OVERALL"), "god_id": gid})
         vectors.upsert("cache", sha(normalize_query(text) + f"\n{gid}"), text, {"task_id": task["task_id"], "god_id": gid})
-    except Exception:
-        pass
+    except Exception as e:
+            _log.warning("pipeline error: %s", e)
 
 
 def _extract_and_store_knowledge(query: str, response: str, task: dict) -> None:
@@ -165,8 +189,8 @@ def _extract_and_store_knowledge(query: str, response: str, task: dict) -> None:
         # This is handled in _record_token but we store task-type context here
         store.mem_put("task_pattern", sha(f"tp:{task_type}:{query[:60]}"),
                      f"type={task_type} complexity={task.get('complexity')} query_len={len(query)}")
-    except Exception:
-        pass
+    except Exception as e:
+            _log.warning("pipeline error: %s", e)
 
 
 def _extract_files(text: str) -> list[tuple[str, str]]:
@@ -614,8 +638,8 @@ def _stage_llm(text, task, pipeline, merged, ctx, *, _say, _mark, _set_pipe, _br
                 _adaptive_provider, _adaptive_task_type,
                 (scores.get("OVERALL", 50) or 50) / 100.0
             )
-    except Exception:
-        pass
+    except Exception as e:
+            _log.warning("pipeline error: %s", e)
     # Knowledge gap detection: log repeated low-quality topics
     try:
         if scores.get("OVERALL", 50) < 50:
@@ -629,8 +653,8 @@ def _stage_llm(text, task, pipeline, merged, ctx, *, _say, _mark, _set_pipe, _br
             if count >= 3:
                 bus.emit("KNOWLEDGE_GAP", "NOTICE",
                          f"Repeated low quality on \'{text[:60]}\' ({count}x)", god_core_state="learning")
-    except Exception:
-        pass
+    except Exception as e:
+            _log.warning("pipeline error: %s", e)
 
     # Self-reflection: if quality is low and we haven't retried, re-prompt
     if scores.get("OVERALL", 1.0) < 0.5 and not pipeline.get("_reflected"):
