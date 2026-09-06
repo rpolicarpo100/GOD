@@ -49,8 +49,8 @@ button{cursor:pointer}
 
 /* ── Rail ── */
 .rail{
-  width:60px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;
-  padding:16px 0;gap:4px;background:var(--deep);border-right:1px solid var(--line);
+  width:48px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;
+  padding:10px 0;gap:2px;background:var(--deep);border-right:1px solid var(--line);
   z-index:50;
 }
 .rail-logo{
@@ -65,7 +65,7 @@ button{cursor:pointer}
 @keyframes rail-logo-spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 .rail-logo span{font-size:11px;font-weight:700;letter-spacing:.15em;color:var(--accent);position:relative;z-index:1}
 .rail-btn{
-  width:42px;height:42px;border-radius:12px;border:none;background:transparent;
+  width:36px;height:36px;border-radius:10px;font-size:15px;border:none;background:transparent;
   color:var(--dim);font-size:18px;display:flex;align-items:center;justify-content:center;
   transition:all .2s ease;position:relative;
 }
@@ -113,10 +113,10 @@ button{cursor:pointer}
 /* GOD CORE — organic breathing orb */
 .god-core{
   flex-shrink:0;display:flex;flex-direction:column;align-items:center;
-  padding:28px 0 16px;position:relative;
+  padding:12px 0 8px;position:relative;
 }
 .core-orb{
-  width:200px;height:200px;position:relative;
+  width:120px;height:120px;position:relative;
   display:flex;align-items:center;justify-content:center;
 }
 /* Layers */
@@ -125,9 +125,10 @@ button{cursor:pointer}
   transition:all .8s cubic-bezier(.4,0,.2,1);
 }
 .core-l1{inset:0;opacity:.06;background:radial-gradient(circle,var(--accent) 0%,transparent 70%)}
-.core-l2{inset:12px;opacity:.1;border:1px solid var(--accent);border-radius:50%}
-.core-l3{inset:26px;opacity:.15;border:1px solid var(--accent2);border-radius:50%}
+.core-l2{inset:8px;opacity:.1;border:1px solid var(--accent);border-radius:50%}
+.core-l3{inset:16px;opacity:.15;border:1px solid var(--accent2);border-radius:50%}
 .core-l4{
+  /* adjusted for smaller orb */
   inset:45px;border-radius:50%;
   background:radial-gradient(circle at 40% 35%,rgba(139,108,199,.2),rgba(139,108,199,.02));
   border:1px solid rgba(139,108,199,.15);
@@ -825,7 +826,8 @@ body.theme-custom {
   .kpi{min-width:80px;padding:10px 8px 8px}
   .kpi .v{font-size:18px}
   .core-orb{width:140px;height:140px}
-  .core-l4{inset:32px}
+  .core-l4{
+  /* adjusted for smaller orb */inset:32px}
   .chat-b.open{height:200px}
 }
 </style>
@@ -1022,6 +1024,12 @@ body.theme-custom {
     </div>
 
   </div>
+</div>
+
+<!-- AI Activity Bar -->
+<div class="ai-activity" id="ai-activity">
+  <div class="dot"></div>
+  <span id="ai-activity-text">GOD a pensar...</span>
 </div>
 
 <!-- Mood Indicator -->
@@ -3011,6 +3019,78 @@ function detectFollowUp(userMsg){
   // Short messages (< 5 words) are often follow-ups
   if(lower.split(/\s+/).length<=3&&!lower.includes('?'))return true;
   return false;
+}
+
+
+// ═══════════════════════════════
+// AI ACTIVITY BAR — shows GOD's state prominently
+// ═══════════════════════════════
+var _aiActivityTimer = null;
+
+function showAIActivity(text, cls, duration) {
+  var el = document.getElementById('ai-activity');
+  var txt = document.getElementById('ai-activity-text');
+  if (!el || !txt) return;
+  txt.textContent = text;
+  el.className = 'ai-activity visible ' + (cls || '');
+  if (_aiActivityTimer) clearTimeout(_aiActivityTimer);
+  if (duration) {
+    _aiActivityTimer = setTimeout(function(){ el.className = 'ai-activity'; }, duration);
+  }
+}
+
+function hideAIActivity() {
+  var el = document.getElementById('ai-activity');
+  if (el) el.className = 'ai-activity';
+}
+
+// Hook into bus events via SSE
+var _origPaintActivity = window.paint;
+window.paint = function(s) {
+  if (_origPaintActivity) _origPaintActivity(s);
+  if (!s) return;
+  var state = s.god_core_state || '';
+  if (state === 'thinking') showAIActivity('GOD a pensar...', 'thinking');
+  else if (state === 'researching') showAIActivity('A pesquisar na web...', 'researching');
+  else if (state === 'learning') showAIActivity('A aprender...', 'learning');
+  else if (state === 'tools') showAIActivity('A executar ferramentas...', 'thinking');
+  else if (state === 'error') showAIActivity('Erro no sistema', 'error', 5000);
+  else if (state === 'ready') hideAIActivity();
+};
+
+// ═══════════════════════════════
+// CHAT WELCOME — show when chat is empty
+// ═══════════════════════════════
+function showChatWelcome() {
+  var box = document.getElementById('chat-m');
+  if (!box || box.children.length > 0) return;
+  box.innerHTML = '<div class="chat-welcome">' +
+    '<div style="font-size:32px;margin-bottom:12px">🧠</div>' +
+    '<h3>Olá! Sou a GOD</h3>' +
+    '<p>Inteligência artificial autónoma. Pesquiso na web, leio notícias, e aprendo sozinha. Pergunta-me qualquer coisa.</p>' +
+    '<div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center">' +
+    '<button class="qb" onclick="sendChat('o que está a acontecer no mundo?')">📰 Notícias</button>' +
+    '<button class="qb" onclick="sendChat('estado do sistema')">📊 Estado</button>' +
+    '<button class="qb" onclick="sendChat('pesquisa na web inteligência artificial')">🔍 Pesquisar</button>' +
+    '<button class="qb" onclick="sendChat('roadmap')">🗺️ Roadmap</button>' +
+    '</div></div>';
+}
+
+// Show welcome on chat open
+var _origToggleChat = window.toggleChat;
+if (_origToggleChat) {
+  window.toggleChat = function() {
+    _origToggleChat();
+    setTimeout(showChatWelcome, 100);
+  };
+}
+
+// Also hook into chat header click
+var chatH = document.getElementById('chat-h');
+if (chatH) {
+  chatH.addEventListener('click', function() {
+    setTimeout(showChatWelcome, 200);
+  });
 }
 
 </script>
