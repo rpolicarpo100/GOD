@@ -3,6 +3,10 @@ __pycache__/
 data/*.db
 data/qdrant/
 data/sandbox/
+data/auth/
+data/voice/
+data/god.pid
+data/install_manifest.json
 .pytest_cache/
 .ssh/
 *.pem
@@ -12,3 +16,5 @@ node_modules/
 .venv/
 data/projects/
 data/gods/
+logs/
+backups/

@@ -127,6 +127,42 @@ else
 fi
 echo ""
 
+# --- Generate installation manifest ---
+echo "[*] Generating installation manifest..."
+$VENV_PY -c "
+import json, platform, sys, os
+from datetime import datetime, timezone
+from pathlib import Path
+
+ROOT = Path('$GOD_DIR')
+manifest = {
+    'timestamp': datetime.now(timezone.utc).isoformat(),
+    'god_version': '0.3.0',
+    'commit': '',
+    'python_version': sys.version.split()[0],
+    'platform': platform.system(),
+    'architecture': platform.machine(),
+    'install_path': str(ROOT),
+    'port': int(os.environ.get('GOD_PORT', '8000')),
+    'components': {
+        'server': (ROOT / 'server.py').exists(),
+        'worker': (ROOT / 'worker.py').exists(),
+        'ui': (ROOT / 'index.html').exists(),
+        'database': (ROOT / 'data' / 'spine.db').exists(),
+        'auth': (ROOT / 'data' / 'auth' / 'users.json').exists(),
+    },
+    'requirements': 'requirements.txt',
+}
+try:
+    import subprocess
+    manifest['commit'] = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], cwd=str(ROOT), text=True).strip()
+except:
+    manifest['commit'] = 'unknown'
+(ROOT / 'data' / 'install_manifest.json').write_text(json.dumps(manifest, indent=2))
+print('[OK] Manifest: data/install_manifest.json')
+" 2>/dev/null
+echo ""
+
 echo "========================================"
 echo "  INSTALLATION COMPLETE"
 echo "========================================"
