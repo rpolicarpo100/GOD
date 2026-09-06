@@ -3087,7 +3087,7 @@ function showChatWelcome() {
     ];
     for (var i = 0; i < items.length; i++) {
       var b = document.createElement('button');
-      b.className = 'qb';
+      b.className = 'qb';b.style.cssText='padding:6px 14px;border-radius:8px;border:1px solid var(--line);background:var(--glass);font-size:11px;color:var(--accent);cursor:pointer;font-weight:600';
       b.textContent = items[i][0];
       b.setAttribute('data-q', items[i][1]);
       b.onclick = function() { sendChat(this.getAttribute('data-q')); };
@@ -3217,6 +3217,14 @@ if (_origPChat) {
       _origPChat(s);
     }
   };
+}
+
+
+// ═══ FILTER <think> BLOCKS FROM LLM OUTPUT ═══
+function filterThink(text) {
+  if (!text) return text;
+  // Remove <think>...</think> blocks (Qwen thinking mode)
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 }
 
 </script>
