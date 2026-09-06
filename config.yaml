@@ -22,50 +22,6 @@ cost:
     official_usd_annual_monthly: 17
     official_usd_monthly: 20
     official_vat_included: false
-feature_flags:
-  allow_remote_tools: false
-  auto_cleanup: true
-  auto_evolve: true
-  cost_routing: true
-  debug_trace: false
-  extended_metrics: true
-  hardcore_mode: false
-  parallel_jobs: true
-  rate_limiting: true
-  semantic_cache: false
-feature_flags_meta:
-  auto_cleanup:
-    enabled_at: '2026-09-05T10:17:32.499521+00:00'
-    enabled_by: auto
-    reason: stale data cleanup, no risk
-  auto_evolve:
-    enabled_at: '2026-09-05T10:19:58.461566+00:00'
-    enabled_by: test
-    reason: test
-  cost_routing:
-    enabled_at: '2026-09-05T10:17:32.478664+00:00'
-    enabled_by: auto
-    reason: pricing CALCULATED, free tier first
-  debug_trace:
-    disabled_at: '2026-09-06T09:35:59.055403+00:00'
-    disabled_by: system
-    reason: test cleanup
-  extended_metrics:
-    enabled_at: '2026-09-05T10:17:32.467458+00:00'
-    enabled_by: auto
-    reason: extra metrics no cost
-  parallel_jobs:
-    enabled_at: '2026-09-05T10:17:32.446849+00:00'
-    enabled_by: auto
-    reason: inflight=2 verified
-  rate_limiting:
-    enabled_at: '2026-09-05T10:17:32.510495+00:00'
-    enabled_by: auto
-    reason: protect free tier quotas
-  semantic_cache:
-    disabled_at: '2026-09-06T09:35:59.071548+00:00'
-    disabled_by: system
-    reason: test cleanup
 governor:
   deny_names:
   - .env
@@ -76,7 +32,6 @@ governor:
   fs_root: /home/user
   python_timeout_s: 8
   strict: true
-mode: auto
 pc_node:
   board: ASUS PRIME Z270-P
   caps:
