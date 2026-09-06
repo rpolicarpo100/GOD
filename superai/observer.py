@@ -131,20 +131,51 @@ def tick() -> dict:
 def _proactive_msg(alert: dict) -> None:
     """Emit proactive GOD message for important alerts."""
     try:
-        from .runtime import _say
+        from .runtime import _say, _broadcast
         code = alert.get("code", "")
         msgs = {
             "TOKEN_BUDGET_EXCEEDED": "Alerta: atingi o limite de tokens. Vou optimizar o uso.",
             "TOKEN_BUDGET_90": "Nota: estou a 90% do budget. A optimizar.",
             "QUALITY_DROP": "Notei que a qualidade baixou. Vou ajustar.",
-            "PC_OVERLOAD": "Sistema sob pressão. A reduzir actividade.",
-            "PROVIDER_GAP": "Sem provider disponível. A usar ferramentas locais.",
-            "BUDGET_RECOVERED": "Budget OK. Operação normal retomada.",
+            "PC_OVERLOAD": "Sistema sob pressao. A reduzir actividade.",
+            "PROVIDER_GAP": "Sem provider disponivel. A usar ferramentas locais.",
+            "BUDGET_RECOVERED": "Budget OK. Operacao normal retomada.",
         }
         if code in msgs:
             _say("brain", msgs[code])
+            _broadcast()
     except Exception:
         pass
+
+
+def generate_suggestions() -> list[str]:
+    """Generate proactive suggestions based on system state and patterns."""
+    suggestions: list[str] = []
+    try:
+        from . import providers as _prov
+        from .store import store as _store
+        hs = _prov.health_all()
+        avail = [h for h in hs if h.get("available")]
+        usage = _store.usage()
+
+        if not avail:
+            any_ollama = any(h.get("id") == "ollama" for h in hs)
+            if not any_ollama:
+                suggestions.append("Sem providers. Instala Ollama para LLM local gratuito.")
+
+        from .memory_vec import vectors
+        if not vectors.available():
+            suggestions.append("Memory em SQLite. Instala Qdrant para semantic search neural.")
+
+        cache = _store.cache_stats()
+        if cache.get("misses", 0) > 20 and cache.get("hit_rate") is not None and cache["hit_rate"] < 0.3:
+            suggestions.append("Cache hit rate baixo. Interaccoes repetidas vao ficar mais rapidas.")
+
+        if usage.get("session_tokens", 0) > 50000:
+            suggestions.append("Muitos tokens usados. Usa shortcuts para respostas instantaneas.")
+    except Exception:
+        pass
+    return suggestions[:3]
 
 
 def latest() -> dict:

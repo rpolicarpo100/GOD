@@ -195,6 +195,7 @@ def health() -> dict:
 
 
 def complete(prompt: str, **kw: Any) -> dict[str, Any]:
+    """Route with provider racing — try top2 providers in parallel, use fastest."""
     rec = kw.get("recommendation")
     prefer = kw.get("prefer")
     hardcore = kw.pop("hardcore", False)
@@ -204,10 +205,52 @@ def complete(prompt: str, **kw: Any) -> dict[str, Any]:
             kw = {**kw, "prefer": "claude"}
     try:
         from . import tokens as ti
-
         kw = {**kw, "stats": ti.provider_stats()}
     except Exception:
         pass
+
+    # Check if multiple providers are available for racing
+    hs = providers.health_all()
+    avail = [h for h in hs if h.get("available")]
+
+    if len(avail) >= 2 and not prefer:
+        # Provider racing — try top2 in parallel
+        import concurrent.futures
+        adapters = []
+        # Try direct adapter first (usually fastest — Groq, Cerebras)
+        if direct.health()["available"]:
+            adapters.append(("direct", direct))
+        # Also try OmniRoute if available
+        if omni.health()["available"]:
+            adapters.append(("omni", omni))
+
+        if len(adapters) >= 2:
+            def _try(name, adapter):
+                t0 = time.perf_counter()
+                r = adapter.complete(prompt, **kw, hardcore=hardcore)
+                r["latency_ms"] = round((time.perf_counter() - t0) * 1000, 1)
+                r["gateway"] = name
+                return r
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+                futures = {pool.submit(_try, n, a): n for n, a in adapters[:2]}
+                for future in concurrent.futures.as_completed(futures, timeout=30):
+                    try:
+                        res = future.result()
+                        if res.get("status") == "success":
+                            res["latency_kind"] = "MEASURED"
+                            res["fallback"] = False
+                            res["retry_count"] = 0
+                            res["racing"] = True
+                            # Cancel other futures
+                            for f in futures:
+                                f.cancel()
+                            return res
+                    except Exception:
+                        continue
+            # All racing attempts failed, fall through to single provider
+
+    # Single provider (original logic)
     o = omni.health()
     act = omni if o["available"] else direct
     t0 = time.perf_counter()

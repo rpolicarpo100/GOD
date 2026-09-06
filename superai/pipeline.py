@@ -126,6 +126,21 @@ def _index_task(task: dict, text: str, scores: dict) -> None:
         pass
 
 
+def _extract_and_store_knowledge(query: str, response: str, task: dict) -> None:
+    """Extract knowledge facts from interaction and store persistently."""
+    try:
+        if task.get("type") in ("math", "status", "git", "files", "parse"):
+            return
+        low = query.lower()
+        if any(w in low for w in ("prefiro", "gosto de", "quero que", "não gosto")):
+            store.mem_put("knowledge", sha(f"pref:{query[:100]}"), f"Utilizador: {query[:200]}")
+        if len(query) > 20 and len(response) > 50:
+            summary = f"{query[:120]} -> {response[:200]}"
+            store.mem_put("knowledge", sha(f"ep:{summary}"), summary)
+    except Exception:
+        pass
+
+
 def _extract_files(text: str) -> list[tuple[str, str]]:
     """Fences ```lang path\nbody```. Never invent a path outside the fence."""
     from pathlib import Path as PPath
@@ -212,7 +227,7 @@ def _stage_cache(text, task, pipeline, need_mem, gid, _say, _mark, _set_pipe, _b
     """Stage 2: Cache lookup (hash + semantic)."""
     hit = cache_lookup(text, gid)
     if not hit and need_mem and cfg.get("evolution_policy", "semantic_cache", default=True) is not False and vectors.available():
-        sem = vectors.search("cache", text, k=1, min_score=0.88, god_id=gid)
+        sem = vectors.search("cache", text, k=1, min_score=0.82, god_id=gid)
         pipeline["vector_cache"] = sem[:1]
         if sem and sem[0].get("key"):
             hit = store.cache_get(sem[0]["key"])
@@ -510,6 +525,25 @@ def _stage_llm(text, task, pipeline, merged, ctx, *, _say, _mark, _set_pipe, _br
                   latency_ms=res.get("latency_ms"))
     tool_results = [{"tool": f"llm:{res.get('adapter')}", "status": "success", "confidence": 0.5, "findings": [{"text": res.get("text")}], "errors": [], "evidence": [f"adapter={res.get('adapter')} model={res.get('model')}"]}]
     scores = evaluate(task, tool_results, True, toks)
+    # Self-reflection: if quality is low and we haven't retried, re-prompt
+    if scores.get("OVERALL", 1.0) < 0.5 and not pipeline.get("_reflected"):
+        pipeline["_reflected"] = True
+        pipeline["route"].append("SELF_REFLECTION")
+        bus.emit("REFLECTION", "INFO", f"score {scores['OVERALL']:.2f} < 0.5 -- re-prompting", god_core_state="thinking")
+        original_text = str(res.get("text") or "")
+        improved_prompt = (
+            f"A resposta anterior teve qualidade baixa (score {scores['OVERALL']:.2f}).\n"
+            f"Resposta anterior: {original_text[:300]}\n\n"
+            f"Melhora agora. Responde de novo ao pedido original:\n{text}"
+        )
+        res2 = routing.complete(improved_prompt, max_tokens=max_tok, hardcore=hardcore)
+        if res2.get("status") == "success" and res2.get("text"):
+            res = res2
+            toks = int(res2.get("tokens") or 0)
+            tool_results = [{"tool": f"llm:{res2.get('adapter')}", "status": "success", "confidence": 0.5, "findings": [{"text": res2.get("text")}], "errors": [], "evidence": [f"adapter={res2.get('adapter')} model={res2.get('model')} reflection=true"]}]
+            scores = evaluate(task, tool_results, True, toks)
+            speech = _format_result(task, pipeline, tool_results, scores, None)
+
     validation = validate(task, tool_results, llm_text=str(res.get("text") or ""))
     critique = criticize(pipeline, task, tool_results, scores)
     speech = _format_result(task, pipeline, tool_results, scores, None)
@@ -521,7 +555,9 @@ def _stage_llm(text, task, pipeline, merged, ctx, *, _say, _mark, _set_pipe, _br
         if pub.get("errors"):
             speech += "\nWrite: " + "; ".join(pub["errors"][:4])
     cache_store(text, {"summary": speech, "scores": scores}, scores["OVERALL"], ns=gods.active_id())
-    store.mem_put("episode", task["task_id"], f"{text[:120]} → {str(res.get('text') or '')[:240]}")
+    store.mem_put("episode", task["task_id"], f"{text[:120]} -> {str(res.get('text') or '')[:240]}")
+    # Knowledge persistence: extract facts from interaction
+    _extract_and_store_knowledge(text, str(res.get("text") or ""), task)
     _index_task(task, text, scores)
     task["status"] = "done"
     task["via"] = "llm"
@@ -592,13 +628,16 @@ def run_pipeline(text: str, task: dict, from_worker: bool, *,
 
     gid = gods.active_id()
 
-    # 2 cache
-    cache_result = _stage_cache(text, task, pipeline, need_mem, gid, _say, _mark, _set_pipe, _broadcast, _format_result, _lock)
-    if cache_result:
-        return cache_result
-
-    # 3 memory
-    merged, ctx = _stage_memory(text, task, pipeline, need_mem, gid, _mark)
+    # 2+3 parallel: cache + memory (independent stages)
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        cache_f = pool.submit(_stage_cache, text, task, pipeline, need_mem, gid, _say, _mark, _set_pipe, _broadcast, _format_result, _lock)
+        memory_f = pool.submit(_stage_memory, text, task, pipeline, need_mem, gid, _mark)
+        cache_result = cache_f.result()
+        if cache_result:
+            memory_f.cancel()
+            return cache_result
+        merged, ctx = memory_f.result()
 
     # 4 firewall
     merged, ctx, fw_result = _stage_firewall(task, pipeline, merged, ctx, _say, _set_pipe, _broadcast, _format_result, _lock)

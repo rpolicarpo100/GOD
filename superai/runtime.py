@@ -275,13 +275,77 @@ def _fmt_bench(s: dict) -> str:
     return "\n".join(lines)
 
 
+_conv_summary: dict = {"text": "", "turns": 0, "ts": 0.0}
+
+
+def _build_conversation_summary() -> str:
+    """Build a conversation summary from recent chat history.
+    Extracts key topics, user preferences, and active context."""
+    import time as _time
+    global _conv_summary
+    now = _time.time()
+    with _lock:
+        n = len(_chat)
+    if _conv_summary["text"] and (n - _conv_summary["turns"]) < 10 and (now - _conv_summary["ts"]) < 300:
+        return _conv_summary["text"]
+
+    with _lock:
+        msgs = list(_chat)
+
+    topics: list[str] = []
+    user_prefs: list[str] = []
+    recent_user: list[str] = []
+
+    for m in msgs[-20:]:
+        role = m.get("role", "")
+        text = str(m.get("text") or "").strip()
+        if not text:
+            continue
+        if role == "user":
+            recent_user.append(text[:100])
+            low = text.lower()
+            if any(w in low for w in ("prefiro", "gosto", "quero", "preciso")):
+                user_prefs.append(text[:100])
+
+    all_text = " ".join(recent_user[-5:]).lower()
+    topic_keywords = {
+        "providers": ("provider", "groq", "cerebras", "ollama", "llm", "api key"),
+        "dashboard": ("dashboard", "ui", "interface", "painel"),
+        "performance": ("performance", "latência", "rápido", "lento", "cache"),
+        "memory": ("memória", "memory", "qdrant", "sqlite"),
+        "config": ("config", "configurar", "settings", ".env"),
+        "code": ("código", "code", "python", "função", "script"),
+        "project": ("projecto", "god", "roadmap", "missão"),
+    }
+    for topic, keywords in topic_keywords.items():
+        if any(kw in all_text for kw in keywords):
+            topics.append(topic)
+
+    parts: list[str] = []
+    if topics:
+        parts.append("Tópicos activos: " + ", ".join(topics))
+    if user_prefs:
+        parts.append("Preferências: " + user_prefs[-1])
+    if recent_user:
+        parts.append("Último pedido: " + recent_user[-1])
+
+    summary = " | ".join(parts) if parts else ""
+    _conv_summary = {"text": summary, "turns": n, "ts": now}
+    return summary
+
+
 def _dialogue(n: int = 4, current: str | None = None) -> list[str]:
-    """Últimos turnos do chat vivo. Sem placeholder, sem rodapé de tokens."""
+    """Últimos turnos do chat vivo. Inclui sumário conversacional."""
     with _lock:
         msgs = list(_chat)
     cur = (current or "").strip()
     out: list[str] = []
     skipped_current = False
+
+    summary = _build_conversation_summary()
+    if summary:
+        out.append("CONTEXTO: " + summary)
+
     for m in reversed(msgs):
         role = m.get("role")
         text = str(m.get("text") or "").strip()
@@ -296,7 +360,7 @@ def _dialogue(n: int = 4, current: str | None = None) -> list[str]:
             text = text.split("\n\n— GOD ·", 1)[0].strip()
         who = "TU" if role == "user" else "GOD"
         out.append(f"{who}: {text[:180]}")
-        if len(out) >= n:
+        if len(out) >= n + 1:
             break
     out.reverse()
     return out

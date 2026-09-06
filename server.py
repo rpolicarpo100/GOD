@@ -197,6 +197,13 @@ def state():
     return snapshot()
 
 
+@app.get("/api/suggestions")
+def suggestions():
+    """Proactive suggestions based on system state."""
+    from superai.observer import generate_suggestions
+    return {"suggestions": generate_suggestions()}
+
+
 @app.get("/api/health")
 def health():
     """Liveness leve — sem Qdrant/snapshot. Métricas pesadas em /api/metrics."""

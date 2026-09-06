@@ -864,7 +864,7 @@ body.theme-neon{
     <div class="home-grid">
       <div class="panel" data-panel-id="system-map">
         <div class="panel-h" onclick="togglePanel(this)"><div class="panel-t">System Map</div><span class="panel-toggle">▼</span></div>
-        <div class="panel-b" style="position:relative"><div class="smap" id="smap"></div><svg class="smap-lines" id="smap-lines"></svg></div>
+        <div class="panel-b" style="position:relative"><div class="smap" id="smap"></div><div class="smap" id="suggestions" style="display:none;margin-top:6px;padding-top:6px;border-top:1px solid var(--line)"></div><svg class="smap-lines" id="smap-lines"></svg></div>
       </div>
       <div class="panel" data-panel-id="nodes">
         <div class="panel-h" onclick="togglePanel(this)"><div class="panel-t">Nodes</div><span class="panel-toggle">▼</span></div>
@@ -2061,7 +2061,18 @@ fetch('/api/state').then(r=>r.json()).then(d=>{
 }).catch(()=>{
   $('h-sys').className='h-badge crit';$('h-sys-t').textContent='Offline';setCore('offline','Offline');
 });
-connect();
+  // Proactive suggestions
+  fetch('/api/suggestions').then(r=>r.json()).then(d=>{
+    const sug=d.suggestions||[];
+    if(sug.length){
+      const sugEl=$('suggestions');
+      if(sugEl){
+        sugEl.innerHTML=sug.map(s=>'<div class="sr"><div class="sd w"></div><div class="sv" style="color:var(--warn);font-size:10px">'+esc(s)+'</div></div>').join('');
+        sugEl.style.display='flex';
+      }
+    }
+  }).catch(()=>{});
+  connect();
 
 // Performance display with sparkline
 function updatePerfDisplay(){

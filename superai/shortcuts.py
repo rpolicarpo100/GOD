@@ -14,31 +14,6 @@ from .events import bus
 from .governor import gov
 
 
-def _handle_token_report(_say, _broadcast) -> dict:
-    snap = ti.snapshot()
-    u, b, f, c = snap["usage"], snap["budget"], snap["forecast"], snap["cost"]
-    rp = snap.get("report") or ti.report()
-    cs = rp.get("cache_savings") or {}
-    cx = rp.get("context_savings") or {}
-    md = rp.get("models") or {}
-    lines = [
-        "TOKEN ECONOMY REPORT — MEASURED vs ESTIMATED vs FORECAST vs UNKNOWN.",
-        f"MEASURED session={u['session_tokens']} daily={u['daily_tokens']} actual_sum={u['sum_actual']} llm_calls={u['llm_calls']}",
-        f"ESTIMATED sum={u['sum_estimated']}  (tiktoken; não é consumo de provider)",
-        f"COST {c['kind']}: {c.get('reason')}",
-        f"BUDGET daily used={b['daily']['used_measured']}/{b['daily']['limit']} hard={b['daily']['hard']}",
-        f"CACHE hits={cs.get('hits_measured')} estimated_savings={cs.get('estimated_savings')} actual_savings={cs.get('actual_savings')} ({cs.get('actual_kind')})",
-        f"CONTEXT saved_est={cx.get('tokens_saved_estimated')} actual={cx.get('actual_savings')} ({cx.get('actual_kind')})",
-        f"MODELS {md.get('kind')}: {md.get('reason') or md.get('models')}",
-        f"FORECAST {f['kind']} status={f.get('status')} {f.get('reason') or ''}",
-        f"useful_work/token {snap['efficiency'].get('useful_work_per_token')} ({snap['efficiency'].get('kind')})",
-        f"Langfuse {snap['externals']['langfuse']['available']} LiteLLM {snap['externals']['litellm']['available']}",
-    ]
-    _say("brain", "\n".join(lines))
-    _broadcast()
-    return {"ok": True, "via": "tokens"}
-
-
 def _handle_web_refusal(_say, _broadcast) -> dict:
     _say("brain",
          "SearXNG ausente. Pesquisa web NÃO foi feita. Não invento resultados da internet. "
@@ -257,11 +232,65 @@ def _handle_approve_reject(low, _say, _broadcast) -> dict:
 def try_shortcuts(text: str, low: str, from_worker: bool, *,
                   _say, _broadcast, _last_pipeline, _fmt_bench,
                   _enqueue, resolve_mode) -> tuple[bool, dict | None]:
-    """Tenta todos os shortcuts. Retorna (handled, result)."""
+    """Tenta todos os shortcuts. Retorna (handled, result).
+    Shortcuts determinísticos são cached por30s para respostas instantâneas."""
+    import time as _time
+    from .store import Store as _Store
+    _sc = _Store()
+
+    # Deterministic shortcuts that can be cached (30s TTL)
+    _CACHEABLE = {
+        "token_report": r"economia de tokens|token intelligence|relat[oó]rio de tokens",
+        "roadmap": r"^\\s*(roadmap|fluxo)\\s*$|\\broadmap\\b",
+        "os": r"^\\s*(ps|dmesg|uname)\\s*$",
+        "kernel": r"kernel|os|superai os|estado do kernel",
+    }
+
+    def _cache_get(key: str) -> dict | None:
+        """Get cached shortcut result if <30s old."""
+        entry = _sc.cache_get(f"__shortcut__{key}")
+        if entry:
+            age = _time.time() - _time.mktime(_time.strptime(entry["ts"][:19], "%Y-%m-%dT%H:%M:%S"))
+            if age < 30:
+                cached = entry["result"]
+                _say("brain", cached.get("_text", ""), replace_prefix=None)
+                _broadcast()
+                return {"ok": True, "via": f"shortcut_cache:{key}", "cached": True}
+        return None
+
+    def _cache_set(key: str, text_val: str):
+        """Cache shortcut result for30s."""
+        _sc.cache_put(f"__shortcut__{key}", {"_text": text_val}, quality=1.0, ns="__shortcuts__")
 
     # Token economy report
     if re.search(r"economia de tokens|token intelligence|relat[oó]rio de tokens", low):
-        return True, _handle_token_report(_say, _broadcast)
+        cached = _cache_get("token_report")
+        if cached:
+            return True, cached
+        snap = ti.snapshot()
+        u, b, f, c = snap["usage"], snap["budget"], snap["forecast"], snap["cost"]
+        rp = snap.get("report") or ti.report()
+        cs = rp.get("cache_savings") or {}
+        cx = rp.get("context_savings") or {}
+        md = rp.get("models") or {}
+        lines = [
+            "TOKEN ECONOMY REPORT — MEASURED vs ESTIMATED vs FORECAST vs UNKNOWN.",
+            f"MEASURED session={u['session_tokens']} daily={u['daily_tokens']} actual_sum={u['sum_actual']} llm_calls={u['llm_calls']}",
+            f"ESTIMATED sum={u['sum_estimated']}  (tiktoken; não é consumo de provider)",
+            f"COST {c['kind']}: {c.get('reason')}",
+            f"BUDGET daily used={b['daily']['used_measured']}/{b['daily']['limit']} hard={b['daily']['hard']}",
+            f"CACHE hits={cs.get('hits_measured')} estimated_savings={cs.get('estimated_savings')} actual_savings={cs.get('actual_savings')} ({cs.get('actual_kind')})",
+            f"CONTEXT saved_est={cx.get('tokens_saved_estimated')} actual={cx.get('actual_savings')} ({cx.get('actual_kind')})",
+            f"MODELS {md.get('kind')}: {md.get('reason') or md.get('models')}",
+            f"FORECAST {f['kind']} status={f.get('status')} {f.get('reason') or ''}",
+            f"useful_work/token {snap['efficiency'].get('useful_work_per_token')} ({snap['efficiency'].get('kind')})",
+            f"Langfuse {snap['externals']['langfuse']['available']} LiteLLM {snap['externals']['litellm']['available']}",
+        ]
+        text_out = "\n".join(lines)
+        _cache_set("token_report", text_out)
+        _say("brain", text_out)
+        _broadcast()
+        return {"ok": True, "via": "tokens"}
 
     # Web search — try actual search first, fallback to refusal
     if re.search(r"pesquisa na (web|internet)|search the web|\bsearxng\b|\bgoogle\b.*\b(pesquisa|search)", low):

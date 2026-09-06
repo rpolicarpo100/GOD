@@ -9,6 +9,59 @@ from .util import count_tokens, normalize_query, now_iso, sha, uid
 
 MATH_RE = re.compile(r"^[\s\d\.\+\-\*/%\(\)\^x×÷,]+$", re.I)
 
+# Intent examples for embedding-based classification
+_INTENT_EXAMPLES: dict[str, list[str]] = {
+    "status": ["estado do sistema", "como esta o kernel", "qual e o status do servidor"],
+    "coding": ["escreve codigo", "programa em python", "cria uma funcao", "faz um script"],
+    "research": ["pesquisa sobre como funciona a internet", "o que e machine learning em detalhe", "explica-me como funciona o protocolo tcp"],
+    "math": ["quanto e", "calcula", "soma", "multiplica"],
+    "tool": ["executa", "corre o comando", "roda o script", "instala"],
+}
+_intent_cache: dict = {"embeddings": None, "computed": False}
+
+
+def _classify_by_embedding(text: str) -> str:
+    """Classify intent using local embeddings with cosine similarity."""
+    try:
+        from .embed import _get_neural
+        neural = _get_neural()
+        if not neural:
+            return "general"
+
+        import numpy as np
+
+        if not _intent_cache["computed"]:
+            examples_flat = []
+            labels_flat = []
+            for intent, examples in _INTENT_EXAMPLES.items():
+                for ex in examples:
+                    examples_flat.append(ex)
+                    labels_flat.append(intent)
+            vecs = list(neural.embed(examples_flat))
+            _intent_cache["embeddings"] = (vecs, labels_flat)
+            _intent_cache["computed"] = True
+
+        vecs, labels = _intent_cache["embeddings"]
+        q_vec = list(neural.embed([text]))[0]
+        q_norm = np.linalg.norm(q_vec)
+        if q_norm == 0:
+            return "general"
+
+        best_sim = -1.0
+        best_intent = "general"
+        for i, v in enumerate(vecs):
+            sim = float(np.dot(q_vec, v) / (q_norm * np.linalg.norm(v)))
+            if sim > best_sim:
+                best_sim = sim
+                best_intent = labels[i]
+
+        if best_sim >= 0.75:
+            return best_intent
+        return "general"
+    except Exception:
+        return "general"
+
+
 TYPE_RULES = [
     ("git", r"\bgit\b|commit|diff|branch|\brepo\b"),
     ("status", r"\b(estado|sa[uú]de|briefing|modo de opera|budget|orçamento|providers?)\b"),
@@ -26,12 +79,18 @@ def analyze(text: str) -> dict:
     t = text.strip()
     low = t.lower()
     ttype = "general"
+
+    # Hybrid: regex first, then embedding classifier for ambiguous cases
     for name, rx in TYPE_RULES:
         if re.search(rx, low, re.I):
             ttype = name
             break
     if MATH_RE.match(low.replace("quanto é", "").replace("quanto e", "").replace("calcula", "").strip()):
         ttype = "math"
+
+    # Embedding-based intent refinement for "general" type
+    if ttype == "general" and len(t) > 5:
+        ttype = _classify_by_embedding(t)
 
     complexity = 2
     if len(t) > 80:
