@@ -158,24 +158,6 @@ def scan_task_content(task: dict) -> dict:
     }
 
 
-def scan_tool_output(tool_name: str, output: str) -> dict:
-    """Scan tool output for leaked sensitive data."""
-    detections = scan_text(output)
-    
-    # Tool output leaking sensitive data is higher risk
-    for d in detections:
-        d["risk"] = min(d["risk"] + 2, 5)
-        d["source"] = f"tool:{tool_name}"
-    
-    return {
-        "kind": "MEASURED",
-        "tool": tool_name,
-        "detections": detections,
-        "has_sensitive": len(detections) > 0,
-        "risk_score": max((d["risk"] for d in detections), default=0),
-    }
-
-
 def _assess_risk(pattern_name: str, match: str) -> int:
     """Assess risk level (0-5)."""
     if pattern_name in _HIGH_CONFIDENCE:

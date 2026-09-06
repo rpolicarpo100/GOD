@@ -275,7 +275,3 @@ def cache_stats() -> dict:
     """Get cache statistics."""
     return _cache.stats()
 
-
-def cache_clear():
-    """Clear all caches."""
-    _cache.l1.clear()

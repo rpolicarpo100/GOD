@@ -174,14 +174,3 @@ def check_rate_limit(key: str, endpoint: str, role: str = "OPERATOR") -> dict:
     """Check rate limit for a request."""
     return _limiter.check(key, endpoint, role)
 
-
-def block_key(key: str, duration: float =300):
-    """Block a key."""
-    _limiter.block(key, duration)
-
-
-def format_rate_limit(result: dict) -> str:
-    """Format rate limit result for display."""
-    if result.get("ok"):
-        return f"✓ Allowed ({result.get('remaining', '?')} remaining)"
-    return f"✗ Rate limited: {result.get('reason')} (retry in {result.get('retry_after', '?')}s)"

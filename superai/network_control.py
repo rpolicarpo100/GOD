@@ -255,9 +255,3 @@ def set_network_policy(
     """Set network policy."""
     _controller.set_policy(allow_outbound, allow_lan, allow_remote)
 
-
-def format_network_check(result: dict) -> str:
-    """Format network check for display."""
-    if result.get("ok"):
-        return f"✓ Allowed: {result.get('host')}:{result.get('port')} ({result.get('zone')})"
-    return f"✗ Blocked: {result.get('reason')}"

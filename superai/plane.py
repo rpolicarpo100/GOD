@@ -167,7 +167,3 @@ def status() -> dict:
     _cache_t = now
     return _cache
 
-
-def reset_cache() -> None:
-    global _cache, _cache_t
-    _cache, _cache_t = None, 0.0

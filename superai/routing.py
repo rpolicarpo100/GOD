@@ -188,13 +188,6 @@ omni = OmniRouteAdapter()
 direct = DirectAdapter()
 
 
-def active_gateway() -> RoutingAdapter:
-    h = omni.health()
-    if h["available"]:
-        return omni
-    return direct
-
-
 def health() -> dict:
     o, d = omni.health(), direct.health()
     act = omni if o["available"] else direct

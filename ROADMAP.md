@@ -10,7 +10,7 @@ GitHub: [rpolicarpo100/GOD](https://github.com/rpolicarpo100/GOD)
 | Providers | 10/11 TESTED |
 | Security | 88/88 PASS |
 | Constitution | 12/12 traits |
-| Módulos | 50 |
+| Módulos | 48 |
 | Dead Code | 0 |
 | P0 Findings | 0 |
 
@@ -28,11 +28,9 @@ Adicionar `threading.Lock()` a `_sessions`, `_overrides`, `_approvals`.
 
 Migrar `@app.on_event("startup")` para lifespan context manager.
 
-### 3. Remove Unused Functions (P2-3)
+### ~~3. Remove Unused Functions (P2-3)~~ ✅
 
-**Impacto**: BAIXO | **Risco**: BAIXO | **Esforço**: MÉDIO
-
-Auditar ~70 funções não utilizadas, remover as confirmadas como dead code.
+Removidas 30 funções mortas + módulo evidence.py (105 linhas). 50→48 módulos, 0 regressões.
 
 ## Não Agora
 

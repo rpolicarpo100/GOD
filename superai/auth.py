@@ -375,15 +375,6 @@ def validate_session(session_id: str) -> dict | None:
         "authenticated": True,
     }
 
-def get_session(session_id: str) -> dict | None:
-    """Get session info without updating last_active."""
-    if not session_id or session_id not in _sessions:
-        return None
-    s = _sessions[session_id]
-    if not s.get("active"):
-        return None
-    return s
-
 # ═══════════════════════════════
 # AUTHORIZATION
 # ═══════════════════════════════

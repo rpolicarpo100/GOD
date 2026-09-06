@@ -370,9 +370,3 @@ def check_command(cmd: str) -> dict:
         "note": f"Command '{base_cmd}' not in safe list — review recommended",
     }
 
-
-def format_sandbox_check(result: dict) -> str:
-    """Format sandbox check for display."""
-    if result.get("ok"):
-        return f"✓ Allowed: {result.get('resolved', '')}"
-    return f"✗ Blocked: {result.get('reason', 'unknown')}"

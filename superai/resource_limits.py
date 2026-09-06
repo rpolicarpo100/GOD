@@ -262,14 +262,3 @@ def end_tracking(task_id: str) -> dict:
     """Stop tracking a task."""
     return _tracker.end_task(task_id)
 
-
-def format_limits(check: dict) -> str:
-    """Format limit check for display."""
-    if check.get("ok"):
-        return "✓ Within resource limits"
-    
-    lines = ["⚠ Resource limit violations:"]
-    for v in check.get("violations", []):
-        lines.append(f"  - {v['limit']}: {v.get('current', '?')} > {v.get('max', '?')}")
-    
-    return "\n".join(lines)
