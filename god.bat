@@ -18,6 +18,7 @@ set "CMD=%~1"
 if "%CMD%"=="" goto :help
 if "%CMD%"=="start" goto :start
 if "%CMD%"=="start-lan" goto :start-lan
+if "%CMD%"=="restart" goto :restart
 if "%CMD%"=="stop" goto :stop
 if "%CMD%"=="status" goto :status
 if "%CMD%"=="test" goto :test
@@ -129,6 +130,14 @@ if defined GOD_PID (
     echo [FAIL] GOD failed to start. Check: type %LOG_DIR%\god.log
     exit /b 1
 )
+goto :eof
+
+
+:restart
+echo Restarting GOD...
+call :stop 2>nul
+timeout /t 2 /nobreak >nul 2>&1
+call :start
 goto :eof
 
 :stop
@@ -496,6 +505,7 @@ echo GOD — Commands
 echo.
 echo   god start       Start the server (localhost only, port %GOD_PORT%)
 echo   god start-lan   Start the server (LAN accessible, port %GOD_PORT%)
+echo   god restart     Restart the server (stop + start)
 echo   god dev         Start in dev mode (auto-reload)
 echo   god stop        Stop the server
 echo   god status      Check if server is running
