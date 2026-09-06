@@ -1205,20 +1205,43 @@ class P1GraphParallel(unittest.TestCase):
 
     def test_claim_allows_two_jobs(self):
         from superai import queue as tq
+        from superai.store import store
+        from superai.resources import inflight_cap
+        import sys
 
         tq.register_worker("t-parallel", "t-parallel", "control", ["chat"])
         a = tq.enqueue("chat", "parallel-test-aaa-unique", None, "LOCAL_WORKER")
         b = tq.enqueue("chat", "parallel-test-bbb-unique", None, "LOCAL_WORKER")
         self.assertFalse(a.get("deduped"))
         self.assertFalse(b.get("deduped"))
+
+        cap = inflight_cap()
+        print(f"\n[PARALLEL] inflight_cap.applied={cap['applied']}", file=sys.stderr)
+
+        with store._lock, store._conn() as c:
+            rows = c.execute("SELECT id, status, worker_id, text FROM jobs WHERE kind='chat' AND status IN ('queued','assigned','running') ORDER BY ts").fetchall()
+            print(f"[PARALLEL] active chat jobs: {len(rows)}", file=sys.stderr)
+            for r in rows:
+                print(f"[PARALLEL]   {r['id'][:12]} status={r['status']} worker={r['worker_id']} text={r['text'][:40]}", file=sys.stderr)
+
         c1 = tq.claim("t-parallel")
-        self.assertIsNotNone(c1)
+        print(f"[PARALLEL] c1={'OK '+c1['id'][:12] if c1 else 'NONE'}", file=sys.stderr)
+
+        with store._lock, store._conn() as c:
+            inf = c.execute("SELECT COUNT(*) FROM jobs WHERE worker_id='t-parallel' AND status IN ('assigned','running')").fetchone()[0]
+            qd = c.execute("SELECT COUNT(*) FROM jobs WHERE status='queued' AND kind='chat'").fetchone()[0]
+            print(f"[PARALLEL] after c1: inflight={inf} queued_chat={qd}", file=sys.stderr)
+
         c2 = tq.claim("t-parallel")
-        self.assertIsNotNone(c2)  # inflight=2, so second claim succeeds
+        print(f"[PARALLEL] c2={'OK '+c2['id'][:12] if c2 else 'NONE'}", file=sys.stderr)
+
+        self.assertIsNotNone(c1)
+        self.assertIsNotNone(c2, f"cap={cap['applied']} c1_ok={c1 is not None}")
         c3 = tq.claim("t-parallel")
-        self.assertIsNone(c3)  # inflight=2, third should fail
+        self.assertIsNone(c3)
         tq.cancel(c1["id"])
-        tq.cancel(c2["id"])
+        if c2:
+            tq.cancel(c2["id"])
         tq.unregister_worker("t-parallel")
 
 
