@@ -2,6 +2,7 @@ import unittest
 from pathlib import Path
 
 from superai.brain import analyze
+from superai.config import ROOT
 from superai.governor import gov
 from superai.providers import health_all
 from superai.tools import execute
@@ -592,9 +593,9 @@ class SiteBuilder(unittest.TestCase):
         self.assertEqual(r2["status"], "error")
         r3 = execute("fs.write", {"slug": "utest-site", "path": "../x.html", "text": "no"})
         self.assertEqual(r3["status"], "error")
-        ok, _ = gov.allow_write(Path("/home/user/GOD/superai/brain.py"))
+        ok, _ = gov.allow_write(Path(str(ROOT / "superai" / "brain.py")))
         self.assertFalse(ok)
-        ok2, _ = gov.allow_write(Path("/home/user/GOD/.env"))
+        ok2, _ = gov.allow_write(Path(str(ROOT / ".env")))
         self.assertFalse(ok2)
 
     def test_extract_publish_preview(self):
@@ -667,7 +668,7 @@ class GodBuilder(unittest.TestCase):
         gods.activate("mini")
         denied = execute("calculator", {"expr": "1+1"})
         self.assertEqual(denied["status"], "error")
-        listed = execute("fs.list", {"path": "/home/user/GOD"})
+        listed = execute("fs.list", {"path": str(ROOT)})
         self.assertEqual(listed["status"], "success")
 
     def test_overlay_in_prompt(self):

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import tempfile
+from pathlib import Path
 import time
 import unittest
 from pathlib import Path
@@ -168,10 +169,15 @@ class TestSandboxProtection(unittest.TestCase):
     """P2.4 — Sandbox protection."""
 
     def test_allowed_path(self):
-        """Paths in /home/user are allowed."""
+        """Paths in allowed bases are allowed."""
         from superai import sandbox
-        result = sandbox.check_path("/home/user/test.txt")
-        self.assertTrue(result.get("ok"))
+        from superai.config import cfg
+        # Use the configured fs_root (cross-platform)
+        gov = cfg.get("governor")
+        fs_root = gov.get("fs_root", "/home/user") if isinstance(gov, dict) else "/home/user"
+        test_path = str(Path(fs_root) / "test.txt")
+        result = sandbox.check_path(test_path)
+        self.assertTrue(result.get("ok"), f"Expected ok for {test_path}, got: {result}")
 
     def test_blocked_path_etc(self):
         """Paths in /etc are blocked."""

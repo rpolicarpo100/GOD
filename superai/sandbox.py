@@ -42,7 +42,7 @@ if _sys.platform == "win32":
     _project_root = str(_pl.Path(__file__).resolve().parent.parent)
     _allowed_win = [
         _project_root,
-        _pl.Path.home().as_posix(),  # C:\Users\<user>
+        str(_pl.Path.home()),  # C:\Users\<user>
     ]
     # Also add drive-letter versions of /home/user equivalent
     for p in _allowed_win:
@@ -53,6 +53,20 @@ if _sys.platform == "win32":
     _tmp = tempfile.gettempdir()
     if _tmp not in _ALLOWED_BASES:
         _ALLOWED_BASES.append(_tmp)
+
+
+def _get_allowed_bases() -> list[str]:
+    """Get allowed bases, including fs_root from config if available."""
+    bases = list(_ALLOWED_BASES)
+    try:
+        from .config import cfg
+        fs_root = cfg.get("governor", {}).get("fs_root")
+        if fs_root and fs_root not in bases:
+            bases.append(fs_root)
+    except Exception:
+        pass
+    return bases
+
 
 # Always blocked paths
 _BLOCKED_PATHS = [
@@ -93,6 +107,7 @@ def check_path(path: str, operation: str = "read") -> dict:
     
     Returns: {ok, reason, kind}
     """
+    allowed_bases = _get_allowed_bases()
     try:
         resolved = Path(path).resolve()
         resolved_str = str(resolved)
@@ -114,7 +129,7 @@ def check_path(path: str, operation: str = "read") -> dict:
     
     # Check allowed bases
     allowed = False
-    for base in _ALLOWED_BASES:
+    for base in allowed_bases:
         if resolved_str.startswith(base):
             allowed = True
             break
@@ -129,7 +144,7 @@ def check_path(path: str, operation: str = "read") -> dict:
     # Check traversal in original path
     if '..' in path:
         # Check if resolved path is still within allowed base
-        in_base = any(resolved_str.startswith(b) for b in _ALLOWED_BASES)
+        in_base = any(resolved_str.startswith(b) for b in allowed_bases)
         if not in_base:
             return {
                 "ok": False,
@@ -140,7 +155,7 @@ def check_path(path: str, operation: str = "read") -> dict:
     # Write operations: extra restrictions
     if operation == "write":
         # Can't write to system dirs
-        for base in _ALLOWED_BASES:
+        for base in allowed_bases:
             if resolved_str == base or resolved_str == base + "/":
                 return {
                     "ok": False,
@@ -157,6 +172,7 @@ def check_path(path: str, operation: str = "read") -> dict:
 
 def check_symlink(path: str) -> dict:
     """Check if path is a symlink pointing outside allowed area."""
+    allowed_bases = _get_allowed_bases()
     p = Path(path)
     
     if not p.is_symlink():
@@ -166,7 +182,7 @@ def check_symlink(path: str) -> dict:
         target = p.resolve()
         target_str = str(target)
         
-        for base in _ALLOWED_BASES:
+        for base in allowed_bases:
             if target_str.startswith(base):
                 return {
                     "ok": True,

@@ -13,6 +13,9 @@ DATA.mkdir(exist_ok=True)
 CFG_PATH = ROOT / "config.yaml"
 STATE_PATH = DATA / "state.yaml"
 
+# Cross-platform default fs_root: use project root
+_FS_ROOT_DEFAULT = str(ROOT)
+
 # Keys that are runtime state (saved to data/state.yaml, NOT config.yaml)
 _STATE_KEYS = {"feature_flags", "feature_flags_meta", "mode", "evolution_policy"}
 
@@ -43,7 +46,7 @@ _DEFAULT = {
     "budgets": {"task": 8000, "session": 50000, "daily": 200000, "project": 2000000, "agent": 40000},
     "governor": {
         "strict": True,
-        "fs_root": "/home/user",
+        "fs_root": _FS_ROOT_DEFAULT,
         "python_timeout_s": 8,
         "deny_names": [".env", ".netrc", "credentials", "id_rsa", ".git-credentials"],
     },
@@ -55,7 +58,7 @@ def _load_yaml(path: Path) -> dict:
     """Load a YAML file, return empty dict on failure."""
     try:
         if path.exists():
-            return yaml.safe_load(path.read_text()) or {}
+            return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except Exception:
         pass
     return {}
@@ -84,6 +87,11 @@ def load_file() -> dict:
     state = _load_yaml(STATE_PATH)
     for k, v in state.items():
         cfg[k] = v
+    # Fix fs_root: if it's a Linux path and we're on Windows, use project root
+    fs_root = cfg.get("governor", {}).get("fs_root", "")
+    import sys
+    if sys.platform == "win32" and fs_root.startswith("/"):
+        cfg["governor"]["fs_root"] = _FS_ROOT_DEFAULT
     return cfg
 
 
