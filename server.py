@@ -688,6 +688,26 @@ def news_health():
     from superai.news_connector import health
     return health()
 
+
+@app.get("/api/learner/status")
+def learner_status():
+    from superai.autonomous_learner import status
+    return status()
+
+
+@app.post("/api/learner/start")
+def learner_start():
+    from superai.autonomous_learner import start
+    start()
+    return {"ok": True, "message": "Autonomous learner started"}
+
+
+@app.post("/api/learner/stop")
+def learner_stop():
+    from superai.autonomous_learner import stop
+    stop()
+    return {"ok": True, "message": "Autonomous learner stopped"}
+
 @app.post("/api/chat/stream")
 async def chat_stream(body: ChatIn):
     """Streaming chat via SSE — runs handle() then streams result text to frontend."""

@@ -674,6 +674,12 @@ def boot() -> None:
             configure_from_env()
         except Exception:
             pass
+        # Start autonomous learner
+        try:
+            from .autonomous_learner import start as learner_start
+            learner_start()
+        except Exception:
+            pass
         # Warmup embeddings
         try:
             from .embed import warmup as _embed_warmup
