@@ -527,42 +527,36 @@ def chat(body: ChatIn):
 
 @app.post("/api/chat/stream")
 async def chat_stream(body: ChatIn):
-    """Streaming chat via SSE."""
+    """Streaming chat via SSE — runs handle() then streams result text to frontend."""
     from starlette.responses import StreamingResponse
-    import asyncio, json as _json
+    import asyncio
 
     async def _stream():
-        tokens: list[str] = []
-        done = asyncio.Event()
-        result_holder: dict = {}
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, lambda: handle(body.text, from_worker=body.from_worker))
 
-        def on_token(token: str):
-            tokens.append(token)
+        # Get the brain response text from _chat (last brain message)
+        brain_text = ""
+        try:
+            from superai.runtime import _chat as chat_msgs, _lock
+            with _lock:
+                for m in reversed(chat_msgs):
+                    if m.get("role") == "brain":
+                        brain_text = str(m.get("text") or "")
+                        break
+        except Exception:
+            pass
+        if not brain_text:
+            brain_text = str(result.get("error", "") or "Sem resposta.")
 
-        def _run():
-            try:
-                result_holder["r"] = handle(body.text, from_worker=body.from_worker, on_token=on_token)
-            except Exception as e:
-                result_holder["r"] = {"ok": False, "error": str(e)}
-            done.set()
+        # Stream to frontend in small chunks
+        chunk_size = 6
+        for i in range(0, len(brain_text), chunk_size):
+            chunk = brain_text[i:i + chunk_size]
+            yield f"data: {json.dumps({'token': chunk})}\n\n"
+            await asyncio.sleep(0.015)
 
-        import threading
-        t = threading.Thread(target=_run, daemon=True)
-        t.start()
-
-        last_idx = 0
-        while not done.is_set() or last_idx < len(tokens):
-            if last_idx < len(tokens):
-                for tok in tokens[last_idx:]:
-                    yield f"data: {_json.dumps({'token': tok})}\n\n"
-                last_idx = len(tokens)
-            elif not done.is_set():
-                await asyncio.sleep(0.05)
-            else:
-                break
-
-        r = result_holder.get("r", {})
-        yield f"data: {_json.dumps({'done': True, 'via': r.get('via', 'unknown')})}\n\n"
+        yield f"data: {json.dumps({'done': True, 'via': result.get('via', 'unknown')})}\n\n"
 
     return StreamingResponse(_stream(), media_type="text/event-stream")
 
