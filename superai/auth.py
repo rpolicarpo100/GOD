@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import secrets
+import threading
 import time
 from dataclasses import dataclass, field, asdict
 from enum import Enum
@@ -278,6 +279,7 @@ class Session:
     active: bool = True
 
 _sessions: dict[str, dict] = {}
+_sessions_lock = threading.RLock()
 
 def _load_sessions():
     global _sessions
@@ -309,18 +311,19 @@ def login(username: str, password: str) -> dict:
     users[user["id"]]["last_login"] = time.time()
     _save_users(users)
     
-    # Create session
+    # Create session (thread-safe)
     session_id = secrets.token_urlsafe(32)
     now = time.time()
-    _sessions[session_id] = {
-        "session_id": session_id,
-        "user_id": user["id"],
-        "role": user["role"],
-        "created_at": now,
-        "last_active": now,
-        "active": True,
-    }
-    _save_sessions()
+    with _sessions_lock:
+        _sessions[session_id] = {
+            "session_id": session_id,
+            "user_id": user["id"],
+            "role": user["role"],
+            "created_at": now,
+            "last_active": now,
+            "active": True,
+        }
+        _save_sessions()
     
     _audit("auth.login", user["id"], {"session_id": session_id})
     return {
@@ -333,47 +336,52 @@ def login(username: str, password: str) -> dict:
 
 def logout(session_id: str) -> dict:
     """Invalidate session."""
-    if session_id in _sessions:
-        uid = _sessions[session_id]["user_id"]
-        _sessions[session_id]["active"] = False
-        _save_sessions()
-        _audit("auth.logout", uid, {"session_id": session_id})
+    with _sessions_lock:
+        if session_id in _sessions:
+            uid = _sessions[session_id]["user_id"]
+            _sessions[session_id]["active"] = False
+            _save_sessions()
+            _audit("auth.logout", uid, {"session_id": session_id})
     return {"ok": True}
 
 def validate_session(session_id: str) -> dict | None:
     """Validate session. Returns session info or None."""
-    if not session_id or session_id not in _sessions:
+    if not session_id:
         return None
     
-    s = _sessions[session_id]
-    if not s.get("active"):
-        return None
-    
-    now = time.time()
-    # Check absolute timeout
-    if now - s["created_at"] > SESSION_TIMEOUT:
-        s["active"] = False
+    with _sessions_lock:
+        if session_id not in _sessions:
+            return None
+        
+        s = _sessions[session_id]
+        if not s.get("active"):
+            return None
+        
+        now = time.time()
+        # Check absolute timeout
+        if now - s["created_at"] > SESSION_TIMEOUT:
+            s["active"] = False
+            _save_sessions()
+            _audit("auth.session_expired", s["user_id"], {"reason": "absolute_timeout"})
+            return None
+        
+        # Check inactivity
+        if now - s["last_active"] > SESSION_INACTIVE:
+            s["active"] = False
+            _save_sessions()
+            _audit("auth.session_expired", s["user_id"], {"reason": "inactivity"})
+            return None
+        
+        # Update last active
+        s["last_active"] = now
         _save_sessions()
-        _audit("auth.session_expired", s["user_id"], {"reason": "absolute_timeout"})
-        return None
-    
-    # Check inactivity
-    if now - s["last_active"] > SESSION_INACTIVE:
-        s["active"] = False
-        _save_sessions()
-        _audit("auth.session_expired", s["user_id"], {"reason": "inactivity"})
-        return None
-    
-    # Update last active
-    s["last_active"] = now
-    _save_sessions()
-    
-    return {
-        "session_id": s["session_id"],
-        "user_id": s["user_id"],
-        "role": s["role"],
-        "authenticated": True,
-    }
+        
+        return {
+            "session_id": s["session_id"],
+            "user_id": s["user_id"],
+            "role": s["role"],
+            "authenticated": True,
+        }
 
 # ═══════════════════════════════
 # AUTHORIZATION
@@ -477,6 +485,7 @@ class GovernorOverride:
     result: str = ""
 
 _overrides: dict[str, dict] = {}
+_overrides_lock = threading.RLock()
 
 def _load_overrides():
     global _overrides
@@ -492,70 +501,74 @@ def create_override(user_id: str, action: str, scope: str, reason: str,
     """Create a governor override request."""
     oid = "ovr-" + secrets.token_hex(8)
     now = time.time()
-    _overrides[oid] = {
-        "id": oid,
-        "user_id": user_id,
-        "action": action,
-        "scope": scope,
-        "reason": reason,
-        "risk_level": risk_level,
-        "created_at": now,
-        "expires_at": now + duration_seconds,
-        "approved": False,
-        "used": False,
-        "result": "",
-    }
-    _save_overrides()
+    with _overrides_lock:
+        _overrides[oid] = {
+            "id": oid,
+            "user_id": user_id,
+            "action": action,
+            "scope": scope,
+            "reason": reason,
+            "risk_level": risk_level,
+            "created_at": now,
+            "expires_at": now + duration_seconds,
+            "approved": False,
+            "used": False,
+            "result": "",
+        }
+        _save_overrides()
     _audit("override.created", user_id, {"override_id": oid, "action": action, "scope": scope})
     return {"ok": True, "override_id": oid, "expires_at": now + duration_seconds}
 
 def approve_override(override_id: str, approver_id: str) -> dict:
     """Approve a governor override."""
-    _load_overrides()
-    if override_id not in _overrides:
-        return {"ok": False, "error": "Override não encontrado"}
-    o = _overrides[override_id]
-    if o["approved"]:
-        return {"ok": False, "error": "Já aprovado"}
-    if time.time() > o["expires_at"]:
-        return {"ok": False, "error": "Override expirado"}
-    o["approved"] = True
-    _save_overrides()
+    with _overrides_lock:
+        _load_overrides()
+        if override_id not in _overrides:
+            return {"ok": False, "error": "Override não encontrado"}
+        o = _overrides[override_id]
+        if o["approved"]:
+            return {"ok": False, "error": "Já aprovado"}
+        if time.time() > o["expires_at"]:
+            return {"ok": False, "error": "Override expirado"}
+        o["approved"] = True
+        _save_overrides()
     _audit("override.approved", approver_id, {"override_id": override_id})
     return {"ok": True}
 
 def consume_override(override_id: str) -> dict:
     """Consume an approved override. Single use only."""
-    _load_overrides()
-    if override_id not in _overrides:
-        return {"ok": False, "error": "Override não encontrado"}
-    o = _overrides[override_id]
-    if not o["approved"]:
-        return {"ok": False, "error": "Override não aprovado"}
-    if o["used"]:
-        return {"ok": False, "error": "Override já consumido"}
-    if time.time() > o["expires_at"]:
-        return {"ok": False, "error": "Override expirado"}
-    o["used"] = True
-    _save_overrides()
+    with _overrides_lock:
+        _load_overrides()
+        if override_id not in _overrides:
+            return {"ok": False, "error": "Override não encontrado"}
+        o = _overrides[override_id]
+        if not o["approved"]:
+            return {"ok": False, "error": "Override não aprovado"}
+        if o["used"]:
+            return {"ok": False, "error": "Override já consumido"}
+        if time.time() > o["expires_at"]:
+            return {"ok": False, "error": "Override expirado"}
+        o["used"] = True
+        _save_overrides()
     _audit("override.consumed", o["user_id"], {"override_id": override_id})
     return {"ok": True}
 
 def validate_override(override_id: str, action: str, scope: str) -> bool:
     """Validate an override is approved, not consumed, not expired, and matches action/scope."""
-    _load_overrides()
-    if override_id not in _overrides:
-        return False
-    o = _overrides[override_id]
-    if not o["approved"] or o["used"]:
-        return False
-    if time.time() > o["expires_at"]:
-        return False
-    if o["action"] != action:
-        return False
-    # Scope check: override scope must contain or match the requested scope
-    if scope and not (o["scope"] == "*" or scope.startswith(o["scope"])):
-        return False
+    with _overrides_lock:
+        _load_overrides()
+        if override_id not in _overrides:
+            return False
+        o = _overrides[override_id]
+        if not o["approved"] or o["used"]:
+            return False
+        if time.time() > o["expires_at"]:
+            return False
+        if o["action"] != action:
+            return False
+        # Scope check: override scope must contain or match the requested scope
+        if scope and not (o["scope"] == "*" or scope.startswith(o["scope"])):
+            return False
     return True
 
 # ═══════════════════════════════
@@ -571,6 +584,7 @@ class ApprovalState:
     CONSUMED = "CONSUMED"
 
 _approvals: dict[str, dict] = {}
+_approvals_lock = threading.RLock()
 
 def _load_approvals():
     global _approvals
@@ -587,42 +601,44 @@ def request_approval(user_id: str, action: str, resource: str, scope: str = "",
     """Request approval for a risky action."""
     aid = "apr-" + secrets.token_hex(8)
     now = time.time()
-    _approvals[aid] = {
-        "id": aid,
-        "user_id": user_id,
-        "action": action,
-        "resource": resource,
-        "scope": scope,
-        "reason": reason,
-        "risk_level": risk_level,
-        "state": ApprovalState.PENDING,
-        "created_at": now,
-        "expires_at": now + duration_seconds,
-        "approved_by": None,
-        "decision_at": None,
-        "consumed": False,
-    }
-    _save_approvals()
+    with _approvals_lock:
+        _approvals[aid] = {
+            "id": aid,
+            "user_id": user_id,
+            "action": action,
+            "resource": resource,
+            "scope": scope,
+            "reason": reason,
+            "risk_level": risk_level,
+            "state": ApprovalState.PENDING,
+            "created_at": now,
+            "expires_at": now + duration_seconds,
+            "approved_by": None,
+            "decision_at": None,
+            "consumed": False,
+        }
+        _save_approvals()
     _audit("approval.requested", user_id, {"approval_id": aid, "action": action})
     return {"ok": True, "approval_id": aid, "state": ApprovalState.PENDING}
 
 def decide_approval(approval_id: str, approver_id: str, approve: bool) -> dict:
     """Approve or deny an approval request."""
-    _load_approvals()
-    if approval_id not in _approvals:
-        return {"ok": False, "error": "Approval não encontrado"}
-    a = _approvals[approval_id]
-    if a["state"] != ApprovalState.PENDING:
-        return {"ok": False, "error": f"Estado inválido: {a['state']}"}
-    if time.time() > a["expires_at"]:
-        a["state"] = ApprovalState.EXPIRED
+    with _approvals_lock:
+        _load_approvals()
+        if approval_id not in _approvals:
+            return {"ok": False, "error": "Approval não encontrado"}
+        a = _approvals[approval_id]
+        if a["state"] != ApprovalState.PENDING:
+            return {"ok": False, "error": f"Estado inválido: {a['state']}"}
+        if time.time() > a["expires_at"]:
+            a["state"] = ApprovalState.EXPIRED
+            _save_approvals()
+            return {"ok": False, "error": "Approval expirado"}
+        
+        a["state"] = ApprovalState.APPROVED if approve else ApprovalState.DENIED
+        a["approved_by"] = approver_id
+        a["decision_at"] = time.time()
         _save_approvals()
-        return {"ok": False, "error": "Approval expirado"}
-    
-    a["state"] = ApprovalState.APPROVED if approve else ApprovalState.DENIED
-    a["approved_by"] = approver_id
-    a["decision_at"] = time.time()
-    _save_approvals()
     
     action = "approval.approved" if approve else "approval.denied"
     _audit(action, approver_id, {"approval_id": approval_id})
@@ -630,47 +646,50 @@ def decide_approval(approval_id: str, approver_id: str, approve: bool) -> dict:
 
 def consume_approval(approval_id: str) -> dict:
     """Consume an approved approval. Single use."""
-    _load_approvals()
-    if approval_id not in _approvals:
-        return {"ok": False, "error": "Approval não encontrado"}
-    a = _approvals[approval_id]
-    if a["state"] != ApprovalState.APPROVED:
-        return {"ok": False, "error": f"Estado inválido: {a['state']}"}
-    if a["consumed"]:
-        return {"ok": False, "error": "Já consumido"}
-    if time.time() > a["expires_at"]:
-        a["state"] = ApprovalState.EXPIRED
+    with _approvals_lock:
+        _load_approvals()
+        if approval_id not in _approvals:
+            return {"ok": False, "error": "Approval não encontrado"}
+        a = _approvals[approval_id]
+        if a["state"] != ApprovalState.APPROVED:
+            return {"ok": False, "error": f"Estado inválido: {a['state']}"}
+        if a["consumed"]:
+            return {"ok": False, "error": "Já consumido"}
+        if time.time() > a["expires_at"]:
+            a["state"] = ApprovalState.EXPIRED
+            _save_approvals()
+            return {"ok": False, "error": "Approval expirado"}
+        
+        a["consumed"] = True
+        a["state"] = ApprovalState.CONSUMED
         _save_approvals()
-        return {"ok": False, "error": "Approval expirado"}
-    
-    a["consumed"] = True
-    a["state"] = ApprovalState.CONSUMED
-    _save_approvals()
     _audit("approval.consumed", a["user_id"], {"approval_id": approval_id})
     return {"ok": True}
 
 def validate_approval(approval_id: str, action: str) -> bool:
     """Validate an approval is valid for the given action."""
-    _load_approvals()
-    if approval_id not in _approvals:
-        return False
-    a = _approvals[approval_id]
-    if a["state"] != ApprovalState.APPROVED:
-        return False
-    if a["consumed"]:
-        return False
-    if time.time() > a["expires_at"]:
-        return False
-    if a["action"] != action:
-        return False
+    with _approvals_lock:
+        _load_approvals()
+        if approval_id not in _approvals:
+            return False
+        a = _approvals[approval_id]
+        if a["state"] != ApprovalState.APPROVED:
+            return False
+        if a["consumed"]:
+            return False
+        if time.time() > a["expires_at"]:
+            return False
+        if a["action"] != action:
+            return False
     return True
 
 def pending_approvals() -> list[dict]:
     """List pending approvals."""
-    _load_approvals()
-    return [a for a in _approvals.values() 
-            if a["state"] == ApprovalState.PENDING 
-            and time.time() <= a["expires_at"]]
+    with _approvals_lock:
+        _load_approvals()
+        return [a for a in _approvals.values() 
+                if a["state"] == ApprovalState.PENDING 
+                and time.time() <= a["expires_at"]]
 
 # ═══════════════════════════════
 # SECURITY FLOW
@@ -742,23 +761,27 @@ def security_check(session_id: str | None, permission: str,
 def init():
     """Initialize auth system. Call on startup."""
     _ensure_auth_dir()
-    _load_sessions()
-    _load_overrides()
-    _load_approvals()
-    # Clean expired sessions
-    now = time.time()
-    expired = [sid for sid, s in _sessions.items() 
-               if now - s.get("created_at", 0) > SESSION_TIMEOUT
-               or now - s.get("last_active", 0) > SESSION_INACTIVE]
-    for sid in expired:
-        _sessions[sid]["active"] = False
-    if expired:
-        _save_sessions()
+    with _sessions_lock:
+        _load_sessions()
+        # Clean expired sessions
+        now = time.time()
+        expired = [sid for sid, s in _sessions.items() 
+                   if now - s.get("created_at", 0) > SESSION_TIMEOUT
+                   or now - s.get("last_active", 0) > SESSION_INACTIVE]
+        for sid in expired:
+            _sessions[sid]["active"] = False
+        if expired:
+            _save_sessions()
+    with _overrides_lock:
+        _load_overrides()
+    with _approvals_lock:
+        _load_approvals()
 
 def auth_status() -> dict:
     """Get auth system status."""
     users = _load_users()
-    active_sessions = sum(1 for s in _sessions.values() if s.get("active"))
+    with _sessions_lock:
+        active_sessions = sum(1 for s in _sessions.values() if s.get("active"))
     return {
         "owner_exists": owner_exists(),
         "total_users": len(users),
