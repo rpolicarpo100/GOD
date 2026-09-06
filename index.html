@@ -1051,6 +1051,7 @@ const fmtN=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(1)+'K':String
 const lc={INFO:'i',NOTICE:'i',WARNING:'w',CRITICAL:'c',SECURITY:'c',OPPORTUNITY:'i',EVOLUTION:'e'};
 const pn={home:'GOD · Home',intel:'GOD · Intelligence',mem:'GOD · Memory',comp:'GOD · Compute',tok:'GOD · Tokens',evo:'GOD · Evolution',act:'GOD · Activity',set:'GOD · Settings'};
 let S=null,cLen=0,cOpen=false,flagsDone=false,coreSt='idle';
+let streamingActive=false;
 
 // ═══════════════════════════════
 // ALERT HISTORY + ANOMALY DETECTION
@@ -1627,6 +1628,7 @@ $('chat-f').addEventListener('submit',e=>{
   const ti=$('typing-indicator');
   if(ti)ti.style.display='flex';
   // Streaming brain response
+  streamingActive=true;
   const brainMsg=document.createElement('div');
   brainMsg.className='m brain new-msg';
   brainMsg.innerHTML='<div class="w">GOD</div><span class="stream-text"></span>';
@@ -1660,7 +1662,7 @@ $('chat-f').addEventListener('submit',e=>{
     return readChunk();
   }).catch(()=>{
     fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-  }).finally(()=>{if(ti)ti.style.display='none';});
+  }).finally(()=>{if(ti)ti.style.display='none';streamingActive=false;});
 });
 const QA=[
   {l:'Estado',q:'estado'},
@@ -2048,6 +2050,8 @@ let lastBrainMsg='';
 
 function pChat(s){
   const msgs=s.chat||[];
+  // Don't re-render while streaming — would destroy the streaming element
+  if(streamingActive)return;
   // Force re-render if brain has a new message
   const lastBrain=msgs.filter(m=>m.role==='brain').pop();
   const brainChanged=lastBrain&&lastBrain.text!==lastBrainMsg;
