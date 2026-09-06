@@ -137,28 +137,57 @@ case "$CMD" in
         fi
         ;;
     status)
-        echo "Checking GOD status..."
-        # Check PID file
+        echo "GOD Status"
+        echo "────────────────────────────────"
+        # PID
         if [ -f "$PID_FILE" ]; then
             GOD_PID=$(cat "$PID_FILE" 2>/dev/null)
             if [ -n "$GOD_PID" ] && kill -0 "$GOD_PID" 2>/dev/null; then
-                echo "[OK] Process alive (PID $GOD_PID)."
+                echo "  Process:   alive (PID $GOD_PID)"
             else
-                echo "[WARN] PID file exists but process not found."
+                echo "  Process:   dead (stale PID file)"
                 rm -f "$PID_FILE"
             fi
-        fi
-        # Check health endpoint
-        if curl -s http://127.0.0.1:$GOD_PORT/api/health >/dev/null 2>&1; then
-            echo "[OK] GOD is running on port $GOD_PORT."
-            curl -s http://127.0.0.1:$GOD_PORT/api/health | $VENV_PY -m json.tool 2>/dev/null
-            echo ""
-            echo "Auth status:"
-            curl -s http://127.0.0.1:$GOD_PORT/api/auth/status | $VENV_PY -m json.tool 2>/dev/null
         else
-            echo "[WARN] GOD is not responding on port $GOD_PORT."
-            echo "       Start with: ./god.sh start"
+            echo "  Process:   no PID file"
         fi
+        # Health endpoint
+        if curl -s http://127.0.0.1:$GOD_PORT/api/health >/dev/null 2>&1; then
+            echo "  Server:    running (port $GOD_PORT)"
+            HEALTH=$(curl -s http://127.0.0.1:$GOD_PORT/api/health 2>/dev/null)
+            MODE=$(echo "$HEALTH" | $VENV_PY -c "import sys,json; print(json.load(sys.stdin).get('mode','?'))" 2>/dev/null)
+            echo "  Mode:      $MODE"
+        else
+            echo "  Server:    not responding"
+        fi
+        # Version
+        if [ -d "$GOD_DIR/.git" ]; then
+            COMMIT=$(cd "$GOD_DIR" && git rev-parse --short HEAD 2>/dev/null)
+            echo "  Commit:    $COMMIT"
+        fi
+        # Manifest
+        if [ -f "$GOD_DIR/data/install_manifest.json" ]; then
+            PROFILE=$($VENV_PY -c "import json; print(json.load(open('$GOD_DIR/data/install_manifest.json')).get('profile','?'))" 2>/dev/null)
+            echo "  Profile:   $PROFILE"
+        fi
+        # Database
+        if [ -f "$GOD_DIR/data/spine.db" ]; then
+            DB_SIZE=$(du -sh "$GOD_DIR/data/spine.db" 2>/dev/null | cut -f1)
+            echo "  Database:  $DB_SIZE"
+        fi
+        # Auth
+        if [ -f "$GOD_DIR/data/auth/users.json" ]; then
+            USERS=$($VENV_PY -c "import json; print(len(json.load(open('$GOD_DIR/data/auth/users.json'))))" 2>/dev/null)
+            echo "  Users:     ${USERS:-0}"
+        fi
+        # Logs
+        if [ -f "$LOG_DIR/god.log" ]; then
+            LOG_SIZE=$(du -sh "$LOG_DIR/god.log" 2>/dev/null | cut -f1)
+            echo "  Logs:      $LOG_SIZE"
+        fi
+        echo "────────────────────────────────"
+        echo "  Dashboard: http://localhost:$GOD_PORT"
+        echo ""
         ;;
     backup)
         BACKUP_DIR="$GOD_DIR/backups/$(date +%Y-%m-%d_%H-%M-%S)"
@@ -201,17 +230,129 @@ for r in s.get('rows') or []:
 "
         ;;
     doctor)
-        echo "Running diagnostics..."
-        $VENV_PY -c "
-from superai import repair
-r = repair.run()
-print(f'REPAIR {r[\"kind\"]} ok={r[\"ok\"]}')
-for a in r.get('actions') or []:
-    st = 'OK' if a.get('ok') else 'FAIL'
-    print(f'  [{st}] {a[\"check\"]} {a.get(\"error\") or a.get(\"fix\") or \"\"}')
-print()
-print(r.get('note') or '')
-"
+        echo "GOD Doctor — Diagnostics"
+        echo "══════════════════════════════════"
+        ERRORS=0
+        WARNS=0
+        # 1. Python
+        printf "  [01] Python............. "
+        if [ -f "$VENV_PY" ]; then
+            PYVER=$($VENV_PY --version 2>&1 | awk '{print $2}')
+            echo "PASS  $PYVER"
+        else
+            echo "FAIL  venv not found"
+            ((ERRORS++))
+        fi
+        # 2. Dependencies
+        printf "  [02] Dependencies...... "
+        DEP_FAIL=0
+        for mod in fastapi uvicorn tiktoken numpy httpx pyyaml qdrant_client; do
+            $VENV_PY -c "import $mod" 2>/dev/null || DEP_FAIL=1
+        done
+        if [ "$DEP_FAIL" = "0" ]; then
+            echo "PASS"
+        else
+            echo "WARN  some imports failed"
+            ((WARNS++))
+        fi
+        # 3. Config
+        printf "  [03] Configuration..... "
+        if [ -f "$GOD_DIR/.env" ]; then
+            KEYS=$(grep -c "_API_KEY=." "$GOD_DIR/.env" 2>/dev/null || echo 0)
+            echo "PASS  ($KEYS keys configured)"
+        else
+            echo "WARN  no .env file (offline mode)"
+            ((WARNS++))
+        fi
+        # 4. Database
+        printf "  [04] Database.......... "
+        if [ -f "$GOD_DIR/data/spine.db" ]; then
+            DB_SIZE=$(du -sh "$GOD_DIR/data/spine.db" 2>/dev/null | cut -f1)
+            echo "PASS  ($DB_SIZE)"
+        else
+            echo "WARN  not found (will be created)"
+            ((WARNS++))
+        fi
+        # 5. Auth
+        printf "  [05] Auth.............. "
+        if [ -f "$GOD_DIR/data/auth/users.json" ]; then
+            echo "PASS"
+        else
+            echo "WARN  no users (setup via /api/auth/setup)"
+            ((WARNS++))
+        fi
+        # 6. GOD profile
+        printf "  [06] GOD Profile....... "
+        if [ -f "$GOD_DIR/data/gods/master.json" ]; then
+            echo "PASS  (master)"
+        else
+            echo "WARN  no master profile (will be created)"
+            ((WARNS++))
+        fi
+        # 7. Server process
+        printf "  [07] Server Process.... "
+        if [ -f "$PID_FILE" ]; then
+            GOD_PID=$(cat "$PID_FILE" 2>/dev/null)
+            if [ -n "$GOD_PID" ] && kill -0 "$GOD_PID" 2>/dev/null; then
+                echo "PASS  (PID $GOD_PID)"
+            else
+                echo "WARN  stale PID file"
+                ((WARNS++))
+            fi
+        else
+            echo "INFO  not running"
+        fi
+        # 8. Port
+        printf "  [08] Port $GOD_PORT............. "
+        if ss -tlnp 2>/dev/null | grep -q ":$GOD_PORT " || netstat -tlnp 2>/dev/null | grep -q ":$GOD_PORT "; then
+            echo "PASS  (listening)"
+        else
+            echo "INFO  not listening"
+        fi
+        # 9. Disk
+        printf "  [09] Disk Space........ "
+        DISK_AVAIL=$(df -BM "$GOD_DIR" 2>/dev/null | tail -1 | awk '{print $4}' | tr -d 'M')
+        if [ -n "$DISK_AVAIL" ] && [ "$DISK_AVAIL" -gt 100 ] 2>/dev/null; then
+            echo "PASS  (${DISK_AVAIL}MB free)"
+        else
+            echo "WARN  low disk space"
+            ((WARNS++))
+        fi
+        # 10. Audit log
+        printf "  [10] Audit Log......... "
+        if [ -f "$GOD_DIR/data/auth/audit.jsonl" ]; then
+            LINES=$(wc -l < "$GOD_DIR/data/auth/audit.jsonl" 2>/dev/null)
+            SIZE=$(du -sh "$GOD_DIR/data/auth/audit.jsonl" 2>/dev/null | cut -f1)
+            echo "PASS  ($LINES entries, $SIZE)"
+        else
+            echo "INFO  not found"
+        fi
+        # 11. Qdrant
+        printf "  [11] Vector DB......... "
+        if [ -d "$GOD_DIR/data/qdrant" ]; then
+            echo "PASS"
+        else
+            echo "WARN  data/qdrant not found"
+            ((WARNS++))
+        fi
+        # 12. Logs directory
+        printf "  [12] Logs.............. "
+        if [ -d "$LOG_DIR" ]; then
+            LOG_COUNT=$(find "$LOG_DIR" -name "*.log" 2>/dev/null | wc -l)
+            echo "PASS  ($LOG_COUNT log files)"
+        else
+            echo "INFO  no logs directory"
+        fi
+        echo "══════════════════════════════════"
+        if [ "$ERRORS" -gt 0 ]; then
+            echo "  Result: $ERRORS error(s), $WARNS warning(s)"
+            echo "  Run: ./god.sh repair"
+        elif [ "$WARNS" -gt 0 ]; then
+            echo "  Result: $WARNS warning(s), 0 errors"
+        else
+            echo "  Result: ALL CHECKS PASSED"
+        fi
+        echo ""
         ;;
     dev)
         BIND="127.0.0.1"

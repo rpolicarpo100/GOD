@@ -582,31 +582,38 @@ if "!STOPPED!"=="0" (
 goto :eof
 
 :status
-echo Checking GOD status...
+echo GOD Status
+echo ────────────────────────────────
 if exist "%PID_FILE%" (
     set /p GOD_PID=<"%PID_FILE%"
     if defined GOD_PID (
         tasklist /FI "PID eq !GOD_PID!" 2>nul | findstr "!GOD_PID!" >nul 2>&1
         if !errorlevel! equ 0 (
-            echo [OK] Process alive (PID !GOD_PID!).
+            echo   Process:   alive (PID !GOD_PID!)
         ) else (
-            echo [WARN] PID file exists but process not found.
+            echo   Process:   dead (stale PID file)
             del "%PID_FILE%" 2>nul
         )
     )
+) else (
+    echo   Process:   no PID file
 )
 netstat -an 2>nul | findstr ":%GOD_PORT% " | findstr "LISTENING" >nul 2>&1
 if %errorlevel% equ 0 (
-    echo [OK] GOD is running on port %GOD_PORT%.
-    echo Dashboard: http://localhost:%GOD_PORT%
-    "%PY%" -c "import httpx; r=httpx.get('http://127.0.0.1:%GOD_PORT%/api/health',timeout=5); print(r.json())" 2>nul
-    echo.
-    echo Auth status:
-    "%PY%" -c "import httpx; r=httpx.get('http://127.0.0.1:%GOD_PORT%/api/auth/status',timeout=5); print(r.json())" 2>nul
+    echo   Server:    running (port %GOD_PORT%)
 ) else (
-    echo [WARN] GOD is not responding on port %GOD_PORT%.
-    echo        Start with: god start
+    echo   Server:    not responding
 )
+for /f "tokens=*" %%c in ('cd /d "%GOD_DIR%" ^& git rev-parse --short HEAD 2^>nul') do echo   Commit:    %%c
+if exist "%GOD_DIR%data\spine.db" (
+    echo   Database:  exists
+)
+if exist "%GOD_DIR%data\auth\users.json" (
+    echo   Auth:      configured
+)
+echo ────────────────────────────────
+echo   Dashboard: http://localhost:%GOD_PORT%
+echo.
 goto :eof
 
 :test
