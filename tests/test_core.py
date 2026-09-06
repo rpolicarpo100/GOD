@@ -1746,3 +1746,49 @@ class P15ControlledEvolution(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestClaimDebug(unittest.TestCase):
+    """Temporary diagnostic for Windows claim failure."""
+
+    def test_claim_debug(self):
+        from superai import queue as tq
+        from superai.store import store
+        from superai.resources import inflight_cap
+        import sys
+
+        tq.register_worker("t-debug", "t-debug", "control", ["chat"])
+
+        # Cleanup
+        with store._lock, store._conn() as c:
+            c.execute("UPDATE jobs SET status='cancelled' WHERE kind='chat' AND status IN ('queued','assigned','running')")
+
+        cap = inflight_cap()
+        print(f"\n[DIAG] inflight_cap={cap}", file=sys.stderr)
+
+        a = tq.enqueue("chat", "diag-test-aaa-unique", None, "LOCAL_WORKER")
+        b = tq.enqueue("chat", "diag-test-bbb-unique", None, "LOCAL_WORKER")
+        print(f"[DIAG] a.deduped={a.get('deduped')} b.deduped={b.get('deduped')}", file=sys.stderr)
+
+        # Check DB state
+        with store._lock, store._conn() as c:
+            all_jobs = c.execute("SELECT id, status, worker_id, text FROM jobs WHERE kind='chat' AND status IN ('queued','assigned','running') ORDER BY ts").fetchall()
+            print(f"[DIAG] All active chat jobs:", file=sys.stderr)
+            for j in all_jobs:
+                print(f"[DIAG]   id={j['id'][:12]} status={j['status']} worker={j['worker_id']} text={j['text'][:30]}", file=sys.stderr)
+
+        c1 = tq.claim("t-debug")
+        print(f"[DIAG] c1={c1 is not None} (id={c1['id'][:12] if c1 else 'NONE'})", file=sys.stderr)
+
+        with store._lock, store._conn() as c:
+            inflight = c.execute("SELECT COUNT(*) FROM jobs WHERE worker_id='t-debug' AND status IN ('assigned','running')").fetchone()[0]
+            queued = c.execute("SELECT COUNT(*) FROM jobs WHERE status='queued'").fetchone()[0]
+            print(f"[DIAG] After c1: inflight={inflight} queued={queued}", file=sys.stderr)
+
+        c2 = tq.claim("t-debug")
+        print(f"[DIAG] c2={c2 is not None} (id={c2['id'][:12] if c2 else 'NONE'})", file=sys.stderr)
+
+        tq.unregister_worker("t-debug")
+
+        self.assertIsNotNone(c1)
+        self.assertIsNotNone(c2)
