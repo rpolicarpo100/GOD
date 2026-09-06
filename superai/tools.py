@@ -370,6 +370,34 @@ def tool_github_search(args: dict) -> dict:
     return _err(r.get("error", "search failed"))
 
 
+def tool_site_search(args: dict) -> dict:
+    """Search across registered sites."""
+    from .site_aggregator import search_sites
+    query = args.get("query", "")
+    if not query:
+        return _err("missing query")
+    r = search_sites(query)
+    if r.get("status") == "success":
+        return _ok(findings=r.get("results", []), evidence=[f"sites={r.get('sites_searched')}", f"matched={r.get('sites_matched')}"])
+    return _err(r.get("error", "search failed"))
+
+
+def tool_site_fetch(args: dict) -> dict:
+    """Fetch content from a registered site."""
+    from .site_aggregator import fetch_site
+    url = args.get("url", "")
+    path = args.get("path", "")
+    if not url:
+        return _err("missing url")
+    r = fetch_site(url, path)
+    if r.get("status") == "success":
+        return _ok(
+            findings=[{"title": r.get("title"), "url": r.get("url"), "text": r.get("text", "")[:3000]}],
+            evidence=[f"url={r.get('url')}", f"length={r.get('length')}"]
+        )
+    return _err(r.get("error", "fetch failed"))
+
+
 def tool_github_repos(args: dict) -> dict:
     """List GitHub repos."""
     from .github import list_repos
@@ -513,6 +541,22 @@ TOOLS: dict[str, dict] = {
     "github.repos": {
         "fn": tool_github_repos,
         "capabilities": ["github"],
+        "cost": 0,
+        "latency": "medium",
+        "risk": "low",
+        "permissions": "read",
+    },
+    "site.search": {
+        "fn": tool_site_search,
+        "capabilities": ["web", "sites", "search"],
+        "cost": 0,
+        "latency": "medium",
+        "risk": "low",
+        "permissions": "read",
+    },
+    "site.fetch": {
+        "fn": tool_site_fetch,
+        "capabilities": ["web", "sites", "fetch"],
         "cost": 0,
         "latency": "medium",
         "risk": "low",

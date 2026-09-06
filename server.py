@@ -626,6 +626,44 @@ def github_health():
     from superai.github import health
     return health()
 
+
+@app.get("/api/sites")
+def list_sites():
+    from superai.site_aggregator import list_sites, health
+    return {"sites": list_sites(), "health": health()}
+
+
+@app.post("/api/sites/register")
+def register_site(body: dict = {}):
+    from superai.site_aggregator import register_site
+    return register_site(
+        url=body.get("url", ""),
+        name=body.get("name", ""),
+        category=body.get("category", "general"),
+        description=body.get("description", ""),
+    )
+
+
+@app.post("/api/sites/remove")
+def remove_site(body: dict = {}):
+    from superai.site_aggregator import remove_site
+    return remove_site(body.get("id", ""))
+
+
+@app.get("/api/sites/search")
+def search_sites(q: str = ""):
+    from superai.site_aggregator import search_sites
+    return search_sites(q)
+
+
+@app.get("/api/autonomous-research")
+def autonomous_research_endpoint(q: str = ""):
+    from superai.autonomous_research import should_research, autonomous_research
+    import asyncio
+    decision = should_research(q)
+    result = asyncio.run(autonomous_research(q))
+    return {"decision": decision, "research": result}
+
 @app.post("/api/chat/stream")
 async def chat_stream(body: ChatIn):
     """Streaming chat via SSE — runs handle() then streams result text to frontend."""
