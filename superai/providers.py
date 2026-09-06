@@ -12,6 +12,12 @@ from typing import Any
 
 import httpx
 
+# Shared connection pool — reuse TCP connections across all adapters
+_http_client = httpx.Client(
+    limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+    timeout=httpx.Timeout(connect=5.0, read=15.0, write=5.0, pool=5.0),
+)
+
 from .config import load_dotenv
 
 load_dotenv()
@@ -121,7 +127,7 @@ class OllamaAdapter(Provider):
         err = None
         if open_:
             try:
-                r = httpx.get("http://127.0.0.1:11434/api/tags", timeout=1.0)
+                r = _http_client.get("http://127.0.0.1:11434/api/tags", timeout=1.0)
                 if r.status_code == 200:
                     models = [m.get("name") for m in r.json().get("models", [])]
                 else:
@@ -149,7 +155,7 @@ class OllamaAdapter(Provider):
         if not model:
             return {"status": "unavailable", "provider": self.id, "error": "sem modelos no Ollama local"}
         try:
-            r = httpx.post(
+            r = _http_client.post(
                 "http://127.0.0.1:11434/api/chat",
                 json={
                     "model": model,
@@ -216,7 +222,7 @@ class OpenAICompatAdapter(Provider):
         models: list[str] = []
         err = None
         try:
-            r = httpx.get(f"{self._base}/models", headers=self._headers(), timeout=8.0)
+            r = _http_client.get(f"{self._base}/models", headers=self._headers(), timeout=8.0)
             if r.status_code == 200:
                 data = r.json()
                 rows = data.get("data") or data.get("models") or []
@@ -266,7 +272,7 @@ class OpenAICompatAdapter(Provider):
                 payload["stream"] = True
                 collected: list[str] = []
                 try:
-                    with httpx.stream(
+                    with _http_client.stream(
                         "POST",
                         f"{self._base}/chat/completions",
                         headers=self._headers(),
@@ -302,7 +308,7 @@ class OpenAICompatAdapter(Provider):
                     pass
 
             # Non-streaming (original)
-            r = httpx.post(
+            r = _http_client.post(
                 f"{self._base}/chat/completions",
                 headers=self._headers(),
                 json=payload,
@@ -370,7 +376,7 @@ class ClaudeAdapter(Provider):
         models: list[str] = []
         err = None
         try:
-            r = httpx.get(
+            r = _http_client.get(
                 "https://api.anthropic.com/v1/models",
                 headers={"x-api-key": key, "anthropic-version": "2023-06-01"},
                 timeout=8.0,
@@ -408,7 +414,7 @@ class ClaudeAdapter(Provider):
             return {"status": "unavailable", "provider": self.id, "error": h.get("error") or "sem credenciais"}
         model = kw.get("model") or (h["models"][0] if h["models"] else "claude-sonnet-4-5")
         try:
-            r = httpx.post(
+            r = _http_client.post(
                 "https://api.anthropic.com/v1/messages",
                 headers={
                     "x-api-key": key,
@@ -482,7 +488,7 @@ class GeminiAdapter(Provider):
         models: list[str] = []
         err = None
         try:
-            r = httpx.get(
+            r = _http_client.get(
                 "https://generativelanguage.googleapis.com/v1beta/models",
                 params={"key": key},
                 timeout=8.0,
@@ -522,7 +528,7 @@ class GeminiAdapter(Provider):
             return {"status": "unavailable", "provider": self.id, "error": h.get("error")}
         model = kw.get("model") or next((m for m in h["models"] if "flash" in m), None) or h["models"][0]
         try:
-            r = httpx.post(
+            r = _http_client.post(
                 f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
                 params={"key": key},
                 json={"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"maxOutputTokens": int(kw.get("max_tokens") or 256)}},

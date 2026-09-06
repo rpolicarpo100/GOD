@@ -1662,7 +1662,16 @@ $('chat-f').addEventListener('submit',e=>{
     fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   }).finally(()=>{if(ti)ti.style.display='none';});
 });
-const QA=[{l:'Estado',q:'estado'},{l:'Missão',q:'missão actual'},{l:'Roadmap',q:'roadmap'},{l:'Tokens',q:'economia de tokens'},{l:'Benchmark',q:'corre benchmark'}];
+const QA=[
+  {l:'Estado',q:'estado'},
+  {l:'Missão',q:'missão actual'},
+  {l:'Roadmap',q:'roadmap'},
+  {l:'Tokens',q:'economia de tokens'},
+  {l:'Benchmark',q:'corre benchmark'},
+  {l:'Repair',q:'repara'},
+  {l:'Observer',q:'terceiro olho'},
+  {l:'Evolve',q:'evolução'}
+];
 $('chat-q').innerHTML=QA.map(a=>`<button class="qb" data-q="${esc(a.q)}">${esc(a.l)}</button>`).join('');
 document.querySelectorAll('.qb').forEach(b=>b.addEventListener('click',()=>fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:b.dataset.q})})));
 
@@ -1710,7 +1719,16 @@ function pStatus(s){
   let c='ok',l='Healthy';
   if(!llm){c='crit';l='No LLM';}else if(cr){c='crit';l='Critical';}else if(al.length){c='warn';l=al.length+' Alert';}
   $('h-sys').className='h-badge '+c;$('h-sys-t').textContent=l;
-  // Voice badge — distinguish TTS/STT
+  // Provider status in header
+  var _ps=s.providers||[];
+  var _pu=_ps.filter(function(p){return p.available;});
+  var _hSys=$('h-sys');
+  if(_pu.length>0){
+    var _names=_pu.map(function(p){return p.name||p.id;}).slice(0,2).join(', ');
+    _hSys.className='h-badge ok';
+    $('h-sys-t').textContent=_names+(_pu.length>2?' +'+(_pu.length-2):'');
+  }
+  // Voice badge
   const vb=$('h-voice');
   if(s.voice_ready){
     vb.classList.add('ok');
@@ -2043,9 +2061,10 @@ function pChat(s){
     const reactHtml=Object.entries(reactions).map(([e,c])=>`<button class="react-btn active" onclick="toggleReaction(${i},'${e}')">${e}${c>1?c:''}</button>`).join('');
     const isEditing=editingIdx===i&&m.role==='user';
     const editBtn=m.role==='user'?`<button class="react-btn" onclick="startEdit(${i})" title="Editar">✎</button>`:'';
+    const ttsBtn=m.role==='brain'?`<button class="react-btn" onclick="speakMsg(${i})" title="Ouvir">🔊</button>`:'';
     const fileHtml=chatFiles[i]?fileAttachHtml(chatFiles[i]):'';
     const isNew=brainChanged&&m===lastBrain;
-    return `<div class="m ${m.role}${isEditing?' editing':''}${isNew?' new-msg':''}"><div class="w">${m.role==='brain'?'GOD':'You'}</div>${isEditing?`<input class="edit-input" value="${esc(m.text)}" onkeydown="if(event.key==='Enter')saveEdit(${i},this.value);if(event.key==='Escape')cancelEdit();" autofocus/>`:content}${fileHtml}${ts?`<div class="ts">${ts}</div>`:''}<div class="reactions">${reactHtml}<button class="react-btn" onclick="toggleReaction(${i},'👍')">👍</button><button class="react-btn" onclick="toggleReaction(${i},'👎')">👎</button>${editBtn}</div></div>`;
+    return `<div class="m ${m.role}${isEditing?' editing':''}${isNew?' new-msg':''}"><div class="w">${m.role==='brain'?'GOD':'You'}</div>${isEditing?`<input class="edit-input" value="${esc(m.text)}" onkeydown="if(event.key==='Enter')saveEdit(${i},this.value);if(event.key==='Escape')cancelEdit();" autofocus/>`:content}${fileHtml}${ts?`<div class="ts">${ts}</div>`:''}<div class="reactions">${reactHtml}<button class="react-btn" onclick="toggleReaction(${i},'👍')">👍</button><button class="react-btn" onclick="toggleReaction(${i},'👎')">👎</button>${editBtn}${ttsBtn}</div></div>`;
   }).join('')+'<div class="typing" id="typing-indicator" style="display:none"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
   $('chat-m').scrollTop=$('chat-m').scrollHeight;
   // Always auto-open chat when there are messages
@@ -2547,6 +2566,20 @@ function showToast(msg,type,dur){
 
 // SLASH COMMANDS
 var SLASH_CMD={'/estado':'estado','/tokens':'economia de tokens','/roadmap':'roadmap','/benchmark':'corre benchmark','/repair':'repara','/mission':'missão actual','/evolve':'evolução','/observer':'terceiro olho','/clear':'__clear__'};
+
+function speakMsg(idx){
+  if(!S||!S.chat||!S.chat[idx])return;
+  var msg=S.chat[idx];
+  if(msg.role!=='brain')return;
+  var text=msg.text||'';
+  if(!text)return;
+  if(!window.speechSynthesis){showToast('TTS nao disponivel','warn');return;}
+  window.speechSynthesis.cancel();
+  var u=new SpeechSynthesisUtterance(text.slice(0,500));
+  u.lang='pt-PT';u.rate=1.0;
+  window.speechSynthesis.speak(u);
+  showToast('A falar...','info',2000);
+}
 
 document.getElementById('chat-i').addEventListener('keydown',function(e){
   if(e.key==='Enter'&&!e.shiftKey){

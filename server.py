@@ -26,6 +26,10 @@ logging.basicConfig(
 )
 log = logging.getLogger("god.server")
 
+# Backup directory
+BACKUP_DIR = DATA / "backups"
+BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+
 
 def _log_req(method: str, path: str, status: int, ms: float, extra: str = ""):
     line = f"{method} {path} {status} -- {ms:.0f}ms"
@@ -174,13 +178,27 @@ def _ensure_flags():
 @asynccontextmanager
 async def _lifespan(app):
     # Startup
+    log.info("GOD starting up...")
     compute.start_local_worker()
     tq.heartbeat(compute.LOCAL_ID)
     aios.boot()
     auth.init()
     _ensure_flags()
+    log.info("GOD ready. Port %s", os.environ.get("GOD_PORT", "8000"))
     yield
-    # Shutdown (nothing to clean up — local-first)
+    # Shutdown — graceful cleanup
+    log.info("GOD shutting down...")
+    try:
+        from superai.runtime import _persist_chat
+        _persist_chat()
+    except Exception as e:
+        log.warning("Chat persist on shutdown failed: %s", e)
+    try:
+        from superai.memory_vec import vectors
+        vectors.close()
+    except Exception:
+        pass
+    log.info("GOD shutdown complete.")
 
 
 app = FastAPI(
@@ -203,12 +221,21 @@ app = FastAPI(
 
 # CORS — allow local dev frontends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:*", "http://127.0.0.1:*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def _global_error_handler(request: Request, exc: Exception):
+    """Global error handler — log full traceback, return safe JSON."""
+    log.error("Unhandled %s %s: %s", request.method, request.url.path, exc, exc_info=True)
+    return JSONResponse(status_code=500, content={"error": "Internal server error", "path": request.url.path})
 
 
 @app.middleware("http")
@@ -277,6 +304,23 @@ def health():
         "alerts": [a["code"] for a in eye.get("alerts") or []],
         "gpu_required": False,
     }
+
+
+@app.get("/api/admin/backup")
+def admin_backup():
+    """Download a backup of the GOD database."""
+    import shutil, datetime as _dt
+    ts = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    db_path = DATA / "god.db"
+    if not db_path.exists():
+        raise HTTPException(404, "Database not found")
+    backup_path = BACKUP_DIR / f"god_{ts}.db"
+    shutil.copy2(str(db_path), str(backup_path))
+    backups = sorted(BACKUP_DIR.glob("god_*.db"), key=lambda p: p.stat().st_mtime, reverse=True)
+    for old in backups[7:]:
+        old.unlink()
+    log.info("Backup created: %s", backup_path.name)
+    return FileResponse(str(backup_path), filename=f"god_backup_{ts}.db", media_type="application/octet-stream")
 
 
 @app.get("/api/health/deep")
