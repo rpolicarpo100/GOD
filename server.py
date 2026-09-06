@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import datetime
 import json
 import os
+import sys
+import time as _time
 from pathlib import Path
 
 from contextlib import asynccontextmanager
@@ -12,6 +15,14 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 from superai.config import DATA
 from pydantic import BaseModel
+
+
+def _log_req(method: str, path: str, status: int, ms: float, extra: str = ""):
+    ts = datetime.datetime.now().strftime("%H:%M:%S")
+    line = f"[{ts}] {method} {path} {status} -- {ms:.0f}ms"
+    if extra:
+        line += f" ({extra})"
+    print(line, file=sys.stderr, flush=True)
 
 from superai import aios, benchmark, compute, evolution, observer, queue as tq, routing, tokens as ti
 from superai.events import bus
@@ -159,6 +170,16 @@ async def _lifespan(app):
 
 
 app = FastAPI(title="SUPER AI", lifespan=_lifespan)
+
+
+@app.middleware("http")
+async def _log_middleware(request: Request, call_next):
+    t0 = _time.time()
+    response = await call_next(request)
+    ms = (_time.time() - t0) * 1000
+    if not request.url.path.startswith("/api/stream"):
+        _log_req(request.method, request.url.path, response.status_code, ms)
+    return response
 
 
 @app.get("/")

@@ -394,6 +394,15 @@ button{cursor:pointer}
   100%{background:var(--glass);border-color:var(--line);box-shadow:none}
 }
 
+/* Toast notifications */
+.toast-container{position:fixed;top:60px;right:16px;z-index:2000;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.toast{padding:8px 14px;border-radius:8px;font-size:10px;color:var(--text);background:var(--deep);border:1px solid var(--line);pointer-events:auto;animation:toast-in .3s ease-out,toast-out .3s ease-in 4s forwards;max-width:280px;box-shadow:0 4px 16px rgba(0,0,0,.3)}
+.toast.ok{border-color:rgba(94,232,176,.2);color:var(--ok)}
+.toast.warn{border-color:rgba(240,192,80,.2);color:var(--warn)}
+.toast.info{border-color:rgba(108,200,240,.2);color:var(--info)}
+@keyframes toast-in{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes toast-out{from{opacity:1}to{opacity:0;transform:translateX(20px)}}
+
 /* Chat notification dot */
 .chat-notify{
   display:inline-block;width:8px;height:8px;border-radius:50%;
@@ -1031,6 +1040,9 @@ body.theme-neon{
   <input class="cmd-input" id="cmd-input" placeholder="Pesquisar comandos..." oninput="filterCommands(this.value)"/>
   <div class="cmd-results" id="cmd-results"></div>
 </div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
 
 <script>
 const $=id=>document.getElementById(id);
@@ -2519,6 +2531,48 @@ $('h-voice').addEventListener('click',()=>startVoiceSTT());
 
 document.addEventListener('keydown',e=>{
   if(e.key==='m'&&e.ctrlKey&&!e.shiftKey){e.preventDefault();startVoiceSTT();}
+});
+
+// TOAST NOTIFICATIONS
+function showToast(msg,type,dur){
+  type=type||'info';dur=dur||4000;
+  var c=document.getElementById('toast-container');
+  if(!c)return;
+  var t=document.createElement('div');
+  t.className='toast '+type;
+  t.textContent=msg;
+  c.appendChild(t);
+  setTimeout(function(){t.remove();},dur);
+}
+
+// SLASH COMMANDS
+var SLASH_CMD={'/estado':'estado','/tokens':'economia de tokens','/roadmap':'roadmap','/benchmark':'corre benchmark','/repair':'repara','/mission':'missão actual','/evolve':'evolução','/observer':'terceiro olho','/clear':'__clear__'};
+
+document.getElementById('chat-i').addEventListener('keydown',function(e){
+  if(e.key==='Enter'&&!e.shiftKey){
+    var v=document.getElementById('chat-i').value.trim();
+    if(v.charAt(0)==='/'){
+      var sp=v.indexOf(' ');
+      var cmd=(sp>0?v.slice(0,sp):v).toLowerCase();
+      var rest=sp>0?v.slice(sp+1).trim():'';
+      if(cmd==='/clear'){
+        e.preventDefault();
+        document.getElementById('chat-m').innerHTML='';
+        showToast('Chat limpo','info');
+        document.getElementById('chat-i').value='';
+        return;
+      }
+      if(SLASH_CMD[cmd]){
+        e.preventDefault();
+        document.getElementById('chat-i').value=SLASH_CMD[cmd]+(rest?' '+rest:'');
+        document.getElementById('chat-f').dispatchEvent(new Event('submit'));
+        return;
+      }
+      e.preventDefault();
+      showToast('Comandos: /estado /tokens /roadmap /benchmark /repair /mission /evolve /observer /clear','info',6000);
+      document.getElementById('chat-i').value='';
+    }
+  }
 });
 
 // ═══════════════════════════════
