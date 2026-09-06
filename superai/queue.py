@@ -167,11 +167,17 @@ def claim(worker_id: str) -> dict | None:
                 "SELECT COUNT(*) FROM jobs WHERE worker_id=? AND status IN ('assigned','running')",
                 (worker_id,),
             ).fetchone()[0]
+            import sys
+            print(f"[DEBUG claim] worker={worker_id} inflight={n} cap={cap}", file=sys.stderr)
             if int(n) >= cap:
                 return None
             rows = c.execute(
                 "SELECT * FROM jobs WHERE status='queued' ORDER BY COALESCE(priority,0) DESC, ts ASC LIMIT 20"
             ).fetchall()
+            print(f"[DEBUG claim] queued_rows={len(rows)}", file=sys.stderr)
+            if rows:
+                for rr in rows[:3]:
+                    print(f"[DEBUG claim]   id={rr['id']} status={rr['status']} text={rr.get('text','')[:30]}", file=sys.stderr)
             r = None
             for cand in rows:
                 pid = cand["parent_id"] if "parent_id" in cand.keys() else None
@@ -182,7 +188,11 @@ def claim(worker_id: str) -> dict | None:
                 r = cand
                 break
             if not r:
+                import sys
+                print(f"[DEBUG claim] NO QUEUED JOB for worker={worker_id} inflight={n} cap={cap}", file=sys.stderr)
                 return None
+            import sys
+            print(f"[DEBUG claim] CLAIMED id={r['id']} inflight_before={n} cap={cap}", file=sys.stderr)
             c.execute(
                 "UPDATE jobs SET status='assigned', worker_id=?, updated=? WHERE id=?",
                 (worker_id, now_iso(), r["id"]),
