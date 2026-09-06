@@ -20,14 +20,16 @@ BASE = f"http://127.0.0.1:{PORT}"
 
 def _server_running() -> bool:
     try:
-        r = httpx.get(f"{BASE}/api/health", timeout=3)
+        r = httpx.get(f"{BASE}/api/health", timeout=5)
         return r.status_code == 200
     except Exception:
         return False
 
 
-pytestmark = pytest.mark.skipif(
-    not _server_running(),
+# Skip at test level, not module level (avoids race condition at import)
+_server_ok = _server_running()
+skip_no_server = pytest.mark.skipif(
+    not _server_ok,
     reason="GOD server not running (start with: god start)",
 )
 
@@ -37,6 +39,7 @@ pytestmark = pytest.mark.skipif(
 # ═══════════════════════════════════════
 
 
+@skip_no_server
 class TestHealth:
     def test_health(self):
         r = httpx.get(f"{BASE}/api/health", timeout=5)
@@ -70,6 +73,7 @@ class TestHealth:
 # ═══════════════════════════════════════
 
 
+@skip_no_server
 class TestAPI:
     def test_token_usage(self):
         r = httpx.get(f"{BASE}/api/token/usage", timeout=5)
@@ -132,6 +136,7 @@ class TestAPI:
 # ═══════════════════════════════════════
 
 
+@skip_no_server
 class TestSystem:
     def test_system_state(self):
         r = httpx.get(f"{BASE}/api/system/state", timeout=5)
@@ -175,6 +180,7 @@ class TestSystem:
 # ═══════════════════════════════════════
 
 
+@skip_no_server
 class TestAuth:
     def test_auth_status(self):
         r = httpx.get(f"{BASE}/api/auth/status", timeout=5)
@@ -198,6 +204,7 @@ class TestAuth:
 # ═══════════════════════════════════════
 
 
+@skip_no_server
 class TestOpenAICompat:
     def test_models(self):
         r = httpx.get(f"{BASE}/v1/models", timeout=5)
@@ -212,6 +219,7 @@ class TestOpenAICompat:
 # ═══════════════════════════════════════
 
 
+@skip_no_server
 class TestChat:
     def test_chat_returns_response(self):
         r = httpx.post(
@@ -237,6 +245,7 @@ class TestChat:
 # ═══════════════════════════════════════
 
 
+@skip_no_server
 class TestStream:
     def test_stream_connects(self):
         """SSE endpoint should accept connection and send snapshot."""
@@ -255,6 +264,7 @@ class TestStream:
 # ═══════════════════════════════════════
 
 
+@skip_no_server
 class TestSecurity:
     def test_sensitive_scan_requires_auth(self):
         r = httpx.get(f"{BASE}/api/security/sensitive/scan?text=test", timeout=5)
@@ -278,6 +288,7 @@ class TestSecurity:
 # ═══════════════════════════════════════
 
 
+@skip_no_server
 class TestOptional:
     def test_voice_health(self):
         r = httpx.get(f"{BASE}/api/system/voice", timeout=5)
@@ -294,6 +305,7 @@ class TestOptional:
 # ═══════════════════════════════════════
 
 
+@skip_no_server
 class TestUI:
     def test_index_returns_html(self):
         r = httpx.get(f"{BASE}/", timeout=5)
@@ -306,6 +318,7 @@ class TestUI:
 # ═══════════════════════════════════════
 
 
+@skip_no_server
 class TestResponseFormat:
     """Verify API responses are well-formed JSON."""
 
