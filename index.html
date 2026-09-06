@@ -1461,11 +1461,13 @@ function pDepGraph(s){
   const llm=(s.providers||[]).some(p=>p.available);
   const qd=s.qdrant||{};
   const gov=s.governor||{};
+  const memUp=true; // SQLite always available as fallback
+  const memLabel=qd.available?'Memory (Qdrant)':'Memory (SQLite)';
   // Nodes: x,y,w,h,label,color
   const nodes=[
     {id:'llm',x:180,y:10,w:100,h:30,label:'LLM Providers',fill:llm?'var(--accent)':'var(--dim)',status:llm?'on':'off'},
     {id:'router',x:180,y:60,w:100,h:30,label:'Router',fill:'var(--info)',status:'on'},
-    {id:'memory',x:40,y:110,w:90,h:30,label:'Memory',fill:qd.available?'var(--accent)':'var(--dim)',status:qd.available?'on':'off'},
+    {id:'memory',x:40,y:110,w:90,h:30,label:memLabel,fill:qd.available?'var(--accent)':'var(--warn)',status:memUp?'on':'off'},
     {id:'cache',x:155,y:110,w:80,h:30,label:'Cache',fill:'var(--ok)',status:'on'},
     {id:'tools',x:260,y:110,w:80,h:30,label:'Tools',fill:'var(--evo)',status:'on'},
     {id:'governor',x:180,y:160,w:100,h:30,label:'Governor',fill:gov.strict!=null?'var(--warn)':'var(--dim)',status:gov.strict!=null?'on':'off'},
@@ -1662,7 +1664,7 @@ function pSmap(s){
   const gov=s.governor||{};
   const nodes=[
     {n:'AI Core',on:llm,v:llm?'Online':'Offline',det:'Providers: '+(s.providers||[]).filter(p=>p.available).length+'/'+(s.providers||[]).length,caps:['llm','routing']},
-    {n:'Memory',on:qd.available,v:qd.available?'Qdrant':'SQLite',det:'Embed: '+(qd.embed?qd.embed.method:'Hashing'),caps:['storage','semantic']},
+    {n:'Memory',on:true,v:qd.available?'Qdrant':'SQLite (local)',det:'Embed: '+(qd.embed?qd.embed.method:'Hashing'),caps:['storage','semantic']},
     {n:'Compute',on:true,v:'Active',det:'CPU: '+(s.host&&s.host.cpu_count||'?')+' cores',caps:['cpu','worker']},
     {n:'Governor',on:gov.strict!=null,v:gov.strict?'Strict':'Lax',det:'Mode: '+(gov.resource_mode||'NORMAL'),caps:['control']},
     {n:'OS',on:os.booted,v:os.booted?'Booted':'Offline',det:'Uptime: '+(os.uptime_s?Math.floor(os.uptime_s/60)+'min':'?'),caps:['system']},
