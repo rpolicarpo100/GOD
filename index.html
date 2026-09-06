@@ -766,6 +766,28 @@ body.theme-neon{
   --ok:#00ff88;--info:#00ccff;--warn:#ffcc00;--crit:#ff4466;--evo:#aa88ff;
 }
 
+
+/* Custom Theme */
+body.theme-custom {
+  --void: var(--void);
+  --deep: var(--deep);
+}
+
+.theme-custom-colors {
+  display: none;
+  gap: 6px;
+  align-items: center;
+  padding: 4px;
+  background: var(--glass);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.theme-custom-colors.show { display: flex; }
+.theme-color-input {
+  width: 20px; height: 20px; border: none; border-radius: 4px;
+  cursor: pointer; padding: 0; background: none;
+}
+
 /* Theme selector */
 .theme-selector{display:flex;gap:4px;align-items:center}
 .theme-dot{
@@ -836,6 +858,10 @@ body.theme-neon{
             <div class="theme-dot midnight active" onclick="setTheme('midnight')" title="Midnight"></div>
             <div class="theme-dot dawn" onclick="setTheme('dawn')" title="Dawn"></div>
             <div class="theme-dot neon" onclick="setTheme('neon')" title="Neon"></div>
+            <div style="width:16px;height:16px;border-radius:50%;cursor:pointer;border:2px solid var(--line);background:conic-gradient(red,yellow,green,cyan,blue,magenta,red);position:relative" onclick="toggleCustomTheme()" title="Custom"></div>
+          </div>
+          <div class="theme-custom-colors">
+            <input type="color" class="theme-color-input" value="#b89eea" onchange="applyCustomAccent(this.value)" title="Accent color"/>
           </div>
           <button class="a11y-btn" onclick="toggleHighContrast()" title="Alto contraste">◐</button>
           <button class="a11y-btn" onclick="cycleFontSize()" title="Tamanho da fonte">A</button>
@@ -850,7 +876,7 @@ body.theme-neon{
         </div>
         <div class="h-badge" id="h-voice"><div class="h-dot"></div> MIC</div>
         <div class="h-badge ok" id="h-sys"><div class="h-dot"></div> <span id="h-sys-t">Healthy</span></div>
-        <div class="h-clock" id="clock">--:--:--</div>
+        <div class="h-badge" id="h-notif" onclick="toggleNotifPanel()" style="cursor:pointer;position:relative"><div class="h-dot"></div> <span id="notif-badge" style="position:absolute;top:-4px;right:-4px;background:var(--crit);color:white;font-size:7px;border-radius:50%;width:14px;height:14px;display:none;align-items:center;justify-content:center">0</span> 🔔</div><div class="h-clock" id="clock">--:--:--</div>
       </div>
     </header>
 
@@ -968,6 +994,9 @@ body.theme-neon{
       <div class="chat-h" id="chat-h">
         <div style="display:flex;align-items:center;gap:8px">
           <div class="t">GOD · Chat</div>
+          <select id="model-select" style="background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:2px 6px;font-size:8px;color:var(--muted);cursor:pointer" title="Escolher modelo">
+            <option value="auto">Auto</option>
+          </select>
           <button class="react-btn" onclick="toggleChatSearch()" title="Pesquisar">🔍</button>
         </div>
         <div class="a" id="chat-a">▲</div>
@@ -1006,6 +1035,12 @@ body.theme-neon{
   <span style="animation:iris-active 1s infinite">🔴</span>
   <span id="voice-stt-text">A ouvir...</span>
   <button onclick="stopVoiceSTT()" style="background:transparent;border:1px solid var(--line);color:var(--dim);border-radius:4px;padding:1px 6px;font-size:9px;cursor:pointer">Parar</button>
+</div>
+
+<!-- Notification Panel -->
+<div id="notif-panel" style="position:fixed;top:46px;right:16px;z-index:200;width:280px;max-height:400px;background:var(--deep);border:1px solid var(--line);border-radius:12px;display:none;flex-direction:column;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.4)">
+  <div style="padding:8px 12px;border-bottom:1px solid var(--line);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);display:flex;justify-content:space-between"><span>Notificações</span><button onclick="toggleNotifPanel()" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:10px">✕</button></div>
+  <div id="notif-list" style="overflow-y:auto;max-height:350px"></div>
 </div>
 
 <!-- Loading Overlay -->
@@ -1665,14 +1700,14 @@ $('chat-f').addEventListener('submit',e=>{
   }).finally(()=>{if(ti)ti.style.display='none';streamingActive=false;});
 });
 const QA=[
-  {l:'Estado',q:'estado'},
-  {l:'Missão',q:'missão actual'},
-  {l:'Roadmap',q:'roadmap'},
-  {l:'Tokens',q:'economia de tokens'},
-  {l:'Benchmark',q:'corre benchmark'},
-  {l:'Repair',q:'repara'},
-  {l:'Observer',q:'terceiro olho'},
-  {l:'Evolve',q:'evolução'}
+  {l:'📊 Estado',q:'estado'},
+  {l:'🎯 Missão',q:'missão actual'},
+  {l:'🗺️ Roadmap',q:'roadmap'},
+  {l:'💰 Tokens',q:'economia de tokens'},
+  {l:'⚡ Benchmark',q:'corre benchmark'},
+  {l:'🔧 Repair',q:'repara'},
+  {l:'👁️ Observer',q:'terceiro olho'},
+  {l:'🧬 Evolve',q:'evolução'}
 ];
 $('chat-q').innerHTML=QA.map(a=>`<button class="qb" data-q="${esc(a.q)}">${esc(a.l)}</button>`).join('');
 document.querySelectorAll('.qb').forEach(b=>b.addEventListener('click',()=>fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:b.dataset.q})})));
@@ -2708,6 +2743,276 @@ function togglePanel(header){
     localStorage.setItem('god-collapsed-panels',JSON.stringify(collapsed));
   }
 }
+
+// ═══════════════════════════════
+// MODEL SELECTOR
+// ═══════════════════════════════
+(function(){
+  var sel=document.getElementById('model-select');
+  if(!sel)return;
+  // Populate from providers
+  function updateModels(){
+    if(!S||!S.providers)return;
+    var avail=S.providers.filter(function(p){return p.available;});
+    sel.innerHTML='<option value="auto">Auto</option>';
+    avail.forEach(function(p){
+      var opt=document.createElement('option');
+      opt.value=p.id;
+      opt.textContent=p.name||p.id;
+      sel.appendChild(opt);
+    });
+  }
+  // Restore saved preference
+  var saved=localStorage.getItem('god-model-pref');
+  if(saved)sel.value=saved;
+  sel.addEventListener('change',function(){
+    localStorage.setItem('god-model-pref',sel.value);
+    showToast('Modelo: '+sel.options[sel.selectedIndex].text,'info',2000);
+  });
+  // Update when state changes
+  var origPaint=window.paint;
+  if(origPaint){
+    window.paint=function(s){origPaint(s);updateModels();};
+  }
+})();
+
+// ═══════════════════════════════
+// DRAG-DROP FILE UPLOAD
+// ═══════════════════════════════
+(function(){
+  var chatArea=document.getElementById('chat-m');
+  if(!chatArea)return;
+  ['dragenter','dragover'].forEach(function(evt){
+    chatArea.addEventListener(evt,function(e){
+      e.preventDefault();e.stopPropagation();
+      chatArea.style.outline='2px dashed var(--accent)';
+      chatArea.style.outlineOffset='-4px';
+    });
+  });
+  ['dragleave','drop'].forEach(function(evt){
+    chatArea.addEventListener(evt,function(e){
+      e.preventDefault();e.stopPropagation();
+      chatArea.style.outline='none';
+    });
+  });
+  chatArea.addEventListener('drop',function(e){
+    var files=e.dataTransfer.files;
+    if(files.length>0){
+      var input=document.getElementById('file-input');
+      if(input){
+        var dt=new DataTransfer();
+        dt.items.add(files[0]);
+        input.files=dt.files;
+        input.dispatchEvent(new Event('change'));
+      }
+    }
+  });
+  // Paste from clipboard
+  document.getElementById('chat-i').addEventListener('paste',function(e){
+    var items=e.clipboardData&&e.clipboardData.items;
+    if(!items)return;
+    for(var i=0;i<items.length;i++){
+      if(items[i].type.indexOf('image')!==-1){
+        e.preventDefault();
+        var file=items[i].getAsFile();
+        if(file){
+          var input=document.getElementById('file-input');
+          var dt=new DataTransfer();
+          dt.items.add(file);
+          input.files=dt.files;
+          input.dispatchEvent(new Event('change'));
+          showToast('Imagem colada','info',2000);
+        }
+        return;
+      }
+    }
+  });
+})();
+
+// ═══════════════════════════════
+// NOTIFICATION CENTER
+// ═══════════════════════════════
+var _notifications=[];
+var _notifUnread=0;
+
+function addNotification(msg,type){
+  type=type||'info';
+  _notifications.unshift({msg:msg,type:type,ts:Date.now(),read:false});
+  if(_notifications.length>50)_notifications.length=50;
+  _notifUnread++;
+  updateNotifBadge();
+  showToast(msg,type);
+}
+
+function updateNotifBadge(){
+  var badge=document.getElementById('notif-badge');
+  if(badge){
+    badge.textContent=_notifUnread>0?(_notifUnread>9?'9+':_notifUnread):'';
+    badge.style.display=_notifUnread>0?'inline-flex':'none';
+  }
+}
+
+function toggleNotifPanel(){
+  var panel=document.getElementById('notif-panel');
+  if(!panel)return;
+  var isOpen=panel.style.display==='flex';
+  panel.style.display=isOpen?'none':'flex';
+  if(!isOpen){
+    _notifUnread=0;
+    updateNotifBadge();
+    renderNotifications();
+  }
+}
+
+function renderNotifications(){
+  var el=document.getElementById('notif-list');
+  if(!el)return;
+  if(!_notifications.length){el.innerHTML='<div style="padding:12px;font-size:10px;color:var(--dim);text-align:center">Sem notificações</div>';return;}
+  el.innerHTML=_notifications.slice(0,15).map(function(n){
+    var ago=Math.floor((Date.now()-n.ts)/1000);
+    var agoStr=ago<60?ago+'s':ago<3600?Math.floor(ago/60)+'m':Math.floor(ago/3600)+'h';
+    return '<div style="padding:6px 10px;border-bottom:1px solid var(--line);font-size:10px;display:flex;gap:6px;align-items:start"><span style="color:var(--'+(n.type==='warn'?'warn':n.type==='crit'?'crit':'info')+')">●</span><div style="flex:1">'+esc(n.msg)+'</div><span style="color:var(--dim);font-size:8px;white-space:nowrap">'+agoStr+'</span></div>';
+  }).join('');
+}
+
+
+// ═══════════════════════════════
+// CUSTOM THEME BUILDER
+// ═══════════════════════════════
+function toggleCustomTheme(){
+  var el=document.querySelector('.theme-custom-colors');
+  if(el)el.classList.toggle('show');
+}
+
+function applyCustomAccent(color){
+  document.documentElement.style.setProperty('--accent',color);
+  // Derive accent2 from accent with lower opacity
+  document.documentElement.style.setProperty('--accent2',color);
+  localStorage.setItem('god-custom-accent',color);
+}
+
+// Restore custom accent
+(function(){
+  var saved=localStorage.getItem('god-custom-accent');
+  if(saved){
+    document.documentElement.style.setProperty('--accent',saved);
+    document.documentElement.style.setProperty('--accent2',saved);
+  }
+})();
+
+// KPI counter animation
+function animateValue(el,start,end,duration){
+  if(!el)return;
+  var range=end-start;
+  var startTime=null;
+  function step(ts){
+    if(!startTime)startTime=ts;
+    var progress=Math.min((ts-startTime)/duration,1);
+    var eased=1-Math.pow(1-progress,3);
+    el.textContent=Math.floor(start+range*eased);
+    if(progress<1)requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+
+// Provider sparkline — tracks latency per provider
+var _provLatency={};
+
+function trackProviderLatency(provider,ms){
+  if(!provider)return;
+  if(!_provLatency[provider])_provLatency[provider]=[];
+  _provLatency[provider].push(ms);
+  if(_provLatency[provider].length>20)_provLatency[provider].shift();
+}
+
+function drawProvSparkline(provider){
+  var vals=_provLatency[provider];
+  if(!vals||vals.length<2)return'';
+  var w=80,h=14;
+  var mx=Math.max.apply(null,vals);
+  if(mx===0)return'';
+  var pts=vals.map(function(v,i){
+    var x=(i/(vals.length-1))*w;
+    var y=h-(v/mx)*h;
+    return x+','+y;
+  }).join(' ');
+  var color=mx<1000?'var(--ok)':mx<3000?'var(--warn)':'var(--crit)';
+  return '<div class="prov-sparkline"><svg width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'"><polyline points="'+pts+'" fill="none" stroke="'+color+'" stroke-width="1.5" stroke-linecap="round"/></svg></div>';
+}
+
+// Hook into paint to track latency
+var _origPaint2=window.paint;
+window.paint=function(s){
+  if(_origPaint2)_origPaint2(s);
+  // Track provider latency from pipeline
+  if(s&&s.last_pipeline&&s.last_pipeline.llm_adapter&&s.last_pipeline.llm_ms){
+    trackProviderLatency(s.last_pipeline.llm_adapter,s.last_pipeline.llm_ms);
+  }
+};
+
+
+// ═══════════════════════════════
+// VIRTUAL SCROLLING (chat messages)
+// ═══════════════════════════════
+var _virtualThreshold=100;
+
+function manageVirtualScroll(){
+  var box=document.getElementById('chat-m');
+  if(!box)return;
+  var msgs=box.children;
+  if(msgs.length<=_virtualThreshold)return;
+  // Remove old messages from DOM (keep last 80)
+  var toRemove=msgs.length-80;
+  for(var i=0;i<toRemove;i++){
+    // Store reference before removing
+    var el=msgs[0];
+    if(!el.classList.contains('chat-msg')&&!el.classList.contains('chat-stream'))break;
+    el.remove();
+  }
+}
+
+// ═══════════════════════════════
+// CONVERSATION SEARCH
+// ═══════════════════════════════
+function searchConversation(term){
+  if(!term)return;
+  var msgs=document.querySelectorAll('#chat-m .chat-msg');
+  var found=0;
+  msgs.forEach(function(m){
+    var text=m.textContent.toLowerCase();
+    if(text.indexOf(term.toLowerCase())!==-1){
+      m.style.background='rgba(184,158,234,.1)';
+      m.scrollIntoView({behavior:'smooth',block:'center'});
+      found++;
+    } else {
+      m.style.background='';
+    }
+  });
+  showToast(found+' resultado'+(found!==1?'s':''),'info',2000);
+}
+
+// ═══════════════════════════════
+// FOLLOW-UP DETECTION
+// ═══════════════════════════════
+var _lastBotIntent=null;
+
+function detectFollowUp(userMsg){
+  var lower=userMsg.toLowerCase();
+  // Follow-up patterns
+  var followUps=['e se','e depois','mas e','continua','mais','detalhes','explica mais',
+                 'porquê','como assim','não percebi','podes explicar','clarifica',
+                 'e isso','e agora','então','portanto'];
+  for(var i=0;i<followUps.length;i++){
+    if(lower.indexOf(followUps[i])===0||lower.indexOf(' '+followUps[i])!==-1){
+      return true;
+    }
+  }
+  // Short messages (< 5 words) are often follow-ups
+  if(lower.split(/\s+/).length<=3&&!lower.includes('?'))return true;
+  return false;
+}
+
 </script>
 </body>
 </html>
