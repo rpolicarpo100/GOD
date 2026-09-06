@@ -387,6 +387,20 @@ button{cursor:pointer}
 .react-btn:hover{background:var(--glass);border-color:var(--line2)}
 .react-btn.active{background:rgba(139,108,199,.08);border-color:var(--accent)}
 
+/* New message flash */
+.m.new-msg{animation:msg-flash .8s ease-out}
+@keyframes msg-flash{
+  0%{background:rgba(139,108,199,.2);border-color:var(--accent);box-shadow:0 0 12px rgba(139,108,199,.15)}
+  100%{background:var(--glass);border-color:var(--line);box-shadow:none}
+}
+
+/* Chat notification dot */
+.chat-notify{
+  display:inline-block;width:8px;height:8px;border-radius:50%;
+  background:var(--accent);margin-left:6px;animation:notify-pulse 1.5s ease-in-out infinite;
+}
+@keyframes notify-pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}
+
 /* Chat search */
 .chat-search{
   display:flex;gap:4px;padding:4px 16px;border-bottom:1px solid var(--line);
@@ -1936,9 +1950,15 @@ function pProf(s){
   }
 }
 
+let lastBrainMsg='';
+
 function pChat(s){
   const msgs=s.chat||[];
-  if(msgs.length===cLen&&$('chat-m').children.length&&!editingIdx)return;
+  // Force re-render if brain has a new message
+  const lastBrain=msgs.filter(m=>m.role==='brain').pop();
+  const brainChanged=lastBrain&&lastBrain.text!==lastBrainMsg;
+  if(msgs.length===cLen&&$('chat-m').children.length&&!editingIdx&&!brainChanged)return;
+  if(lastBrain)lastBrainMsg=lastBrain.text;
   cLen=msgs.length;
   $('chat-m').innerHTML=msgs.map((m,i)=>{
     const ts=m.ts?new Date(m.ts).toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'}):'';
@@ -1948,10 +1968,26 @@ function pChat(s){
     const isEditing=editingIdx===i&&m.role==='user';
     const editBtn=m.role==='user'?`<button class="react-btn" onclick="startEdit(${i})" title="Editar">✎</button>`:'';
     const fileHtml=chatFiles[i]?fileAttachHtml(chatFiles[i]):'';
-    return `<div class="m ${m.role}${isEditing?' editing':''}"><div class="w">${m.role==='brain'?'GOD':'You'}</div>${isEditing?`<input class="edit-input" value="${esc(m.text)}" onkeydown="if(event.key==='Enter')saveEdit(${i},this.value);if(event.key==='Escape')cancelEdit();" autofocus/>`:content}${fileHtml}${ts?`<div class="ts">${ts}</div>`:''}<div class="reactions">${reactHtml}<button class="react-btn" onclick="toggleReaction(${i},'👍')">👍</button><button class="react-btn" onclick="toggleReaction(${i},'👎')">👎</button>${editBtn}</div></div>`;
+    const isNew=brainChanged&&m===lastBrain;
+    return `<div class="m ${m.role}${isEditing?' editing':''}${isNew?' new-msg':''}"><div class="w">${m.role==='brain'?'GOD':'You'}</div>${isEditing?`<input class="edit-input" value="${esc(m.text)}" onkeydown="if(event.key==='Enter')saveEdit(${i},this.value);if(event.key==='Escape')cancelEdit();" autofocus/>`:content}${fileHtml}${ts?`<div class="ts">${ts}</div>`:''}<div class="reactions">${reactHtml}<button class="react-btn" onclick="toggleReaction(${i},'👍')">👍</button><button class="react-btn" onclick="toggleReaction(${i},'👎')">👎</button>${editBtn}</div></div>`;
   }).join('')+'<div class="typing" id="typing-indicator" style="display:none"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
   $('chat-m').scrollTop=$('chat-m').scrollHeight;
-  if(msgs.length&&!cOpen){cOpen=true;$('chat-b').classList.add('open');$('chat-a').style.transform='rotate(180deg)';}
+  // Always auto-open chat when there are messages
+  if(msgs.length&&!cOpen){
+    cOpen=true;$('chat-b').classList.add('open');$('chat-a').style.transform='rotate(180deg)';
+  }
+  // Show notification dot if brain just responded
+  if(brainChanged){
+    const chatTitle=$('chat-h')?.querySelector('.t');
+    if(chatTitle){
+      const existing=chatTitle.querySelector('.chat-notify');
+      if(existing)existing.remove();
+      const dot=document.createElement('span');
+      dot.className='chat-notify';
+      chatTitle.appendChild(dot);
+      setTimeout(()=>dot.remove(),3000);
+    }
+  }
 }
 
 // ═══ SSE ═══
