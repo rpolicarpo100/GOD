@@ -6,13 +6,25 @@ GitHub: [rpolicarpo100/GOD](https://github.com/rpolicarpo100/GOD)
 
 | Métrica | Valor |
 |---------|-------|
-| Testes | 252/252 PASS |
+| Testes | 295/295 PASS + 46 E2E |
 | Providers | 10/11 TESTED |
 | Security | 88/88 PASS |
 | Constitution | 12/12 traits |
 | Módulos | 48 |
 | Dead Code | 0 |
+| Endpoints | 90 |
 | P0 Findings | 0 |
+
+## Completed
+
+### ~~P2-3: Remove Unused Functions~~ ✅
+30 funções mortas + módulo evidence.py. 50→48 módulos.
+
+### ~~P3-1: FastAPI Lifespan~~ ✅
+Migrado on_event para lifespan. 0 deprecation warnings.
+
+### ~~P0/P1/P2/P3: Installation System~~ ✅
+GOD_INSTALLER.bat, god-installer.sh, 15 commands, 43 install tests.
 
 ## Próximo Passo
 
@@ -21,14 +33,6 @@ GitHub: [rpolicarpo100/GOD](https://github.com/rpolicarpo100/GOD)
 **Impacto**: ALTO | **Risco**: BAIXO | **Esforço**: BAIXO
 
 Adicionar `threading.Lock()` a `_sessions`, `_overrides`, `_approvals`.
-
-### ~~2. FastAPI Deprecation (P3-1)~~ ✅
-
-Migrado `@app.on_event("startup")` para `lifespan` context manager. 0 deprecation warnings.
-
-### ~~3. Remove Unused Functions (P2-3)~~ ✅
-
-Removidas 30 funções mortas + módulo evidence.py (105 linhas). 50→48 módulos, 0 regressões.
 
 ## Não Agora
 
