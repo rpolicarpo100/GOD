@@ -3047,51 +3047,51 @@ function hideAIActivity() {
 // Hook into bus events via SSE
 var _origPaintActivity = window.paint;
 window.paint = function(s) {
-  if (_origPaintActivity) _origPaintActivity(s);
+  try {
+    if (_origPaintActivity) _origPaintActivity(s);
+  } catch(e) {}
   if (!s) return;
-  var state = s.god_core_state || '';
-  if (state === 'thinking') showAIActivity('GOD a pensar...', 'thinking');
-  else if (state === 'researching') showAIActivity('A pesquisar na web...', 'researching');
-  else if (state === 'learning') showAIActivity('A aprender...', 'learning');
-  else if (state === 'tools') showAIActivity('A executar ferramentas...', 'thinking');
-  else if (state === 'error') showAIActivity('Erro no sistema', 'error', 5000);
-  else if (state === 'ready') hideAIActivity();
+  try {
+    var state = s.god_core_state || '';
+    if (state === 'thinking') showAIActivity('GOD a pensar...', 'thinking');
+    else if (state === 'researching') showAIActivity('A pesquisar na web...', 'researching');
+    else if (state === 'learning') showAIActivity('A aprender...', 'learning');
+    else if (state === 'tools') showAIActivity('A executar ferramentas...', 'thinking');
+    else if (state === 'error') showAIActivity('Erro no sistema', 'error', 5000);
+    else if (state === 'ready') hideAIActivity();
+  } catch(e) {}
 };
 
-// ═══════════════════════════════
-// CHAT WELCOME — show when chat is empty
-// ═══════════════════════════════
+// CHAT WELCOME — show when chat is empty (safe, non-blocking)
 function showChatWelcome() {
-  var box = document.getElementById('chat-m');
-  if (!box || box.children.length > 0) return;
-  box.innerHTML = '<div class="chat-welcome">' +
-    '<div style="font-size:32px;margin-bottom:12px">🧠</div>' +
-    '<h3>Olá! Sou a GOD</h3>' +
-    '<p>Inteligência artificial autónoma. Pesquiso na web, leio notícias, e aprendo sozinha. Pergunta-me qualquer coisa.</p>' +
-    '<div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center">' +
-    '<button class="qb" onclick="sendChat('o que está a acontecer no mundo?')">📰 Notícias</button>' +
-    '<button class="qb" onclick="sendChat('estado do sistema')">📊 Estado</button>' +
-    '<button class="qb" onclick="sendChat('pesquisa na web inteligência artificial')">🔍 Pesquisar</button>' +
-    '<button class="qb" onclick="sendChat('roadmap')">🗺️ Roadmap</button>' +
-    '</div></div>';
+  try {
+    var box = document.getElementById('chat-m');
+    if (!box || box.children.length > 0) return;
+    var html = '<div class="chat-welcome">' +
+      '<div style="font-size:32px;margin-bottom:12px">\u{1F9E0}</div>' +
+      '<h3>Ola! Sou a GOD</h3>' +
+      '<p>Inteligencia artificial autonoma. Pesquiso na web, leio noticias, e aprendo sozinha.</p>' +
+      '<div style="margin-top:16px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center">' +
+      '<button class="qb" onclick="sendChat(&quot;o que esta a acontecer no mundo?&quot;)">Noticias</button>' +
+      '<button class="qb" onclick="sendChat(&quot;estado do sistema&quot;)">Estado</button>' +
+      '<button class="qb" onclick="sendChat(&quot;pesquisa na web inteligencia artificial&quot;)">Pesquisar</button>' +
+      '<button class="qb" onclick="sendChat(&quot;roadmap&quot;)">Roadmap</button>' +
+      '</div></div>';
+    box.innerHTML = html;
+  } catch(e) {}
 }
 
-// Show welcome on chat open
-var _origToggleChat = window.toggleChat;
-if (_origToggleChat) {
-  window.toggleChat = function() {
-    _origToggleChat();
-    setTimeout(showChatWelcome, 100);
-  };
-}
-
-// Also hook into chat header click
-var chatH = document.getElementById('chat-h');
-if (chatH) {
-  chatH.addEventListener('click', function() {
-    setTimeout(showChatWelcome, 200);
-  });
-}
+// Hook chat toggle safely (after DOM ready)
+setTimeout(function() {
+  try {
+    var chatH = document.getElementById('chat-h');
+    if (chatH) {
+      chatH.addEventListener('click', function() {
+        setTimeout(showChatWelcome, 300);
+      });
+    }
+  } catch(e) {}
+}, 500);
 
 </script>
 </body>
