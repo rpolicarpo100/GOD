@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul 2>&1
 setlocal enabledelayedexpansion
 
 REM ═══════════════════════════════════════════════════
@@ -208,6 +209,7 @@ echo GOD Doctor
 echo ══════════════════════════════════
 set "DOC_ERR=0"
 set "DOC_WARN=0"
+
 echo   [01] Python............. 
 if exist "%PY%" (
     for /f "tokens=2" %%v in ('"%PY%" --version 2^>^&1') do echo PASS  %%v
@@ -215,34 +217,56 @@ if exist "%PY%" (
     echo FAIL  venv not found
     set /a DOC_ERR+=1
 )
-echo   [02] Dependencies...... 
+
+echo   [02] Python version..... 
+"%PY%" -c "import sys; exit(0 if sys.version_info >= (3, 10) else 1)" 2>nul
+if !errorlevel! equ 0 (echo PASS  3.10+) else (echo FAIL  requires 3.10+ & set /a DOC_ERR+=1)
+
+echo   [03] Dependencies...... 
 "%PY%" -c "import fastapi,uvicorn,tiktoken,numpy,httpx,yaml,qdrant_client" 2>nul
-if !errorlevel! equ 0 (echo PASS) else (echo WARN  some imports failed ^& set /a DOC_WARN+=1)
-echo   [03] Configuration..... 
-if exist "%GOD_DIR%.env" (echo PASS) else (echo WARN  no .env ^& set /a DOC_WARN+=1)
-echo   [04] Database.......... 
-if exist "%GOD_DIR%data\spine.db" (echo PASS) else (echo WARN  not found ^& set /a DOC_WARN+=1)
-echo   [05] Auth.............. 
-if exist "%GOD_DIR%data\auth\users.json" (echo PASS) else (echo WARN  no users ^& set /a DOC_WARN+=1)
-echo   [06] GOD Profile....... 
-if exist "%GOD_DIR%data\gods\master.json" (echo PASS) else (echo WARN  no master ^& set /a DOC_WARN+=1)
-echo   [07] Port %GOD_PORT%............ 
+if !errorlevel! equ 0 (echo PASS) else (echo FAIL  some imports failed & set /a DOC_ERR+=1)
+
+echo   [04] PyYAML............ 
+"%PY%" -c "import yaml" 2>nul
+if !errorlevel! equ 0 (echo PASS) else (echo FAIL  not installed & set /a DOC_ERR+=1)
+
+echo   [05] Configuration..... 
+if exist "%GOD_DIR%.env" (echo PASS) else (echo WARN  no .env & set /a DOC_WARN+=1)
+
+echo   [06] Database.......... 
+if exist "%GOD_DIR%data\spine.db" (echo PASS) else (echo WARN  not found & set /a DOC_WARN+=1)
+
+echo   [07] Auth.............. 
+if exist "%GOD_DIR%data\auth\users.json" (echo PASS) else (echo WARN  no users & set /a DOC_WARN+=1)
+
+echo   [08] GOD Profile....... 
+if exist "%GOD_DIR%data\gods\master.json" (echo PASS) else (echo WARN  no master & set /a DOC_WARN+=1)
+
+echo   [09] Port %GOD_PORT%............ 
 netstat -an 2>nul | findstr ":%GOD_PORT% " | findstr "LISTENING" >nul 2>&1
 if !errorlevel! equ 0 (echo PASS  listening) else (echo INFO  not listening)
-echo   [08] Disk Space........ 
-echo PASS
+
+echo   [10] Git state......... 
+for /f "tokens=*" %%c in ('cd /d "%GOD_DIR%" 2^>nul ^& git rev-parse --short HEAD 2^>nul') do (
+    for /f "tokens=*" %%b in ('git branch --show-current 2^>nul') do echo PASS  %%b @ %%c
+)
+if !errorlevel! neq 0 (echo WARN  not a git repo & set /a DOC_WARN+=1)
+
+echo   [11] Disk Space........ 
+for /f "tokens=3" %%d in ('dir "%GOD_DIR%" 2^>nul ^| findstr /C:"bytes free"') do echo PASS  %%d bytes free
+if !errorlevel! neq 0 (echo PASS)
+
 echo ══════════════════════════════════
 if !DOC_ERR! GTR 0 (
-    echo   GOD DOCTOR: FAILED
+    echo   GOD DOCTOR: FAILED  [!DOC_ERR! error(s), !DOC_WARN! warning(s)]
     exit /b 1
 ) else if !DOC_WARN! GTR 0 (
-    echo   GOD DOCTOR: DEGRADED
+    echo   GOD DOCTOR: DEGRADED  [!DOC_WARN! warning(s)]
 ) else (
     echo   GOD DOCTOR: HEALTHY
 )
 echo.
 goto :eof
-
 :repair
 if not exist "%PY%" (
     echo [FAIL] Virtual environment not found. Run setup.bat first.
