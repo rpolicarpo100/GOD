@@ -370,6 +370,29 @@ def tool_github_search(args: dict) -> dict:
     return _err(r.get("error", "search failed"))
 
 
+def tool_news_search(args: dict) -> dict:
+    """Search news intelligence."""
+    from .news_connector import search_news
+    query = args.get("query", "")
+    if not query:
+        return _err("missing query")
+    r = search_news(query)
+    if r.get("status") == "success":
+        return _ok(findings=r.get("results", []), evidence=[f"n={r.get('n')}"])
+    return _err(r.get("error", "news search failed"))
+
+
+def tool_news_latest(args: dict) -> dict:
+    """Get latest news events."""
+    from .news_connector import get_latest
+    limit = int(args.get("limit", 10))
+    category = args.get("category", "")
+    r = get_latest(limit=limit, category=category)
+    if r.get("status") == "success":
+        return _ok(findings=r.get("events", []), evidence=[f"n={r.get('n')}", f"total={r.get('total')}"])
+    return _err(r.get("error", "news fetch failed"))
+
+
 def tool_site_search(args: dict) -> dict:
     """Search across registered sites."""
     from .site_aggregator import search_sites
@@ -541,6 +564,22 @@ TOOLS: dict[str, dict] = {
     "github.repos": {
         "fn": tool_github_repos,
         "capabilities": ["github"],
+        "cost": 0,
+        "latency": "medium",
+        "risk": "low",
+        "permissions": "read",
+    },
+    "news.search": {
+        "fn": tool_news_search,
+        "capabilities": ["news", "web", "intelligence"],
+        "cost": 0,
+        "latency": "medium",
+        "risk": "low",
+        "permissions": "read",
+    },
+    "news.latest": {
+        "fn": tool_news_latest,
+        "capabilities": ["news", "web", "intelligence"],
         "cost": 0,
         "latency": "medium",
         "risk": "low",

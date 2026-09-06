@@ -40,12 +40,16 @@ _DONT_KNOW_PATTERNS = [
 _TEMPORAL_MARKERS = [
     r"hoje|hj|agora|atual(mente)?|recente",
     r"preço|cotação|valor (do|da|de)",
-    r"notícia|novidade|acontec",
+    r"notícia|novidade|acontec|noticias",
     r"versão (do|da|mais)",
     r"como est[aá]|qual o estado",
     r"disponível (agora|hoje|hoje em dia)",
     r"último|última|mais novo|mais recente",
     r"today|now|current|latest|recent|price",
+    r"o que (está|esta) a (acontecer|passar)",
+    r"o que se (passa|passou)",
+    r"quais (as|os) (notícias|novidades)",
+    r"what.*(happening|going on|latest news)",
 ]
 
 
@@ -142,7 +146,25 @@ async def autonomous_research(query: str, strategy: str = "web_search") -> dict:
     except Exception:
         pass
 
-    # 2. Web search
+    # 2. News search (always for temporal/factual queries)
+    try:
+        from .news_connector import search_news, format_for_llm
+        news = search_news(query, limit=5)
+        if news.get("status") == "success" and news.get("results"):
+            news_context = format_for_llm(news)
+            if news_context:
+                results["findings"].append({
+                    "source": "Global News Intelligence",
+                    "url": "https://news-ai-agreger.onrender.com",
+                    "content": news_context,
+                    "type": "news_intelligence",
+                    "confidence": 0.85,
+                })
+                results["sources"].append("https://news-ai-agreger.onrender.com")
+    except Exception:
+        pass
+
+    # 3. Web search
     try:
         from .websearch import search as web_search, fetch_page
         web = web_search(query, max_results=5)

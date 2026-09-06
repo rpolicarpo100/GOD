@@ -664,6 +664,30 @@ def autonomous_research_endpoint(q: str = ""):
     result = asyncio.run(autonomous_research(q))
     return {"decision": decision, "research": result}
 
+
+@app.get("/api/news/search")
+def news_search(q: str = ""):
+    from superai.news_connector import search_news
+    return search_news(q)
+
+
+@app.get("/api/news/latest")
+def news_latest(limit: int = 10, category: str = ""):
+    from superai.news_connector import get_latest
+    return get_latest(limit=limit, category=category)
+
+
+@app.get("/api/news/sources")
+def news_sources():
+    from superai.news_connector import get_sources
+    return get_sources()
+
+
+@app.get("/api/news/health")
+def news_health():
+    from superai.news_connector import health
+    return health()
+
 @app.post("/api/chat/stream")
 async def chat_stream(body: ChatIn):
     """Streaming chat via SSE — runs handle() then streams result text to frontend."""

@@ -16,6 +16,7 @@ _INTENT_EXAMPLES: dict[str, list[str]] = {
     "research": ["pesquisa sobre como funciona a internet", "o que e machine learning em detalhe", "explica-me como funciona o protocolo tcp"],
     "web_search": ["pesquisa na web", "o que diz a internet sobre", "noticias de hoje", "como esta o tempo", "preço do bitcoin"],
     "github": ["ve o repositorio", "mostra o codigo", "o que tem no repo", "commits recentes", "ficheiro no github"],
+    "news": ["o que esta a acontecer", "noticias de hoje", "o que se passa", "novidades", "acontecimentos"],
     "math": ["quanto e", "calcula", "soma", "multiplica"],
     "tool": ["executa", "corre o comando", "roda o script", "instala"],
 }
@@ -75,6 +76,7 @@ TYPE_RULES = [
     ("research", r"\b(pesquisa|search|paper|alternativ|osint)\b"),
     ("web_search", r"\b(pesquisa na (web|internet)|search the web|not[ií]cias|pre[çc]o|cota[çc][aã]o|tempo hoje|como est[aá] o)\b"),
     ("github", r"\b(github|reposit[oó]rio|repo|commits?|branch|pull request|PR|ficheiro no git)\b"),
+    ("news", r"\b(not[ií]cias?|novidades?|acontecimentos?|o que.*(passa|acontece)|breaking|urgente|alerta)\b"),
     ("coding", r"\b(c[oó]digo|refactor|implement|debug|arquitect|lint|teste|website|landing|html|css|\bsite\b|p[aá]gina web|cria(r)? (um |uma )?(app|site|p[aá]gina))\b"),
 ]
 

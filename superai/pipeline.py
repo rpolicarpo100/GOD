@@ -126,6 +126,10 @@ def plan(task: dict) -> dict:
             steps.append({"tool": "github.repos", "args": {}})
         needs_llm = True
         reason.append("github + LLM interpretation")
+    elif ttype == "news":
+        steps.append({"tool": "news.search", "args": {"query": text}})
+        needs_llm = True
+        reason.append("news intelligence + LLM synthesis")
     elif ttype in ("research", "coding", "general"):
         needs_llm = True
         reason.append(f"tipo {ttype} não tem ferramenta determinística suficiente")
