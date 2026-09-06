@@ -77,6 +77,12 @@ if %errorlevel% neq 0 (
 echo [OK] Dependencies installed.
 echo.
 
+REM --- Install test dependencies ---
+echo [*] Installing test dependencies...
+%PY% -m pip install pytest --quiet 2>nul
+echo [OK] Test dependencies ready.
+echo.
+
 REM --- Verify dependencies ---
 echo [*] Verifying dependencies...
 set "DEP_OK=1"
@@ -117,6 +123,9 @@ if not exist "data" mkdir data
 if not exist "data\sandbox" mkdir data\sandbox
 if not exist "data\projects" mkdir data\projects
 if not exist "data\gods" mkdir data\gods
+if not exist "data\auth" mkdir data\auth
+if not exist "data\qdrant" mkdir data\qdrant
+if not exist "data\voice" mkdir data\voice
 echo [OK] Data directories ready.
 echo.
 
@@ -139,11 +148,11 @@ echo.
 
 REM --- Run tests ---
 echo [*] Running tests...
-%PY% -m unittest tests.test_core -q 2>nul
+%PY% -m pytest tests/ -q 2>nul
 if %errorlevel% equ 0 (
     echo [OK] All tests passed.
 ) else (
-    echo [WARN] Some tests failed. Run manually: python -m unittest tests.test_core -v
+    echo [WARN] Some tests failed. Run manually: %PY% -m pytest tests/ -v
 )
 echo.
 
@@ -167,7 +176,6 @@ echo.
 echo Python:        OK
 echo Environment:   OK
 echo Dependencies:  OK
-echo Tests:         OK (88/89, 1 env-dependent)
 echo Configuration: OK
 echo Server:        READY
 echo.

@@ -53,9 +53,22 @@ goto :eof
 
 :stop
 echo Stopping GOD...
-taskkill /f /im python.exe /fi "WINDOWTITLE eq *uvicorn*" 2>nul
-taskkill /f /im python3.exe /fi "WINDOWTITLE eq *uvicorn*" 2>nul
-echo [OK] Stop signal sent.
+REM Find PID listening on port 8000 — only kill that specific process
+set "GOD_PID="
+for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr ":8000 " ^| findstr "LISTENING"') do (
+    set "GOD_PID=%%a"
+)
+if defined GOD_PID (
+    echo [OK] Found GOD process PID: %GOD_PID%
+    taskkill /PID %GOD_PID% /F >nul 2>&1
+    if !errorlevel! equ 0 (
+        echo [OK] GOD stopped.
+    ) else (
+        echo [FAIL] Could not stop PID %GOD_PID%. Try: taskkill /PID %GOD_PID% /F
+    )
+) else (
+    echo [WARN] GOD is not running on port 8000.
+)
 goto :eof
 
 :status
