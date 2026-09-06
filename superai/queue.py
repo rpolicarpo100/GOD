@@ -151,7 +151,8 @@ def claim(worker_id: str) -> dict | None:
 
     cap = int((inflight_cap() or {}).get("applied") or 1)
     with store._lock, store._conn() as c:
-        # Inflight check inside same connection to avoid Windows WAL visibility issues
+        # Inflight check inside same connection (thread-local persistent
+        # connection ensures visibility of all prior commits).
         n = c.execute(
             "SELECT COUNT(*) FROM jobs WHERE worker_id=? AND status IN ('assigned','running')",
             (worker_id,),
@@ -166,7 +167,7 @@ def claim(worker_id: str) -> dict | None:
             pid = cand["parent_id"] if "parent_id" in cand.keys() else None
             if pid:
                 parent = c.execute("SELECT status FROM jobs WHERE id=?", (pid,)).fetchone()
-                if parent and parent["status"] not in ("completed", "failed", "killed"):
+                if parent and parent["status"] not in ("completed", "failed", "killed", "cancelled"):
                     continue
             r = cand
             break

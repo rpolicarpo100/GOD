@@ -1205,37 +1205,15 @@ class P1GraphParallel(unittest.TestCase):
 
     def test_claim_allows_two_jobs(self):
         from superai import queue as tq
-        from superai.store import store
-        from superai.resources import inflight_cap
 
         tq.register_worker("t-parallel", "t-parallel", "control", ["chat"])
         a = tq.enqueue("chat", "parallel-test-aaa-unique", None, "LOCAL_WORKER")
         b = tq.enqueue("chat", "parallel-test-bbb-unique", None, "LOCAL_WORKER")
         self.assertFalse(a.get("deduped"))
         self.assertFalse(b.get("deduped"))
-
-        # Debug: write state to file for Windows diagnosis
-        import json, pathlib
-        _dbg = pathlib.Path("data") / "_claim_debug.json"
-        cap = inflight_cap()
-        with store._lock, store._conn() as c:
-            all_q = c.execute("SELECT id, kind, status, worker_id, parent_id, text FROM jobs WHERE status='queued' ORDER BY COALESCE(priority,0) DESC, ts ASC LIMIT 20").fetchall()
-            all_a = c.execute("SELECT id, kind, status, worker_id FROM jobs WHERE worker_id='t-parallel' AND status IN ('assigned','running')").fetchall()
-            dbg = {
-                "cap": cap.get("applied"),
-                "queued_jobs": [{"id": r["id"][:12], "kind": r["kind"], "text": (r["text"] or "")[:40], "parent_id": r["parent_id"]} for r in all_q],
-                "inflight_tparallel": [{"id": r["id"][:12], "kind": r["kind"], "status": r["status"]} for r in all_a],
-            }
         c1 = tq.claim("t-parallel")
-        dbg["c1"] = c1["id"][:12] if c1 else None
-        with store._lock, store._conn() as c:
-            all_a2 = c.execute("SELECT id, kind, status, worker_id FROM jobs WHERE worker_id='t-parallel' AND status IN ('assigned','running')").fetchall()
-            dbg["inflight_after_c1"] = len(all_a2)
-        c2 = tq.claim("t-parallel")
-        dbg["c2"] = c2["id"][:12] if c2 else None
-        _dbg.write_text(json.dumps(dbg, indent=2, default=str), encoding="utf-8")
-
         self.assertIsNotNone(c1)
+        c2 = tq.claim("t-parallel")
         self.assertIsNotNone(c2)  # inflight=2, so second claim succeeds
         c3 = tq.claim("t-parallel")
         self.assertIsNone(c3)  # inflight=2, third should fail

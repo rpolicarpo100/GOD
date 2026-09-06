@@ -17,17 +17,26 @@ class Store:
     def __init__(self, path: Path = DB) -> None:
         self._lock = threading.Lock()
         self.path = path
+        self._tls = threading.local()
         self._init()
+
+    def _get_conn(self) -> sqlite3.Connection:
+        """Return a thread-local persistent connection."""
+        c = getattr(self._tls, "conn", None)
+        if c is None:
+            c = sqlite3.connect(str(self.path), timeout=5)
+            c.row_factory = sqlite3.Row
+            try:
+                c.execute("PRAGMA journal_mode=WAL")
+                c.execute("PRAGMA busy_timeout=3000")
+            except Exception:
+                pass
+            self._tls.conn = c
+        return c
 
     @contextmanager
     def _conn(self):
-        c = sqlite3.connect(self.path, timeout=5)
-        c.row_factory = sqlite3.Row
-        try:
-            c.execute("PRAGMA journal_mode=WAL")
-            c.execute("PRAGMA busy_timeout=3000")
-        except Exception:
-            pass
+        c = self._get_conn()
         try:
             yield c
             c.commit()
@@ -37,8 +46,6 @@ class Store:
             except Exception:
                 pass
             raise
-        finally:
-            c.close()
 
     def _init(self) -> None:
         with self._conn() as c:
