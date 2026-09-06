@@ -58,9 +58,17 @@ def _load_yaml(path: Path) -> dict:
     """Load a YAML file, return empty dict on failure."""
     try:
         if path.exists():
-            return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except Exception:
-        pass
+            data = yaml.safe_load(path.read_text(encoding="utf-8"))
+            if data is None:
+                return {}
+            if not isinstance(data, dict):
+                import sys
+                print(f"[CONFIG WARN] {path} is not a dict (type={type(data).__name__})", file=sys.stderr)
+                return {}
+            return data
+    except Exception as e:
+        import sys
+        print(f"[CONFIG ERROR] Failed to load {path}: {e}", file=sys.stderr)
     return {}
 
 
@@ -154,9 +162,21 @@ class Config:
             return deepcopy(self._cfg)
 
     def _save(self) -> None:
-        """Save config: static keys to config.yaml, runtime keys to state.yaml."""
+        """Save config: static keys to config.yaml, runtime keys to state.yaml.
+        
+        Merges with existing config.yaml to preserve keys not managed by this
+        Config instance (e.g., pc_node, cost, plane).
+        """
         static = {k: v for k, v in self._cfg.items() if k not in _STATE_KEYS}
         state = {k: v for k, v in self._cfg.items() if k in _STATE_KEYS}
+        # Merge with existing config.yaml to preserve unmanaged keys
+        try:
+            if CFG_PATH.exists():
+                existing = yaml.safe_load(CFG_PATH.read_text(encoding="utf-8")) or {}
+                existing.update(static)
+                static = existing
+        except Exception:
+            pass
         _save_yaml(CFG_PATH, static)
         if state:
             _save_yaml(STATE_PATH, state)
