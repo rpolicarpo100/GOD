@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import datetime
 import json
+import logging
 import os
 import sys
 import time as _time
@@ -16,13 +17,26 @@ from fastapi.responses import FileResponse, StreamingResponse
 from superai.config import DATA
 from pydantic import BaseModel
 
+# Structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    stream=sys.stderr,
+)
+log = logging.getLogger("god.server")
+
 
 def _log_req(method: str, path: str, status: int, ms: float, extra: str = ""):
-    ts = datetime.datetime.now().strftime("%H:%M:%S")
-    line = f"[{ts}] {method} {path} {status} -- {ms:.0f}ms"
+    line = f"{method} {path} {status} -- {ms:.0f}ms"
     if extra:
         line += f" ({extra})"
-    print(line, file=sys.stderr, flush=True)
+    if status >= 500:
+        log.error(line)
+    elif status >= 400:
+        log.warning(line)
+    else:
+        log.info(line)
 
 from superai import aios, benchmark, compute, evolution, observer, queue as tq, routing, tokens as ti
 from superai.events import bus
@@ -169,7 +183,32 @@ async def _lifespan(app):
     # Shutdown (nothing to clean up — local-first)
 
 
-app = FastAPI(title="SUPER AI", lifespan=_lifespan)
+app = FastAPI(
+    title="GOD — Living Intelligence",
+    description="API do GOD. Local-first AI assistant with multi-provider routing.\n\n"
+                "**Endpoints principais:**\n"
+                "- `POST /api/chat` — Enviar mensagem ao GOD\n"
+                "- `POST /api/chat/stream` — Chat com streaming SSE\n"
+                "- `GET /api/state` — Estado completo do sistema\n"
+                "- `GET /api/health` — Health check leve\n"
+                "- `GET /api/health/deep` — Health check completo\n"
+                "- `GET /api/stream` — SSE de eventos em tempo real\n\n"
+                "Docs: [/docs](/docs) [/redoc](/redoc)",
+    version="7.4.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    lifespan=_lifespan,
+)
+
+
+# CORS — allow local dev frontends
+from fastapi.middleware.cors import CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:*", "http://127.0.0.1:*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.middleware("http")
@@ -238,6 +277,58 @@ def health():
         "alerts": [a["code"] for a in eye.get("alerts") or []],
         "gpu_required": False,
     }
+
+
+@app.get("/api/health/deep")
+def health_deep():
+    """Deep health check — tests each component."""
+    import datetime
+    checks = {}
+
+    # SQLite
+    try:
+        from superai.store import store
+        with store._lock, store._conn() as c:
+            c.execute("SELECT 1")
+        checks["sqlite"] = {"ok": True}
+    except Exception as e:
+        checks["sqlite"] = {"ok": False, "error": str(e)[:100]}
+
+    # Providers
+    try:
+        from superai import providers
+        hs = providers.health_all()
+        avail = [h for h in hs if h.get("available")]
+        checks["providers"] = {"ok": len(avail) > 0, "available": len(avail), "total": len(hs)}
+    except Exception as e:
+        checks["providers"] = {"ok": False, "error": str(e)[:100]}
+
+    # Memory
+    try:
+        from superai.memory_vec import vectors
+        checks["memory"] = {"ok": True, "backend": vectors.health().get("backend", "sqlite")}
+    except Exception as e:
+        checks["memory"] = {"ok": False, "error": str(e)[:100]}
+
+    # Queue
+    try:
+        from superai import queue as tq
+        qs = tq.queue_stats() if hasattr(tq, 'queue_stats') else {}
+        checks["queue"] = {"ok": True, **qs}
+    except Exception as e:
+        checks["queue"] = {"ok": False, "error": str(e)[:100]}
+
+    # Disk
+    try:
+        import shutil
+        usage = shutil.disk_usage(str(DATA))
+        pct = round((usage.used / usage.total) * 100, 1)
+        checks["disk"] = {"ok": pct < 95, "used_pct": pct, "free_gb": round(usage.free / (1024**3), 1)}
+    except Exception as e:
+        checks["disk"] = {"ok": False, "error": str(e)[:100]}
+
+    all_ok = all(c.get("ok") for c in checks.values())
+    return {"ok": all_ok, "checks": checks, "ts": datetime.datetime.now().isoformat()}
 
 
 @app.get("/api/metrics")

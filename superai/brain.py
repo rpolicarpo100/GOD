@@ -75,7 +75,7 @@ TYPE_RULES = [
 ]
 
 
-def analyze(text: str) -> dict:
+def analyze(text: str) -> dict[str, Any]:
     t = text.strip()
     low = t.lower()
     ttype = "general"

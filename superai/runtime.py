@@ -6,6 +6,7 @@ Pipeline e shortcuts estão em módulos separados.
 """
 from __future__ import annotations
 
+import logging
 import re
 import threading
 import time
@@ -20,6 +21,8 @@ from .thirdeye import criticize
 from .config import ROOT, cfg
 from .events import bus
 from .governor import gov
+
+log = logging.getLogger("god.runtime")
 from .memory_vec import vectors
 from .store import store
 from . import gods

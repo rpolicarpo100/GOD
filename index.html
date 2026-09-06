@@ -2148,7 +2148,7 @@ fetch('/api/state').then(r=>r.json()).then(d=>{
       }
     }
   }).catch(()=>{});
-  connect();
+  try{connect();}catch(e){console.error('connect error:',e);setTimeout(connect,5000);}
 
 // Performance display with sparkline
 function updatePerfDisplay(){
