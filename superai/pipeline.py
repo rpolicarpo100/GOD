@@ -16,6 +16,7 @@ from .config import ROOT, cfg
 from .events import bus
 from .memory_vec import vectors
 from .memory_layers import get_memory as _get_memory_layers
+from .strategy_learner import get_learner as _get_strategy_learner
 from .store import store
 from . import gods
 from .util import now_iso, sha
@@ -581,6 +582,19 @@ def _stage_tools(text, task, pipeline, p, ctx, _say, _mark, _set_pipe, _broadcas
     any_success = any(r.get("status") == "success" for r in tool_results)
     if any_success:
         cache_store(text, {"summary": tool_results, "scores": scores}, scores["OVERALL"], ns=gods.active_id())
+    # Strategy learning: record tool outcomes
+    try:
+        tools_used = [r.get("tool", "") for r in tool_results if r.get("status") == "success"]
+        _get_strategy_learner().record_task_outcome(
+            task_type=task.get("type", "general"),
+            via="tools",
+            provider="",
+            quality=float(scores.get("OVERALL", 50) or 50),
+            latency_ms=float(pipeline.get("latency_ms") or 0),
+            tools_used=tools_used,
+        )
+    except Exception:
+        pass
     _index_task(task, text, scores)
     task["status"] = "done"
     task["via"] = "tools"
@@ -813,6 +827,18 @@ def _stage_llm(text, task, pipeline, merged, ctx, *, _say, _mark, _set_pipe, _br
     store.mem_put("episode", task["task_id"], f"{text[:120]} -> {str(res.get('text') or '')[:240]}")
     # Knowledge persistence: extract facts from interaction
     _extract_and_store_knowledge(text, str(res.get("text") or ""), task)
+    # Strategy learning: record outcome for future optimization
+    try:
+        _get_strategy_learner().record_task_outcome(
+            task_type=task.get("type", "general"),
+            via="llm",
+            provider=str(res.get("adapter") or gw.get("active", "")),
+            quality=float(scores.get("OVERALL", 50) or 50),
+            latency_ms=float(res.get("latency_ms") or 0),
+            tools_used=[],
+        )
+    except Exception:
+        pass
     _index_task(task, text, scores)
     task["status"] = "done"
     task["via"] = "llm"

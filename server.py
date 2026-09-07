@@ -1158,6 +1158,25 @@ def api_sandbox_rollback(xid: str, authorization: str | None = Header(default=No
     return get_sandbox().rollback(xid, "manual")
 
 
+@app.get("/api/strategies")
+def api_strategies():
+    """Get learned strategies summary."""
+    from superai.strategy_learner import get_learner
+    return get_learner().get_strategy_summary()
+
+
+@app.get("/api/strategies/best/{task_type}")
+def api_best_strategy(task_type: str):
+    """Get best tool and provider for a task type."""
+    from superai.strategy_learner import get_learner
+    learner = get_learner()
+    return {
+        "task_type": task_type,
+        "best_tool": learner.get_best_tool(task_type),
+        "best_provider": learner.get_best_provider(task_type),
+    }
+
+
 @app.post("/api/workers/register")
 def w_reg(body: WorkerIn, authorization: str | None = Header(default=None)):
     """Register worker. Remote workers require SUPERAI_WORKER_TOKEN."""

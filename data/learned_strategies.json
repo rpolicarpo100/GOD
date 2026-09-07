@@ -1,0 +1,1 @@
+{"tool:math:calculator": {"type": "tool_effectiveness", "task_type": "math", "tool": "calculator", "samples": 4, "avg_quality": 97.0, "avg_latency": 0.0, "last_used": "2026-09-07T15:39:42.748354+00:00"}, "route:math:tools": {"type": "routing_effectiveness", "task_type": "math", "via": "tools", "samples": 4, "avg_quality": 97.0}}
