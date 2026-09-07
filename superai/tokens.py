@@ -172,6 +172,16 @@ def usage_summary() -> dict:
     u = store.usage()
     log = store.token_log_stats()
     cache = store.cache_stats()
+    # Provider counts
+    try:
+        from . import providers
+        hs = providers.health_all()
+        avail = [h for h in hs if h.get("available")]
+        providers_available = len(avail)
+        providers_total = len(hs)
+    except Exception:
+        providers_available = 0
+        providers_total = 0
     return {
         "kind": MEASURED,
         "session_tokens": u.get("session_tokens", 0),
@@ -186,6 +196,8 @@ def usage_summary() -> dict:
         "sum_estimated": log.get("sum_estimated", 0),
         "sum_actual": log.get("sum_actual", 0),
         "llm_rows": log.get("llm_rows", 0),
+        "providers_available": providers_available,
+        "providers_total": providers_total,
         "note": "session/daily/project só incrementam quando actual>0 (LLM MEASURED)",
     }
 

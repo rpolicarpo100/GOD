@@ -1704,7 +1704,101 @@ document.querySelectorAll('.rail-btn').forEach(b=>b.addEventListener('click',()=
   requestAnimationFrame(()=>{el.classList.add('active')});
   $('h-title').textContent=pn[b.dataset.p]||'GOD';
   if(b.dataset.p==='set'&&!flagsDone)loadFlags();
+  refreshActiveTab(b.dataset.p);
 }));
+
+// ═══ TAB DATA REFRESH ═══
+// Each tab fetches its own data when active
+var _tabRefreshTimers = {};
+var _activeTab = 'home';
+
+function refreshActiveTab(tab) {
+  _activeTab = tab || _activeTab;
+  // Fetch tab-specific data
+  if (_activeTab === 'intel') {
+    fetch('/api/providers/health').then(function(r){return r.json();}).then(function(d){
+      var el = $('i-prov');
+      if (el && d.providers) {
+        el.innerHTML = d.providers.map(function(p){
+          return '<div class="pv"><div class="pv-d '+(p.available?'up':'down')+'"></div><div class="pv-n">'+esc(p.name||p.id)+'</div><div class="pv-m">'+(p.models||[]).slice(0,2).join(', ')+'</div><span class="tag '+(p.available?'ok':'off')+'">'+(p.available?'Up':'Down')+'</span></div>';
+        }).join('');
+      }
+    }).catch(function(){});
+    fetch('/api/token/usage').then(function(r){return r.json();}).then(function(d){
+      var el = $('i-kpis');
+      if (el) {
+        el.innerHTML = '<div class="pcard"><div class="k">LLM Calls</div><div class="v" style="color:var(--accent)">'+(d.llm_calls||0)+'</div></div><div class="pcard"><div class="k">Tool Calls</div><div class="v" style="color:var(--info)">'+(d.tool_calls||0)+'</div></div><div class="pcard"><div class="k">Tokens</div><div class="v" style="color:var(--ok)">'+fmtN(d.sum_actual||0)+'</div></div><div class="pcard"><div class="k">Providers</div><div class="v" style="color:var(--accent)">'+(d.providers_available||0)+'/'+(d.providers_total||0)+'</div></div>';
+      }
+    }).catch(function(){});
+  } else if (_activeTab === 'mem') {
+    fetch('/api/state').then(function(r){return r.json();}).then(function(s){
+      var m=s.memory||{},c=s.cache||{},qd=s.qdrant||{};
+      var tot=(m.session||0)+(m.semantic||0)+(m.project||0);
+      var el = $('m-kpis');
+      if (el) {
+        el.innerHTML = '<div class="pcard"><div class="k">Session</div><div class="v" style="color:var(--evo)">'+(m.session||0)+'</div></div><div class="pcard"><div class="k">Semantic</div><div class="v" style="color:var(--info)">'+(m.semantic||0)+'</div></div><div class="pcard"><div class="k">Total</div><div class="v" style="color:var(--ok)">'+tot+'</div></div><div class="pcard"><div class="k">Cache</div><div class="v" style="color:var(--accent)">'+(c.hit_rate!=null?Math.round(c.hit_rate*100)+'%':'—')+'</div></div>';
+      }
+      var det = $('m-det');
+      if (det) {
+        det.innerHTML = '<div style="font-size:10px;color:var(--muted);line-height:1.8">Qdrant: '+(qd.available?'Connected':'Offline')+' · '+(qd.embed?qd.embed.method:'HashingVectorizer')+'<br>Cache: '+(c.hits||0)+' hits · '+(c.misses||0)+' misses · '+(c.entries||0)+' entries<br>Projects: '+(m.project||0)+'</div>';
+      }
+    }).catch(function(){});
+  } else if (_activeTab === 'comp') {
+    fetch('/api/os').then(function(r){return r.json();}).then(function(d){
+      var h = d || {};
+      var cpu = h.cpu_pct != null ? Math.round(h.cpu_pct) : null;
+      var ram = h.ram_avail_mb ? (h.ram_avail_mb/1024).toFixed(1) : null;
+      var ramT = h.ram_total_mb ? (h.ram_total_mb/1024).toFixed(1) : null;
+      var ramP = ramT && ram ? Math.round((1-ram/ramT)*100) : null;
+      var el = $('c-kpis');
+      if (el) {
+        el.innerHTML = '<div class="pcard"><div class="k">CPU</div><div class="v" style="color:'+(cpu>80?'var(--crit)':cpu>60?'var(--warn)':'var(--ok)')+'">'+(cpu!=null?cpu+'%':'—')+'</div></div><div class="pcard"><div class="k">RAM</div><div class="v" style="color:var(--info)">'+(ramP!=null?ramP+'%':'—')+'</div><div class="s">'+(ram?ram+'GB free':'')+'</div></div><div class="pcard"><div class="k">Uptime</div><div class="v" style="color:var(--ok)">'+(h.uptime_s?Math.floor(h.uptime_s/60)+'m':'—')+'</div></div><div class="pcard"><div class="k">Processes</div><div class="v" style="color:var(--accent)">'+(h.n_procs||0)+'</div></div>';
+      }
+      var res = $('c-res');
+      if (res) {
+        res.innerHTML = '<div><div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted)"><span>CPU</span><span>'+(cpu!=null?cpu+'%':'—')+'</span></div><div class="prog"><div class="prog-f" style="width:'+(cpu||0)+'%;background:'+(cpu>80?'var(--crit)':cpu>60?'var(--warn)':'var(--ok)')+'"></div></div><div style="font-size:9px;color:var(--dim)">'+(h.cpu_count||'?')+' cores</div></div><div style="margin-top:6px"><div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted)"><span>RAM</span><span>'+(ram?ram+'GB free':'—')+(ramT?' / '+ramT+'GB':'')+'</span></div><div class="prog"><div class="prog-f" style="width:'+(ramP||0)+'%;background:var(--info)"></div></div></div>';
+      }
+    }).catch(function(){});
+    fetch('/api/learner/status').then(function(r){return r.json();}).then(function(d){
+      var el = $('c-wrk');
+      if (el) {
+        el.innerHTML = '<div class="it"><div><span style="font-weight:500">Learner</span></div><span class="tag '+(d.running?'ok':'off')+'">'+(d.running?'Active':'Idle')+'</span></div><div class="it"><div><span style="font-weight:500">Idle Worker</span></div><span class="tag ok">Active</span></div><div class="it"><div><span style="font-weight:500">Auditor</span></div><span class="tag ok">Active</span></div>';
+      }
+    }).catch(function(){});
+  } else if (_activeTab === 'tok') {
+    fetch('/api/token/usage').then(function(r){return r.json();}).then(function(d){
+      var el = $('t-kpis');
+      if (el) {
+        el.innerHTML = '<div class="pcard"><div class="k">Used</div><div class="v" style="color:var(--accent)">'+fmtN(d.sum_actual||0)+'</div></div><div class="pcard"><div class="k">LLM</div><div class="v" style="color:var(--info)">'+(d.llm_calls||0)+'</div></div><div class="pcard"><div class="k">Tools</div><div class="v" style="color:var(--ok)">'+(d.tool_calls||0)+'</div></div><div class="pcard"><div class="k">Cache Hits</div><div class="v" style="color:var(--evo)">'+(d.cache_hits||0)+'</div></div>';
+      }
+    }).catch(function(){});
+  } else if (_activeTab === 'evo') {
+    fetch('/api/system/experiments').then(function(r){return r.json();}).then(function(d){
+      var ex = d.experiments || d || [];
+      if (!Array.isArray(ex)) ex = [];
+      var pe = ex.find(function(e){return e.status==='pending';});
+      var ap = ex.filter(function(e){return e.status==='applied';}).length;
+      var el = $('e-kpis');
+      if (el) {
+        el.innerHTML = '<div class="pcard"><div class="k">Applied</div><div class="v" style="color:var(--ok)">'+ap+'</div></div><div class="pcard"><div class="k">Pending</div><div class="v" style="color:var(--warn)">'+(pe?1:0)+'</div></div><div class="pcard"><div class="k">Total</div><div class="v" style="color:var(--evo)">'+ex.length+'</div></div>';
+      }
+    }).catch(function(){});
+  } else if (_activeTab === 'act') {
+    fetch('/api/system/diagnostics').then(function(r){return r.json();}).then(function(d){
+      var el = $('a-feed');
+      if (el) {
+        var components = d.components || [];
+        el.innerHTML = components.map(function(c){
+          var icon = c.status === 'ok' ? '🟢' : (c.status === 'down' ? '🔴' : '🟡');
+          return '<div class="fr"><div class="fd '+(c.status==='ok'?'on':'off')+'"></div><div class="fm" style="white-space:normal"><div>'+icon+' '+esc(c.name)+'</div><div style="font-size:9px;color:var(--dim)">'+esc(c.error||c.status||'OK')+'</div></div></div>';
+        }).join('') || '<div class="empty">Sem componentes</div>';
+      }
+    }).catch(function(){});
+  }
+}
+
+// Auto-refresh active tab every 10s
+setInterval(function(){refreshActiveTab();}, 10000);
 
 // ═══ CODE EDITOR ═══
 var _codeFiles = {};
@@ -1715,54 +1809,107 @@ function runCode(){
   var status = $('code-status');
   if(!code.trim()){out.innerHTML='<span class="error">No code to run</span>';return;}
   status.textContent='Running...';status.style.color='var(--warn)';
+  var t0 = Date.now();
   if(lang==='python'){
+    out.innerHTML='<span class="info">Executing Python...</span>';
     fetch('/api/tools/python',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:code})})
       .then(function(r){return r.json();})
       .then(function(d){
-        if(d.error){out.innerHTML='<span class="error">'+esc(d.error)+'</span>';status.textContent='Error';status.style.color='var(--crit)';}
-        else{out.innerHTML='<span class="success">'+esc(d.output||'OK')+'</span>';status.textContent='Done';status.style.color='var(--ok)';}
+        var ms = Date.now()-t0;
+        if(d.error){out.innerHTML='<span class="error">Error:\n'+esc(d.error)+'</span>';status.textContent='Error ('+ms+'ms)';status.style.color='var(--crit)';}
+        else{out.innerHTML='<span class="success">'+esc(d.output||'(no output)')+'</span>\n<span class="info">Completed in '+ms+'ms</span>';status.textContent='OK ('+ms+'ms)';status.style.color='var(--ok)';}
       })
       .catch(function(e){out.innerHTML='<span class="error">Network error: '+esc(e.message)+'</span>';status.textContent='Error';status.style.color='var(--crit)';});
   }else if(lang==='javascript'){
-    try{var result=eval(code);out.innerHTML='<span class="success">'+esc(String(result))+'</span>';status.textContent='Done';status.style.color='var(--ok)';}
-    catch(e){out.innerHTML='<span class="error">'+esc(e.message)+'</span>';status.textContent='Error';status.style.color='var(--crit)';}
-  }else if(lang==='html'||lang==='css'){
-    out.innerHTML='<span class="info">Preview not available for '+lang+'. Code saved.</span>';status.textContent='Saved';status.style.color='var(--ok)';
+    try{
+      var result=eval(code);
+      var ms = Date.now()-t0;
+      out.innerHTML='<span class="success">'+esc(String(result))+'</span>\n<span class="info">Completed in '+ms+'ms</span>';
+      status.textContent='OK ('+ms+'ms)';status.style.color='var(--ok)';
+    }catch(e){
+      out.innerHTML='<span class="error">Error:\n'+esc(e.message)+'</span>';
+      status.textContent='Error';status.style.color='var(--crit)';
+    }
+  }else if(lang==='html'){
+    var ms = Date.now()-t0;
+    out.innerHTML='<div style="border:1px solid var(--line);border-radius:6px;padding:8px;margin-bottom:8px;background:#fff">'+code+'</div><span class="info">HTML preview ('+ms+'ms)</span>';
+    status.textContent='Preview ('+ms+'ms)';status.style.color='var(--ok)';
+  }else if(lang==='css'){
+    var ms = Date.now()-t0;
+    out.innerHTML='<style>'+code+'</style><div class="test-css" style="padding:12px;border:1px solid var(--line);border-radius:6px">CSS Preview Element</div><span class="info">CSS applied ('+ms+'ms)</span>';
+    status.textContent='Applied ('+ms+'ms)';status.style.color='var(--ok)';
+  }else if(lang==='json'){
+    try{
+      var parsed = JSON.parse(code);
+      var ms = Date.now()-t0;
+      out.innerHTML='<span class="success">'+esc(JSON.stringify(parsed, null, 2))+'</span>\n<span class="info">Valid JSON ('+ms+'ms)</span>';
+      status.textContent='Valid ('+ms+'ms)';status.style.color='var(--ok)';
+    }catch(e){
+      out.innerHTML='<span class="error">Invalid JSON:\n'+esc(e.message)+'</span>';
+      status.textContent='Invalid';status.style.color='var(--crit)';
+    }
   }else{
-    out.innerHTML='<span class="info">Run not supported for '+lang+'. Use Ask GOD.</span>';status.textContent='Ready';status.style.color='var(--dim)';
+    out.innerHTML='<span class="info">Run not supported for '+lang+'. Use Ask GOD to analyze.</span>';
+    status.textContent='Ready';status.style.color='var(--dim)';
   }
 }
 function sendCodeToAI(){
   var code=$('code-editor').value;var lang=$('code-lang').value;
   if(!code.trim())return;
-  var msg='Analisa este código '+lang+':\n```\n'+code+'\n```';
-  if(!$('chat-b').classList.contains('open')){cOpen=true;$('chat-b').classList.add('open');$('chat-a').style.transform='rotate(180deg)';}
+  var msg='Analisa este código '+lang+', encontra bugs e sugere melhorias:\n```'+lang+'\n'+code+'\n```';
   $('chat-i').value=msg;$('chat-f').dispatchEvent(new Event('submit'));
+  $('code-status').textContent='Sent to GOD';$('code-status').style.color='var(--accent)';
 }
 function saveCode(){
   var code=$('code-editor').value;var lang=$('code-lang').value;
-  var name=prompt('Nome do ficheiro:','script.'+(lang==='python'?'py':lang==='javascript'?'js':lang));
+  var name=prompt('Nome do ficheiro:','script.'+(lang==='python'?'py':lang==='javascript'?'js':lang==='bash'?'sh':lang));
   if(!name)return;
   _codeFiles[name]={code:code,lang:lang,ts:Date.now()};
   try{localStorage.setItem('god_code_files',JSON.stringify(_codeFiles));}catch(e){}
   $('code-status').textContent='Saved: '+name;$('code-status').style.color='var(--ok)';
+  addActivityLog('info','Code saved: '+name);
 }
 function loadCode(){
   try{var s=localStorage.getItem('god_code_files');if(s)_codeFiles=JSON.parse(s);}catch(e){}
   var names=Object.keys(_codeFiles);
-  if(!names.length){alert('No saved files.');return;}
-  var name=prompt('Ficheiros:\n'+names.join('\n')+'\n\nNome:',names[names.length-1]);
+  if(!names.length){$('code-status').textContent='No saved files';$('code-status').style.color='var(--warn)';return;}
+  var name=prompt('Ficheiros guardados:\n'+names.join('\n')+'\n\nNome:',names[names.length-1]);
   if(!name||!_codeFiles[name])return;
   $('code-editor').value=_codeFiles[name].code;
   $('code-lang').value=_codeFiles[name].lang||'python';
   $('code-status').textContent='Loaded: '+name;$('code-status').style.color='var(--info)';
 }
-// Tab key support in editor
+// Tab key + auto-indent in editor
 document.addEventListener('DOMContentLoaded',function(){
   var ed=$('code-editor');
-  if(ed)ed.addEventListener('keydown',function(e){
-    if(e.key==='Tab'){e.preventDefault();var s=this.selectionStart,end=this.selectionEnd;this.value=this.value.substring(0,s)+'    '+this.value.substring(end);this.selectionStart=this.selectionEnd=s+4;}
-  });
+  if(ed){
+    ed.addEventListener('keydown',function(e){
+      if(e.key==='Tab'){
+        e.preventDefault();
+        var s=this.selectionStart,end=this.selectionEnd;
+        this.value=this.value.substring(0,s)+'    '+this.value.substring(end);
+        this.selectionStart=this.selectionEnd=s+4;
+      }
+      // Ctrl+Enter to run
+      if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){
+        e.preventDefault();
+        runCode();
+      }
+    });
+    // Auto-save on change
+    ed.addEventListener('input',function(){
+      var lang=$('code-lang').value;
+      try{localStorage.setItem('god_code_draft_'+lang,this.value);}catch(e){}
+    });
+    // Restore draft
+    var lang=$('code-lang').value;
+    try{var draft=localStorage.getItem('god_code_draft_'+lang);if(draft)ed.value=draft;}catch(e){}
+    // Update draft when language changes
+    $('code-lang').addEventListener('change',function(){
+      try{var d=localStorage.getItem('god_code_draft_'+this.value);ed.value=d||'';}catch(e){}
+      $('code-status').textContent='Ready';$('code-status').style.color='var(--dim)';
+    });
+  }
 });
 
 // Chat
@@ -1785,7 +1932,8 @@ $('chat-f').addEventListener('submit',e=>{
   if(v){
     const userMsg=document.createElement('div');
     userMsg.className='m user';
-    userMsg.innerHTML='<div class="w">You</div>'+esc(v);
+    var ts=new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
+    userMsg.innerHTML='<div class="w">You</div>'+esc(v)+'<div class="ts">'+ts+'</div>';
     $('chat-m').appendChild(userMsg);
     $('chat-m').scrollTop=$('chat-m').scrollHeight;
   }
@@ -1796,7 +1944,8 @@ $('chat-f').addEventListener('submit',e=>{
   streamingActive=true;_thinkBuffer='';_inThink=false;
   const brainMsg=document.createElement('div');
   brainMsg.className='m brain new-msg';
-  brainMsg.innerHTML='<div class="w">GOD</div><span class="stream-text"></span>';
+  var bts=new Date().toLocaleTimeString('pt-PT',{hour:'2-digit',minute:'2-digit'});
+  brainMsg.innerHTML='<div class="w">GOD</div><span class="stream-text"></span><div class="ts" style="display:none">'+bts+'</div>';
   $('chat-m').appendChild(brainMsg);
   const streamSpan=brainMsg.querySelector('.stream-text');
   fetch('/api/chat/stream',{
@@ -1832,7 +1981,14 @@ $('chat-f').addEventListener('submit',e=>{
         const text=d.error||d.text||JSON.stringify(d);
         streamSpan.textContent=text;
       }).catch(()=>{streamSpan.textContent='Erro de conexão. Verifica se o servidor está a correr.';});
-  }).finally(()=>{if(ti)ti.style.display='none';streamingActive=false;$('chat-m').scrollTop=$('chat-m').scrollHeight;});
+  }).finally(()=>{
+    if(ti)ti.style.display='none';
+    streamingActive=false;
+    // Show timestamp on brain message
+    var tsEl=brainMsg.querySelector('.ts');
+    if(tsEl)tsEl.style.display='block';
+    $('chat-m').scrollTop=$('chat-m').scrollHeight;
+  });
 });
 const QA=[
   {l:'📊 Estado',q:'estado'},
