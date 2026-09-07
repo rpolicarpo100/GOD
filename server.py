@@ -1967,3 +1967,42 @@ if __name__ == "__main__":
     os.environ["GOD_PORT"] = str(port)
     print(f"\n🚀 Starting GOD on port {port}...")
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+
+
+# ═══ FEEDBACK SYSTEM ═══
+class FeedbackIn(BaseModel):
+    message_idx: int = 0
+    quality: str = ""
+    text: str = ""
+    role: str = ""
+
+@app.post("/api/feedback")
+def api_feedback(body: FeedbackIn):
+    """Store user feedback for learning."""
+    from superai.store import store
+    from superai.util import sha, now_iso
+    from superai.strategy_learner import get_learner
+
+    feedback = {
+        "idx": body.message_idx,
+        "quality": body.quality,
+        "text": body.text[:200],
+        "role": body.role,
+        "ts": now_iso(),
+    }
+    # Store feedback
+    store.mem_put("feedback", sha(f"fb:{body.message_idx}:{body.quality}"), feedback)
+
+    # Record for strategy learning
+    learner = get_learner()
+    quality_score = 80.0 if body.quality == "good" else 30.0
+    learner.record_task_outcome(
+        task_type="chat",
+        via="llm",
+        provider="",
+        quality=quality_score,
+        latency_ms=0,
+        tools_used=[],
+    )
+
+    return {"ok": True, "quality": body.quality}
