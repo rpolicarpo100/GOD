@@ -926,7 +926,10 @@ async def chat_stream(body: ChatIn):
 
         yield f"data: {json.dumps({'done': True, 'via': result.get('via', 'unknown')})}\n\n"
 
-    return StreamingResponse(_stream(), media_type="text/event-stream")
+    return StreamingResponse(_stream(), media_type="text/event-stream", headers={
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+    })
 
 
 @app.post("/api/benchmark")

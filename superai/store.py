@@ -31,7 +31,8 @@ class Store:
             c.row_factory = sqlite3.Row
             try:
                 c.execute("PRAGMA journal_mode=WAL")
-                c.execute("PRAGMA busy_timeout=3000")
+                c.execute("PRAGMA busy_timeout=5000")
+                c.execute("PRAGMA synchronous=NORMAL")
             except Exception as e:
                 _log.warning("store error: %s", e)
             self._tls.conn = c
