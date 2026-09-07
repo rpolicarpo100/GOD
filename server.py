@@ -1059,6 +1059,49 @@ def api_auto_rollback(authorization: str | None = Header(default=None)):
     return check_regression_and_rollback()
 
 
+@app.get("/api/memory/layers")
+def api_memory_layers():
+    """Get 5-layer memory system stats."""
+    from superai.memory_layers import get_memory
+    mem = get_memory()
+    return mem.stats()
+
+
+@app.get("/api/memory/layers/{layer}")
+def api_memory_layer(layer: str):
+    """Get items from a specific memory layer."""
+    from superai.memory_layers import get_memory, ALL_LAYERS
+    if layer not in ALL_LAYERS:
+        raise HTTPException(400, f"Unknown layer: {layer}. Valid: {ALL_LAYERS}")
+    mem = get_memory()
+    layers = {
+        "working": mem.working,
+        "episodic": mem.episodic,
+        "semantic": mem.semantic,
+        "procedural": mem.procedural,
+        "self": mem.self_mem,
+    }
+    target = layers.get(layer)
+    return {"layer": layer, "count": target.count(), "items": target.all()[:50]}
+
+
+@app.post("/api/memory/consolidate")
+def api_memory_consolidate(authorization: str | None = Header(default=None)):
+    """Run memory consolidation cycle."""
+    _require_perm(authorization, auth.Perm.EVOLUTION_EXECUTE)
+    from superai.memory_layers import get_memory
+    mem = get_memory()
+    return mem.consolidate()
+
+
+@app.get("/api/memory/strategies")
+def api_memory_strategies():
+    """Get best learned strategies from procedural memory."""
+    from superai.memory_layers import get_memory
+    mem = get_memory()
+    return {"strategies": mem.get_strategies(10)}
+
+
 @app.post("/api/workers/register")
 def w_reg(body: WorkerIn, authorization: str | None = Header(default=None)):
     """Register worker. Remote workers require SUPERAI_WORKER_TOKEN."""

@@ -15,6 +15,7 @@ from .thirdeye import criticize
 from .config import ROOT, cfg
 from .events import bus
 from .memory_vec import vectors
+from .memory_layers import get_memory as _get_memory_layers
 from .store import store
 from . import gods
 from .util import now_iso, sha
@@ -156,10 +157,11 @@ def _extract_and_store_knowledge(query: str, response: str, task: dict) -> None:
     """Extract knowledge facts from interaction and store persistently.
     
     Enhanced: captures task-type + provider performance, user style preferences,
-    and topic-specific knowledge for adaptive learning.
+    and topic-specific knowledge for adaptive learning. Also stores in 5-layer memory.
     """
     try:
         task_type = task.get("type", "general")
+        mem_layers = _get_memory_layers()
 
         # Skip trivial task types
         if task_type in ("math", "status", "git", "files", "parse"):
@@ -175,6 +177,11 @@ def _extract_and_store_knowledge(query: str, response: str, task: dict) -> None:
         if any(w in low for w in pref_keywords):
             store.mem_put("knowledge", sha(f"pref:{query[:100]}"),
                          f"Utilizador: {query[:200]}")
+            # Store in semantic memory layer
+            mem_layers.remember(sha(f"pref:{query[:100]}"), {
+                "type": "preference", "text": f"Utilizador: {query[:200]}",
+                "confidence": 0.9, "task_type": task_type,
+            }, layer="semantic")
 
         # 2. Style learning from response length
         if len(response) > 50:
@@ -186,11 +193,25 @@ def _extract_and_store_knowledge(query: str, response: str, task: dict) -> None:
         if len(query) > 20 and len(response) > 50:
             summary = f"{query[:120]} -> {response[:200]}"
             store.mem_put("knowledge", sha(f"ep:{summary}"), summary)
+            # Store in episodic memory layer
+            mem_layers.remember(sha(f"ep:{summary}"), {
+                "type": "episode", "query": query[:120], "response": response[:200],
+                "task_type": task_type, "quality": (task.get("rating") or {}).get("OVERALL", 0),
+            }, layer="episodic")
 
         # 4. Provider performance tracking (for adaptive routing)
-        # This is handled in _record_token but we store task-type context here
         store.mem_put("task_pattern", sha(f"tp:{task_type}:{query[:60]}"),
                      f"type={task_type} complexity={task.get('complexity')} query_len={len(query)}")
+
+        # 5. Run consolidation periodically (every 10 knowledge extractions)
+        try:
+            stats = mem_layers.stats()
+            total = stats.get("total", 0)
+            if total > 0 and total % 10 == 0:
+                mem_layers.consolidate()
+        except Exception:
+            pass
+
     except Exception as e:
             _log.warning("pipeline error: %s", e)
 
