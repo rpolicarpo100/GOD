@@ -1177,6 +1177,44 @@ def api_best_strategy(task_type: str):
     }
 
 
+@app.get("/api/missions")
+def api_missions():
+    """Get autonomous missions (pending, active, history)."""
+    from superai.autonomous_missions import get_mission_control
+    mc = get_mission_control()
+    return {
+        "pending": mc.get_pending(),
+        "active": mc.get_active(),
+        "history": mc.get_history(10),
+        "stats": mc.stats(),
+    }
+
+
+@app.post("/api/missions/detect")
+def api_missions_detect(authorization: str | None = Header(default=None)):
+    """Auto-detect opportunities and create missions."""
+    _require_perm(authorization, auth.Perm.EVOLUTION_EXECUTE)
+    from superai.autonomous_missions import get_mission_control
+    mc = get_mission_control()
+    return {"created": mc.auto_detect_and_create()}
+
+
+@app.post("/api/missions/{mid}/start")
+def api_mission_start(mid: str, authorization: str | None = Header(default=None)):
+    """Start a mission."""
+    _require_perm(authorization, auth.Perm.EVOLUTION_EXECUTE)
+    from superai.autonomous_missions import get_mission_control
+    return get_mission_control().start_mission(mid)
+
+
+@app.post("/api/missions/{mid}/complete")
+def api_mission_complete(mid: str, authorization: str | None = Header(default=None)):
+    """Complete a mission."""
+    _require_perm(authorization, auth.Perm.EVOLUTION_EXECUTE)
+    from superai.autonomous_missions import get_mission_control
+    return get_mission_control().complete_mission(mid, {"status": "done"})
+
+
 @app.post("/api/workers/register")
 def w_reg(body: WorkerIn, authorization: str | None = Header(default=None)):
     """Register worker. Remote workers require SUPERAI_WORKER_TOKEN."""

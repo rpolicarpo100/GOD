@@ -122,10 +122,20 @@ def _run_cycle() -> dict:
     refresh = _phase_refresh()
     result["phases"]["refresh"] = refresh
 
+    # Phase 5: MISSIONS — detect opportunities and create autonomous missions
+    try:
+        from .autonomous_missions import get_mission_control
+        mc = get_mission_control()
+        missions_created = mc.auto_detect_and_create()
+        result["phases"]["missions"] = {"created": len(missions_created)}
+    except Exception:
+        result["phases"]["missions"] = {"created": 0}
+
     # Summary
     total_learned = learning.get("facts_extracted", 0)
     total_evolved = evolution.get("experiments", 0)
-    result["summary"] = f"learned={total_learned} evolved={total_evolved} refreshed={refresh.get('items', 0)}"
+    missions_count = result["phases"].get("missions", {}).get("created", 0)
+    result["summary"] = f"learned={total_learned} evolved={total_evolved} refreshed={refresh.get('items', 0)} missions={missions_count}"
 
     return result
 
