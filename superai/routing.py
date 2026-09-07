@@ -175,10 +175,18 @@ class DirectAdapter(RoutingAdapter):
             if not rl.get("allowed", True):
                 last = {"adapter": a.id, "error": f"rate limited ({rl.get('remaining', 0)} remaining)"}
                 continue
+            # Circuit breaker check
+            if hasattr(a, 'is_available') and not a.is_available():
+                last = {"adapter": a.id, "error": f"circuit open (failures={a._failures})"}
+                continue
             res = a.complete(prompt, **kw)
             if res.get("status") == "success" and str(res.get("text") or "").strip():
                 rl_record(a.id)
+                if hasattr(a, 'record_success'):
+                    a.record_success()
                 return res
+            if hasattr(a, 'record_failure'):
+                a.record_failure()
             last = res
             tries += 1
             if tries >= 3:

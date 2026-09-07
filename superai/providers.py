@@ -109,12 +109,42 @@ class Provider:
     id: str
     name: str
     kind: str
+    # Circuit breaker state
+    _failures: int = 0
+    _circuit_open_until: float = 0.0
+    _CIRCUIT_THRESHOLD: int = 5
+    _CIRCUIT_COOLDOWN: float = 60.0
 
     def health(self) -> dict[str, Any]:
         raise NotImplementedError
 
     def complete(self, prompt: str, **kw: Any) -> dict[str, Any]:
         raise NotImplementedError
+
+    def circuit_state(self) -> str:
+        """Return circuit breaker state: CLOSED, OPEN, HALF_OPEN."""
+        import time
+        if self._failures < self._CIRCUIT_THRESHOLD:
+            return "CLOSED"
+        if time.time() < self._circuit_open_until:
+            return "OPEN"
+        return "HALF_OPEN"
+
+    def record_success(self) -> None:
+        """Reset circuit breaker on success."""
+        self._failures = 0
+        self._circuit_open_until = 0.0
+
+    def record_failure(self) -> None:
+        """Track failures and open circuit if threshold reached."""
+        import time
+        self._failures += 1
+        if self._failures >= self._CIRCUIT_THRESHOLD:
+            self._circuit_open_until = time.time() + self._CIRCUIT_COOLDOWN
+
+    def is_available(self) -> bool:
+        """Check if provider is available (circuit not open)."""
+        return self.circuit_state() != "OPEN"
 
 
 class OllamaAdapter(Provider):
