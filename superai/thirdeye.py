@@ -26,6 +26,36 @@ _pattern_counts: dict[str, int] = {}
 _CORRECTION_THRESHOLD = 3
 
 
+def adversarial_check(pipeline: dict, task: dict, tool_results: list[dict], scores: dict | None) -> dict:
+    """Adversarial analysis — try to prove the result WRONG."""
+    evidence = pipeline.get("evidence", {})
+    vs = evidence.get("validation_status", "unvalidated")
+    ns = evidence.get("n_supporting", 0)
+    nr = evidence.get("n_refuting", 0)
+    contradictions, weaknesses = [], []
+    if nr > 0 and ns == 0:
+        contradictions.append("All evidence is refuting — result likely wrong")
+    elif nr > ns:
+        contradictions.append(f"More refuting ({nr}) than supporting ({ns}) evidence")
+    if not tool_results:
+        weaknesses.append("No tool results — claim based on LLM alone")
+    for r in tool_results:
+        if r.get("status") != "success":
+            err = (r.get("errors") or ["unknown"])[0]
+            weaknesses.append(f"Tool {r.get('tool', '?')} failed: {err}")
+    overall = (scores or {}).get("OVERALL", 0)
+    if overall < 50:
+        weaknesses.append(f"Low quality score: {overall}/100")
+    adj = 0.0
+    if contradictions: adj -= 0.3
+    if len(weaknesses) >= 3: adj -= 0.2
+    if vs == "supported": adj += 0.1
+    elif vs == "refuted": adj -= 0.4
+    status = "contradicted" if contradictions else ("weak" if len(weaknesses) >= 3 else "passed")
+    return {"status": status, "contradictions": contradictions, "weaknesses": weaknesses,
+            "confidence_adjustment": round(adj, 2), "original_validation": vs, "n_evidence": evidence.get("n_evidence", 0)}
+
+
 def criticize(pipeline: dict, task: dict, tool_results: list[dict], scores: dict | None) -> dict:
     """Analyze pipeline after task completion. Returns structured criticism.
 

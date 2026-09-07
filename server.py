@@ -943,6 +943,13 @@ def api_self_model():
     return get_self_model()
 
 
+@app.get("/api/evidence/{claim_id}")
+def api_evidence(claim_id: str):
+    """Get evidence summary for a claim."""
+    from superai.evidence import get_evidence_summary
+    return get_evidence_summary(claim_id)
+
+
 @app.get("/api/providers/health")
 def providers_health():
     """Health status of all LLM providers."""

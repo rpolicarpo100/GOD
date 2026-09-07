@@ -541,6 +541,19 @@ def _stage_tools(text, task, pipeline, p, ctx, _say, _mark, _set_pipe, _broadcas
     scores = evaluate(task, tool_results, llm_used=False, tokens_actual=0)
     validation = validate(task, tool_results)
     critique = criticize(pipeline, task, tool_results, scores)
+    # Adversarial check: try to prove result wrong
+    try:
+        from .thirdeye import adversarial_check
+        pipeline["adversarial"] = adversarial_check(pipeline, task, tool_results, scores)
+    except Exception:
+        pass
+    # Evidence engine: validate claims from tool results
+    try:
+        from .evidence import validate_claim_from_tools
+        evidence_result = validate_claim_from_tools(task.get("title", ""), tool_results)
+        pipeline["evidence"] = evidence_result
+    except Exception:
+        pass
     _record_token(task, pipeline, ctx, actual=0, status="ok", via="tools", quality_score=scores.get("OVERALL"))
     store.mem_put(f"episode:{gods.active_id()}", task["title"], {"task_id": task["task_id"], "type": task["type"], "overall": scores["OVERALL"]})
     # Only cache if at least one tool succeeded
