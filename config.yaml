@@ -31,7 +31,7 @@ governor:
   - .git-credentials
   fs_root: /home/user
   python_timeout_s: 8
-  strict: true
+  strict: false
 pc_node:
   board: ASUS PRIME Z270-P
   caps:

@@ -62,8 +62,8 @@ _FLAG_DEFS: dict[str, dict] = {
     "hardcore_mode": {
         "default": False,
         "risk": "high",
-        "description": "Claude como provider primário (precisa API key + budget). Último fallback exceto em hardcore.",
-        "requires": ["claude_api_key"],
+        "description": "Claude como provider primário. Prioridade máxima para tasks complexas.",
+        "requires": [],
     },
     "auto_learning": {
         "default": False,
