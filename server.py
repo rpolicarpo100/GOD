@@ -172,6 +172,13 @@ def _ensure_flags():
         ("auto_evolve", "auto-enable on startup: classify_risk is safety net"),
         ("auto_cleanup", "auto-enable on startup: stale data cleanup"),
         ("rate_limiting", "auto-enable on startup: quota protection"),
+        ("auto_learning", "auto-enable on startup: adaptive learning"),
+        ("adaptive_routing", "auto-enable on startup: learned quality routing"),
+        ("memory_consolidation", "auto-enable on startup: 5-layer memory system"),
+        ("evidence_engine", "auto-enable on startup: claim validation"),
+        ("adversarial_check", "auto-enable on startup: adversarial analysis"),
+        ("strategy_learning", "auto-enable on startup: learn from interactions"),
+        ("autonomous_missions", "auto-enable on startup: self-improvement missions"),
     ]
     for name, reason in critical:
         if not is_enabled(name):

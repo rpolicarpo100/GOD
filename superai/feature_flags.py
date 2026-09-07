@@ -89,6 +89,42 @@ _FLAG_DEFS: dict[str, dict] = {
         "description": "Rate limiting por provider para evitar exceder free tier quotas",
         "requires": [],
     },
+    "memory_consolidation": {
+        "default": False,
+        "risk": "low",
+        "description": "Auto-consolidar memória: working→episodic→semantic a cada 10 interações",
+        "requires": [],
+    },
+    "evidence_engine": {
+        "default": False,
+        "risk": "low",
+        "description": "Validar claims com evidências antes de aceitar como verdade",
+        "requires": [],
+    },
+    "adversarial_check": {
+        "default": False,
+        "risk": "low",
+        "description": "Análise adversarial: tentar provar que resultados estão errados",
+        "requires": [],
+    },
+    "strategy_learning": {
+        "default": False,
+        "risk": "low",
+        "description": "Aprender estratégias com cada interação (melhor tool/provider por tipo)",
+        "requires": [],
+    },
+    "autonomous_missions": {
+        "default": False,
+        "risk": "medium",
+        "description": "GOD cria missões autónomas para aprender e melhorar",
+        "requires": [],
+    },
+    "self_development": {
+        "default": False,
+        "risk": "high",
+        "description": "GOD propõe mudanças ao próprio código (sempre com aprovação humana)",
+        "requires": [],
+    },
 }
 
 # Runtime state

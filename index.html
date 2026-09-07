@@ -1017,21 +1017,47 @@ body.theme-custom {
 
     <!-- ═══ SETTINGS ═══ -->
     <div class="page" id="p-set"><div class="pg">
+      <!-- System Health Overview -->
+      <div class="pg-grid" style="grid-template-columns:repeat(5,1fr)" id="s-health-kpis"></div>
+      <!-- System Config -->
       <div class="pg-grid" id="s-cfg"></div>
-      <div class="pg-sec"><div class="t">Session</div>
-        <div id="session-info" style="font-size:10px;color:var(--muted);line-height:1.8"></div>
-      </div>
-      <div class="pg-sec"><div class="t">Layout</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="tag" onclick="togglePanelVisibility('system-map')">System Map</button>
-          <button class="tag" onclick="togglePanelVisibility('nodes')">Nodes</button>
-          <button class="tag" onclick="togglePanelVisibility('activity')">Activity</button>
-          <button class="tag" onclick="togglePanelVisibility('performance')">Performance</button>
-          <button class="tag warn" onclick="resetLayout()">Reset Layout</button>
+      <!-- Two columns: Session + Layout -->
+      <div class="pg-grid" style="grid-template-columns:1fr 1fr">
+        <div class="pg-sec"><div class="t">📊 Session</div>
+          <div id="session-info" style="font-size:10px;color:var(--muted);line-height:1.8"></div>
+        </div>
+        <div class="pg-sec"><div class="t">🎨 Layout</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="tag" onclick="togglePanelVisibility('system-map')">System Map</button>
+            <button class="tag" onclick="togglePanelVisibility('nodes')">Nodes</button>
+            <button class="tag" onclick="togglePanelVisibility('activity')">Activity</button>
+            <button class="tag" onclick="togglePanelVisibility('performance')">Performance</button>
+            <button class="tag warn" onclick="resetLayout()">Reset</button>
+          </div>
         </div>
       </div>
-      <div class="pg-sec"><div class="t">Feature Flags</div><div id="s-flags"></div></div>
-      <div class="pg-sec"><div class="t">Profiles</div><div id="s-prof"></div></div>
+      <!-- Feature Flags with Toggle -->
+      <div class="pg-sec"><div class="t">🚩 Feature Flags <span style="font-size:9px;color:var(--dim);font-weight:400" id="flags-count"></span></div>
+        <div id="s-flags-toggle"></div>
+      </div>
+      <!-- Two columns: API Keys + Providers -->
+      <div class="pg-grid" style="grid-template-columns:1fr 1fr">
+        <div class="pg-sec"><div class="t">🔑 API Keys Status</div><div id="s-apikeys"></div></div>
+        <div class="pg-sec"><div class="t">🤖 Providers Health</div><div id="s-providers"></div></div>
+      </div>
+      <!-- Autonomous AI Status -->
+      <div class="pg-sec"><div class="t">🧠 Autonomous AI Status</div><div id="s-autonomous"></div></div>
+      <!-- Profiles -->
+      <div class="pg-sec"><div class="t">👤 Profiles</div><div id="s-prof"></div></div>
+      <!-- Danger Zone -->
+      <div class="pg-sec" style="border-color:rgba(232,96,96,.2)"><div class="t" style="color:var(--crit)">⚠️ Danger Zone</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+          <button class="tag crit" onclick="if(confirm('Clear all cache?'))fetch('/api/cache/clear',{method:'POST'}).then(()=>location.reload())">Clear Cache</button>
+          <button class="tag crit" onclick="if(confirm('Reset all feature flags?'))fetch('/api/system/flags/reset',{method:'POST'}).then(()=>location.reload())">Reset Flags</button>
+          <button class="tag warn" onclick="if(confirm('Run memory consolidation?'))fetch('/api/memory/consolidate',{method:'POST'}).then(r=>r.json()).then(d=>alert(JSON.stringify(d)))">Consolidate Memory</button>
+          <button class="tag warn" onclick="if(confirm('Auto-detect missions?'))fetch('/api/missions/detect',{method:'POST'}).then(r=>r.json()).then(d=>alert('Created: '+JSON.stringify(d)))">Detect Missions</button>
+        </div>
+      </div>
     </div></div>
 
     <!-- ═══ CODE EDITOR ═══ -->
@@ -2445,17 +2471,94 @@ function pCfg(s){
 
 function loadFlags(){
   flagsDone=true;
-  fetch('/api/system/flags').then(r=>r.json()).then(f=>{
-    const en=f.enabled||[],dis=f.disabled||[],hi=f.high_risk||[];
-    $('s-flags').innerHTML=`
-      <div style="display:flex;gap:8px;margin-bottom:8px">
-        <div style="flex:1;padding:6px;background:var(--ok-dim);border:1px solid rgba(94,232,176,.12);border-radius:7px;text-align:center"><div style="font-size:8px;color:var(--dim)">Enabled</div><div style="font-family:var(--mono);font-size:16px;color:var(--ok)">${en.length}</div></div>
-        <div style="flex:1;padding:6px;background:var(--glass);border:1px solid var(--line);border-radius:7px;text-align:center"><div style="font-size:8px;color:var(--dim)">Disabled</div><div style="font-family:var(--mono);font-size:16px">${dis.length}</div></div>
-        <div style="flex:1;padding:6px;background:var(--crit-dim);border:1px solid rgba(232,96,96,.12);border-radius:7px;text-align:center"><div style="font-size:8px;color:var(--dim)">High Risk</div><div style="font-family:var(--mono);font-size:16px;color:var(--crit)">${hi.length}</div></div>
-      </div>
-      ${[...en.map(n=>({n,on:true})),...dis.map(n=>({n,on:false}))].map(x=>`<div class="it"><span style="font-size:10px">${esc(x.n)}</span><span class="tag ${x.on?'ok':'off'}" style="font-size:7px">${x.on?'ON':'OFF'}</span></div>`).join('')}
-    `;
-  }).catch(()=>{$('s-flags').innerHTML='<div class="empty">Falhou</div>';});
+  fetch('/api/system/flags').then(function(r){return r.json();}).then(function(f){
+    var en=f.enabled||[],dis=f.disabled||[],hi=f.high_risk||[];
+    var total=en.length+dis.length;
+    var countEl=document.getElementById('flags-count');
+    if(countEl)countEl.textContent=en.length+'/'+total+' active';
+    fetch('/api/health').then(function(r){return r.json();}).then(function(h){
+      var hk=document.getElementById('s-health-kpis');
+      if(hk){
+        var hpct=h.health_pct||0;
+        var hpctColor=hpct>=80?'var(--ok)':(hpct>=50?'var(--warn)':'var(--crit)');
+        hk.innerHTML=
+          '<div class="pcard"><div class="k">Health</div><div class="v" style="color:'+hpctColor+'">'+hpct+'%</div></div>'+
+          '<div class="pcard"><div class="k">Mode</div><div class="v">'+esc(h.mode||'?')+'</div></div>'+
+          '<div class="pcard"><div class="k">Workers</div><div class="v">'+(h.workers_alive||0)+'</div></div>'+
+          '<div class="pcard"><div class="k">Queue</div><div class="v">'+(h.queue_depth||0)+'</div></div>'+
+          '<div class="pcard"><div class="k">Flags ON</div><div class="v" style="color:var(--ok)">'+en.length+'/'+total+'</div></div>';
+      }
+    }).catch(function(){});
+    var allFlags=[];
+    en.forEach(function(n){allFlags.push({n:n,on:true,risk:'low'});});
+    dis.forEach(function(n){allFlags.push({n:n,on:false,risk:'low'});});
+    hi.forEach(function(n){for(var i=0;i<allFlags.length;i++){if(allFlags[i].n===n)allFlags[i].risk='high';}});
+    var riskIcon={'low':'🟢','medium':'🟡','high':'🔴'};
+    var el=document.getElementById('s-flags-toggle');
+    if(!el)return;
+    el.innerHTML=allFlags.map(function(x){
+      var icon=riskIcon[x.risk]||'🟢';
+      var bg=x.on?'var(--ok-dim)':'var(--glass)';
+      var border=x.on?'rgba(94,232,176,.2)':'var(--line)';
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:4px;background:'+bg+';border:1px solid '+border+';border-radius:8px">'+
+        '<span style="font-size:12px">'+icon+'</span>'+
+        '<div style="flex:1"><div style="font-size:11px;font-weight:500">'+esc(x.n.replace(/_/g,' '))+'</div>'+
+        '<div style="font-size:8px;color:var(--dim)">'+esc(x.risk)+' risk</div></div>'+
+        '<button onclick="toggleFlag(\''+x.n.replace(/'/g,"\\'")+'\','+(!x.on)+')" style="background:'+(x.on?'var(--ok)':'var(--dim)')+';color:#fff;border:none;border-radius:12px;padding:4px 14px;font-size:9px;font-weight:600;cursor:pointer;min-width:50px">'+(x.on?'ON':'OFF')+'</button>'+
+        '</div>';
+    }).join('');
+  }).catch(function(){document.getElementById('s-flags-toggle').innerHTML='<div class="empty">Falhou</div>';});
+  fetch('/api/providers/health').then(function(r){return r.json();}).then(function(d){
+    var provs=d.providers||[];
+    var avail=provs.filter(function(p){return p.available;}).length;
+    var pel=document.getElementById('s-providers');
+    if(pel){
+      pel.innerHTML='<div style="font-size:10px;color:var(--dim);margin-bottom:6px">'+avail+'/'+provs.length+' available</div>'+
+        provs.slice(0,8).map(function(p){
+          var icon=p.available?'🟢':'🔴';
+          var cs=p.circuit_state||'closed';
+          var cb=cs==='open'?'<span style="font-size:7px;padding:1px 4px;background:var(--crit-dim);border-radius:3px;color:var(--crit)">OPEN</span>':'';
+          return '<div style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:10px"><span>'+icon+'</span><span style="flex:1">'+esc(p.id)+'</span>'+cb+'</div>';
+        }).join('');
+    }
+    var akel=document.getElementById('s-apikeys');
+    if(akel){
+      var withKeys=provs.filter(function(p){return p.available;}).length;
+      var noKeys=provs.length-withKeys;
+      akel.innerHTML=
+        '<div style="display:flex;gap:8px;margin-bottom:8px">'+
+        '<div style="flex:1;padding:6px;background:var(--ok-dim);border:1px solid rgba(94,232,176,.12);border-radius:7px;text-align:center"><div style="font-size:8px;color:var(--dim)">Configured</div><div style="font-family:var(--mono);font-size:16px;color:var(--ok)">'+withKeys+'</div></div>'+
+        '<div style="flex:1;padding:6px;background:var(--glass);border:1px solid var(--line);border-radius:7px;text-align:center"><div style="font-size:8px;color:var(--dim)">Missing</div><div style="font-family:var(--mono);font-size:16px">'+noKeys+'</div></div>'+
+        '</div>'+
+        '<div style="font-size:9px;color:var(--dim)">Configure via env vars ou ./god.sh config</div>';
+    }
+  }).catch(function(){});
+  Promise.all([
+    fetch('/api/memory/layers').then(function(r){return r.json();}).catch(function(){return{};}),
+    fetch('/api/missions').then(function(r){return r.json();}).catch(function(){return{};}),
+    fetch('/api/strategies').then(function(r){return r.json();}).catch(function(){return{};}),
+    fetch('/api/sandbox/experiments').then(function(r){return r.json();}).catch(function(){return{};}),
+  ]).then(function(res){
+    var mem=res[0],missions=res[1],strats=res[2],sandbox=res[3];
+    var el=document.getElementById('s-autonomous');
+    if(!el)return;
+    el.innerHTML=
+      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">'+
+      '<div style="padding:8px;background:var(--glow);border:1px solid rgba(139,108,199,.12);border-radius:8px;text-align:center"><div style="font-size:8px;color:var(--dim)">Memory Items</div><div style="font-family:var(--mono);font-size:18px;color:var(--accent)">'+(mem.total||0)+'</div><div style="font-size:8px;color:var(--dim)">5 layers</div></div>'+
+      '<div style="padding:8px;background:var(--ok-dim);border:1px solid rgba(94,232,176,.12);border-radius:8px;text-align:center"><div style="font-size:8px;color:var(--dim)">Strategies</div><div style="font-family:var(--mono);font-size:18px;color:var(--ok)">'+(strats.total_strategies||0)+'</div><div style="font-size:8px;color:var(--dim)">'+(strats.total_samples||0)+' samples</div></div>'+
+      '<div style="padding:8px;background:rgba(240,192,80,.1);border:1px solid rgba(240,192,80,.2);border-radius:8px;text-align:center"><div style="font-size:8px;color:var(--dim)">Missions</div><div style="font-family:var(--mono);font-size:18px;color:var(--warn)">'+((missions.pending||[]).length+(missions.active||[]).length)+'</div><div style="font-size:8px;color:var(--dim)">'+(missions.stats||{}).completed_total+' done</div></div>'+
+      '<div style="padding:8px;background:var(--glass);border:1px solid var(--line);border-radius:8px;text-align:center"><div style="font-size:8px;color:var(--dim)">Experiments</div><div style="font-family:var(--mono);font-size:18px">'+(sandbox.experiments||[]).length+'</div><div style="font-size:8px;color:var(--dim)">sandbox</div></div>'+
+      '</div>'+
+      '<div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">'+
+      '<div style="font-size:9px;color:var(--dim)">🧠 Episodic: '+(mem.episodic||{}).count+' items</div>'+
+      '<div style="font-size:9px;color:var(--dim)">📚 Semantic: '+(mem.semantic||{}).count+' items</div>'+
+      '<div style="font-size:9px;color:var(--dim)">⚙️ Procedural: '+(mem.procedural||{}).count+' items</div>'+
+      '</div>';
+  }).catch(function(){});
+}
+function toggleFlag(name,enable){
+  var url='/api/system/flags/'+name+'/'+(enable?'enable':'disable');
+  fetch(url,{method:'POST'}).then(function(){loadFlags();}).catch(function(){alert('Failed to toggle flag');});
 }
 
 function pProf(s){
