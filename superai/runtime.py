@@ -686,6 +686,12 @@ def boot() -> None:
             idle_start()
         except Exception:
             pass
+        # Start knowledge auditor (analyses, curates fine memory)
+        try:
+            from .knowledge_auditor import start as auditor_start
+            auditor_start()
+        except Exception:
+            pass
         # Warmup embeddings
         try:
             from .embed import warmup as _embed_warmup

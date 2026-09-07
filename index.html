@@ -3306,6 +3306,26 @@ function showIdleWorkerStatus() {
 setInterval(showIdleWorkerStatus, 45000);
 setTimeout(showIdleWorkerStatus, 8000);
 
+
+// ═══ AUDITOR — show in activity log ═══
+function showAuditorStatus() {
+  fetch('/api/auditor/status').then(function(r){return r.json();}).then(function(d){
+    if (d.audit_count > 0) {
+      addActivityLog('audit', 'Auditor: ' + d.audit_count + ' ciclos completos');
+    }
+    if (d.last_audit && d.last_audit.summary) {
+      addActivityLog('audit', 'Ultimo audit: ' + d.last_audit.summary);
+    }
+    if (d.fine_memory_count > 0) {
+      addActivityLog('audit', 'Memória fina: ' + d.fine_memory_count + ' entradas curadas');
+    }
+  }).catch(function(){});
+}
+
+// Show every 90s (between idle worker 45s and learner 60s)
+setInterval(showAuditorStatus, 90000);
+setTimeout(showAuditorStatus, 12000);
+
 </script>
 </body>
 </html>

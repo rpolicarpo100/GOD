@@ -737,6 +737,32 @@ def idle_worker_stop_endpoint():
     stop()
     return {"ok": True}
 
+
+@app.get("/api/auditor/status")
+def auditor_status():
+    from superai.knowledge_auditor import status
+    return status()
+
+
+@app.post("/api/auditor/force")
+def auditor_force():
+    from superai.knowledge_auditor import force_audit
+    return force_audit()
+
+
+@app.get("/api/fine-memory")
+def fine_memory_list():
+    from superai.knowledge_auditor import fine_memory_list
+    items = fine_memory_list(50)
+    return {"count": len(items), "items": items}
+
+
+@app.get("/api/fine-memory/search")
+def fine_memory_search(q: str = ""):
+    from superai.knowledge_auditor import fine_memory_search
+    items = fine_memory_search(q, 10) if q else []
+    return {"count": len(items), "items": items}
+
 @app.post("/api/chat/stream")
 async def chat_stream(body: ChatIn):
     """Streaming chat via SSE — runs handle() then streams result text to frontend."""

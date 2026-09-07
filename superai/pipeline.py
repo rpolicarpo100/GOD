@@ -355,6 +355,14 @@ def _stage_memory(text, task, pipeline, need_mem, gid, _mark):
         # Add knowledge to merged results (lower priority)
         for k in (knowledge or [])[:3]:
             mem.append({"kind": "knowledge", "key": k.get("key"), "value": k.get("value")})
+        
+        # Add fine memory (audited, curated knowledge — highest priority)
+        try:
+            fine = store.mem_search(text, kinds=["fine_memory"])
+            for f in (fine or [])[:3]:
+                mem.insert(0, {"kind": "fine_memory", "key": f.get("key"), "value": f.get("value")})
+        except Exception:
+            pass
     
     pipeline["memory_hits"] = len(mem)
     pipeline["vector_hits"] = vec_mem
