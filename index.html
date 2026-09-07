@@ -1005,6 +1005,14 @@ body.theme-custom {
       </div>
       <div class="pg-sec"><div class="t">Event Stream</div><div id="a-feed"></div></div>
       <div class="pg-sec"><div class="t">🧠 Autonomous AI Suggestions</div><div id="ai-suggestions"></div></div>
+      <div class="pg-grid" style="grid-template-columns:1fr 1fr">
+        <div class="pg-sec"><div class="t">🧠 Memory Layers</div><div id="memory-layers"></div></div>
+        <div class="pg-sec"><div class="t">🎯 Missions</div><div id="missions-panel"></div></div>
+      </div>
+      <div class="pg-grid" style="grid-template-columns:1fr 1fr">
+        <div class="pg-sec"><div class="t">📈 Learned Strategies</div><div id="strategies-panel"></div></div>
+        <div class="pg-sec"><div class="t">🔬 Sandbox Experiments</div><div id="sandbox-panel"></div></div>
+      </div>
     </div></div>
 
     <!-- ═══ SETTINGS ═══ -->
@@ -1825,6 +1833,65 @@ function refreshActiveTab(tab) {
           }).join('');
         } else {
           el.innerHTML = '<div class="empty">Sem sugestoes. GOD precisa de interacoes para gerar sugestoes.</div>';
+        }
+      }
+    }).catch(function(){});
+    // Memory Layers
+    fetch('/api/memory/layers').then(function(r){return r.json();}).then(function(d){
+      var el = document.getElementById('memory-layers');
+      if(el){
+        var layers = ['working','episodic','semantic','procedural','self'];
+        var icons = {'working':'⚡','episodic':'📖','semantic':'📚','procedural':'⚙️','self':'🪞'};
+        el.innerHTML = layers.map(function(l){
+          var info = d[l] || {};
+          var count = info.count || 0;
+          var cap = info.capacity ? '/'+info.capacity : '';
+          return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line)"><span style="font-size:14px">'+icons[l]+'</span><div style="flex:1"><div style="font-size:11px;font-weight:500;text-transform:capitalize">'+l+'</div></div><span class="tag">'+count+cap+'</span></div>';
+        }).join('') + '<div style="margin-top:6px;font-size:10px;color:var(--dim)">Total: '+(d.total||0)+' | Cycles: '+(d.consolidation_cycles||0)+'</div>';
+      }
+    }).catch(function(){});
+    // Missions
+    fetch('/api/missions').then(function(r){return r.json();}).then(function(d){
+      var el = document.getElementById('missions-panel');
+      if(el){
+        var pending = d.pending||[];
+        var active = d.active||[];
+        var history = d.history||[];
+        var html = '';
+        if(active.length){html += '<div style="font-size:10px;color:var(--ok);margin-bottom:4px">🟢 Active ('+active.length+')</div>';active.forEach(function(m){html+='<div style="padding:4px 0;font-size:10px">▸ '+esc(m.type)+': '+esc(m.target)+'</div>';});}
+        if(pending.length){html += '<div style="font-size:10px;color:var(--warn);margin-top:6px">🟡 Pending ('+pending.length+')</div>';pending.slice(0,3).forEach(function(m){html+='<div style="padding:4px 0;font-size:10px">▸ ['+m.priority+'] '+esc(m.type)+': '+esc(m.target)+'</div>';});}
+        if(!active.length&&!pending.length){html='<div class="empty">Sem missions ativas</div>';}
+        if(history.length){html+='<div style="font-size:10px;color:var(--dim);margin-top:6px">Completed: '+history.length+'</div>';}
+        el.innerHTML = html;
+      }
+    }).catch(function(){});
+    // Strategies
+    fetch('/api/strategies').then(function(r){return r.json();}).then(function(d){
+      var el = document.getElementById('strategies-panel');
+      if(el){
+        var total = d.total_strategies||0;
+        var samples = d.total_samples||0;
+        var html = '<div style="font-size:10px;color:var(--dim);margin-bottom:6px">'+total+' strategies | '+samples+' samples</div>';
+        var bp = d.best_providers||[];
+        var bt = d.best_tools||[];
+        if(bp.length){html+='<div style="font-size:10px;font-weight:500;margin-bottom:3px">Best Providers:</div>';bp.slice(0,3).forEach(function(s){html+='<div style="padding:2px 0;font-size:10px">▸ '+esc(s.task_type)+': <b>'+esc(s.provider)+'</b> ('+s.quality+'%)</div>';});}
+        if(bt.length){html+='<div style="font-size:10px;font-weight:500;margin-top:6px;margin-bottom:3px">Best Tools:</div>';bt.slice(0,3).forEach(function(s){html+='<div style="padding:2px 0;font-size:10px">▸ '+esc(s.task_type)+': <b>'+esc(s.tool)+'</b> ('+s.quality+'%)</div>';});}
+        if(!bp.length&&!bt.length){html+='<div class="empty">Ainda a aprender...</div>';}
+        el.innerHTML = html;
+      }
+    }).catch(function(){});
+    // Sandbox
+    fetch('/api/sandbox/experiments').then(function(r){return r.json();}).then(function(d){
+      var el = document.getElementById('sandbox-panel');
+      if(el){
+        var exps = d.experiments||[];
+        if(exps.length){
+          el.innerHTML = exps.slice(0,5).map(function(e){
+            var icon = e.status==='adopted'?'✅':(e.status==='rolled_back'?'⏪':(e.status==='canary'?'🐤':'🧪'));
+            return '<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--line)"><span>'+icon+'</span><div style="flex:1;font-size:10px"><b>'+esc(e.name)+'</b> — '+esc(e.status)+'</div></div>';
+          }).join('');
+        } else {
+          el.innerHTML = '<div class="empty">Sem experiências no sandbox</div>';
         }
       }
     }).catch(function(){});
