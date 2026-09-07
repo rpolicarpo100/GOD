@@ -217,3 +217,51 @@ def stats() -> dict:
             "predicates": n_predicates,
             "ts": now_iso(),
         }
+
+# ─── Seed knowledge for bootstrapping ───────────────────────────
+_SEED_TRIPLES = [
+    # AI & ML
+    {"s": "GOD", "p": "é", "o": "inteligência artificial autónoma"},
+    {"s": "GOD", "p": "usa", "o": "LLM para raciocínio"},
+    {"s": "GOD", "p": "aprende", "o": "com interacções do utilizador"},
+    {"s": "GOD", "p": "pesquisa", "o": "na web quando não sabe"},
+    {"s": "GOD", "p": "guarda", "o": "conhecimento em memória fina"},
+    {"s": "machine learning", "p": "subset de", "o": "artificial intelligence"},
+    {"s": "deep learning", "p": "subset de", "o": "machine learning"},
+    {"s": "LLM", "p": "significa", "o": "Large Language Model"},
+    {"s": "transformer", "p": "arquitectura de", "o": "LLM modernos"},
+    {"s": "GPT", "p": "é tipo de", "o": "transformer decoder"},
+    {"s": "BERT", "p": "é tipo de", "o": "transformer encoder"},
+    {"s": "fine-tuning", "p": "adapta", "o": "modelo pré-treinado"},
+    {"s": "RAG", "p": "significa", "o": "Retrieval Augmented Generation"},
+    {"s": "RAG", "p": "combina", "o": "busca + geração"},
+    {"s": "embedding", "p": "representa", "o": "texto como vector"},
+    {"s": "vector database", "p": "armazena", "o": "embeddings para busca semântica"},
+    {"s": "Qdrant", "p": "é", "o": "vector database"},
+    {"s": "SQLite", "p": "é", "o": "base de dados local"},
+    # Programming
+    {"s": "Python", "p": "linguagem de", "o": "GOD"},
+    {"s": "FastAPI", "p": "framework de", "o": "GOD server"},
+    {"s": "async", "p": "permite", "o": "concorrência em Python"},
+    {"s": "uvicorn", "p": "serve", "o": "ASGI apps"},
+    {"s": "Git", "p": "controla", "o": "versões de código"},
+    {"s": "GitHub", "p": "aloja", "o": "repositórios Git"},
+    # World knowledge
+    {"s": "Portugal", "p": "é país em", "o": "Europa"},
+    {"s": "Lisboa", "p": "capital de", "o": "Portugal"},
+    {"s": "euro", "p": "moeda de", "o": "Portugal"},
+    {"s": "universo", "p": "tem", "o": "13.8 mil milhões de anos"},
+    {"s": "Terra", "p": "orbita", "o": "Sol"},
+    {"s": "luz", "p": "velocidade de", "o": "299,792,458 m/s"},
+]
+
+def seed_knowledge() -> int:
+    """Seed knowledge graph with initial triples. Returns count added."""
+    added = 0
+    for t in _SEED_TRIPLES:
+        try:
+            store_triple(t)
+            added += 1
+        except Exception:
+            pass
+    return added

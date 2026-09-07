@@ -184,9 +184,22 @@ async def _lifespan(app):
     aios.boot()
     auth.init()
     _ensure_flags()
-    port = os.environ.get("GOD_PORT", "8000")
+    port = int(os.environ.get("GOD_PORT", "8000"))
+    # Auto-detect if port is blocked (Windows firewall etc)
+    import socket
+    for fallback_port in [port, 8080, 3000, 9000, 5000]:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.bind(("0.0.0.0", fallback_port))
+            s.close()
+            port = fallback_port
+            break
+        except OSError:
+            continue
+    os.environ["GOD_PORT"] = str(port)
     log.info("GOD ready. Port %s", port)
     print(f"\n🌐 GOD UI: http://localhost:{port}", flush=True)
+    print(f"   Se nao acederes, tenta: http://127.0.0.1:{port}", flush=True)
     yield
     # Shutdown — graceful cleanup
     log.info("GOD shutting down...")
@@ -798,6 +811,26 @@ def brain_status():
             "fine_memory": auditor.get("fine_memory_count", 0),
         },
     }
+
+
+@app.get("/api/providers/health")
+def providers_health():
+    """Health status of all LLM providers."""
+    try:
+        from superai import providers
+        all_h = providers.health_all()
+        available = [h for h in all_h if h.get("available")]
+        unavailable = [h for h in all_h if not h.get("available")]
+        return {
+            "total": len(all_h),
+            "available": len(available),
+            "unavailable": len(unavailable),
+            "providers": all_h,
+            "available_names": [h.get("id") for h in available],
+            "unavailable_names": [h.get("id") for h in unavailable],
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.post("/api/chat/stream")
 async def chat_stream(body: ChatIn):

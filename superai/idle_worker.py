@@ -25,10 +25,10 @@ _lock = threading.Lock()
 _running = False
 _tasks_done = 0
 _last_task: dict = {}
-_cycle_interval = 60  # Check every 60s
+_cycle_interval = 30  # Check every 30s
 
 
-def start(interval: int = 60) -> None:
+def start(interval: int = 30) -> None:
     """Start the idle worker."""
     global _running, _cycle_interval
     if _running:

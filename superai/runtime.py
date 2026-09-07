@@ -692,10 +692,21 @@ def boot() -> None:
             auditor_start()
         except Exception:
             pass
-        # Warmup embeddings
+        # Warmup embeddings (aggressive — 20+ common queries)
         try:
             from .embed import warmup as _embed_warmup
-            _embed_warmup()
+            result = _embed_warmup()
+            if result:
+                bus.emit("WARMUP", "DEBUG", f"embed cache warmed: {result.get('warmed', 0)} queries")
+        except Exception:
+            pass
+        # Seed knowledge graph on first boot
+        try:
+            from .knowledge_graph import seed_knowledge, stats as kg_stats
+            kg = kg_stats()
+            if kg.get("triples", 0) < 5:
+                added = seed_knowledge()
+                bus.emit("SEED_KG", "DEBUG", f"knowledge graph seeded: {added} triples")
         except Exception:
             pass
         # Pre-warm intent classification

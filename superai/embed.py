@@ -21,7 +21,7 @@ _neural = None
 _neural_checked = False
 
 # LRU cache for embeddings — avoids recomputing for repeated queries
-_EMBED_CACHE_SIZE = 256
+_EMBED_CACHE_SIZE = 1024
 _embed_cache: dict[str, list[float]] = {}
 _embed_cache_order: list[str] = []  # LRU tracking
 _METHOD_NEURAL = "FastEmbed BAAI/bge-small-en-v1.5 384-dim ONNX — neural"

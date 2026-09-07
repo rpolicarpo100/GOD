@@ -49,7 +49,7 @@ class TestEmbedCache:
         stats = cache_stats()
         assert "cache_size" in stats
         assert "cache_max" in stats
-        assert stats["cache_max"] == 256
+        assert stats["cache_max"] == 1024
 
     def test_warmup(self):
         from superai.embed import warmup

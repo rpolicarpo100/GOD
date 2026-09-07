@@ -318,34 +318,61 @@ def _promote_to_fine(item: dict) -> None:
 
 
 def _summarise(value: dict) -> dict:
-    """Create dense summary from knowledge value."""
+    """Create dense summary from knowledge value.
+    
+    Uses LLM if available, falls back to extraction.
+    """
     summary = {}
 
     # Extract core facts
     if isinstance(value, dict):
-        # Keep meaningful fields
         keep_keys = {"topic", "query", "title", "headlines", "url",
                      "n_results", "scores", "topics", "results",
                      "summary", "length", "titles"}
         for k in keep_keys:
             if k in value and value[k]:
                 val = value[k]
-                # Truncate long lists
                 if isinstance(val, list) and len(val) > 5:
                     val = val[:5]
-                # Truncate long strings
                 if isinstance(val, str) and len(val) > 200:
                     val = val[:200] + "..."
                 summary[k] = val
 
-        # Extract key insights
         if "headlines" in value and isinstance(value["headlines"], list):
             summary["key_facts"] = [h[:100] for h in value["headlines"][:3]]
 
         if "titles" in value and isinstance(value["titles"], list):
             summary["key_facts"] = [t[:100] for t in value["titles"][:3]]
 
+    # Try LLM summarisation for richer content
+    try:
+        text = str(value)
+        if len(text) > 100:
+            llm_summary = _llm_summarise(text)
+            if llm_summary:
+                summary["llm_summary"] = llm_summary
+    except Exception:
+        pass  # Non-critical
+
     return summary if summary else {"content": str(value)[:200]}
+
+
+def _llm_summarise(text: str) -> str | None:
+    """Use LLM to create a dense summary. Returns None on failure."""
+    try:
+        from .routing import complete as _llm_call
+        prompt = f"""Resume em 2-3 frases curtas o seguinte conhecimento.
+Foca-te nos factos mais importantes. Sem preâmbulos.
+
+Conhecimento:
+{text[:1000]}"""
+
+        result = _llm_call(prompt, max_tokens=150, temperature=0.3)
+        if result and result.get("text"):
+            return result["text"][:300]
+    except Exception:
+        pass
+    return None
 
 
 def _prune(item: dict) -> None:
