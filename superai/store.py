@@ -202,9 +202,43 @@ class Store:
             r = c.execute("SELECT * FROM cache WHERE key=?", (key,)).fetchone()
         if not r:
             return None
+        result = json.loads(r["result"])
+        # Don't return cached errors
+        if isinstance(result, dict):
+            summary = result.get("summary", [])
+            if isinstance(summary, list):
+                all_errors = all(
+                    isinstance(s, dict) and s.get("status") == "error"
+                    for s in summary
+                )
+                if all_errors and summary:
+                    return None  # Don't return cached all-error results
         with self._lock, self._conn() as c:
             c.execute("UPDATE cache SET hits = hits + 1 WHERE key=?", (key,))
-        return {"key": r["key"], "norm": r["norm"], "result": json.loads(r["result"]), "quality": r["quality"], "ts": r["ts"], "hits": r["hits"] + 1}
+        return {"key": r["key"], "norm": r["norm"], "result": result, "quality": r["quality"], "ts": r["ts"], "hits": r["hits"] + 1}
+
+    def cache_clear_errors(self) -> int:
+        """Remove cache entries where all tool results are errors."""
+        import json as _json
+        removed = 0
+        with self._lock, self._conn() as c:
+            rows = c.execute("SELECT key, result FROM cache").fetchall()
+            for row in rows:
+                try:
+                    result = _json.loads(row[1])
+                    if isinstance(result, dict):
+                        summary = result.get("summary", [])
+                        if isinstance(summary, list) and summary:
+                            all_errors = all(
+                                isinstance(s, dict) and s.get("status") == "error"
+                                for s in summary
+                            )
+                            if all_errors:
+                                c.execute("DELETE FROM cache WHERE key=?", (row[0],))
+                                removed += 1
+                except Exception:
+                    pass
+        return removed
 
     def cache_put(self, key: str, norm: str, result: dict, quality: float) -> None:
         with self._lock, self._conn() as c:

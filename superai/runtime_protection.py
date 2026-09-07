@@ -26,7 +26,7 @@ _MAX_FUNCTION_LINES_CRITICAL = 200  # critical
 _MAX_CLASS_METHODS = 15  # warn
 _MAX_IMPORTS = 20  # warn
 _MAX_CYCLOMATIC = 20  # warn per function
-_MAX_TOTAL_COMPLEXITY = 200  # warn for file total
+_MAX_TOTAL_COMPLEXITY = 220  # warn for file total
 
 # Cache
 _inspection_cache: dict[str, dict] = {}

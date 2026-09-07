@@ -497,6 +497,28 @@ def _llm_text(tool_results: list[dict]) -> str | None:
     return None
 
 
+
+def _format_tool_results(task: dict, tool_results: list[dict]) -> str:
+    """Format tool results in a human-readable way."""
+    parts, errors = [], []
+    for r in tool_results:
+        name = r.get("tool", "?")
+        for f in (r.get("findings") or [])[:5]:
+            if isinstance(f, dict):
+                txt = f.get("text") or f.get("title") or f.get("name")
+                if txt:
+                    parts.append(str(txt).strip())
+            elif isinstance(f, str):
+                parts.append(f.strip())
+        for e in (r.get("evidence") or [])[:3]:
+            parts.append(str(e).strip())
+        for err in (r.get("errors") or []):
+            errors.append(f"⚠ {name}: {err}")
+    result = "\n".join(parts[:10]) if parts else ""
+    if errors:
+        result += ("\n\n" if result else "") + "\n".join(errors[:3])
+    return result or f"Tarefa {task['task_id']} concluída via {', '.join(r.get('tool','?') for r in tool_results)}"
+
 def _format_result(task: dict, pipeline: dict, tool_results: list[dict], scores: dict | None, blocked: str | None) -> str:
     speech = None if blocked else _llm_text(tool_results)
     if speech:
@@ -508,6 +530,10 @@ def _format_result(task: dict, pipeline: dict, tool_results: list[dict], scores:
         toks = scores.get("tokens_actual") if scores else None
         kind = "MEASURED" if toks else "UNKNOWN"
         return f"{speech}\n\n— GOD · {ev or 'llm'} · tokens {toks} {kind} · cost UNKNOWN"
+
+    # Format tool results in a human-readable way
+    if tool_results:
+        return _format_tool_results(task, tool_results)
 
     fw = pipeline.get("firewall") or {}
     lines = [

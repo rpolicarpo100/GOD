@@ -250,6 +250,14 @@ async def _lifespan(app):
         _ensure_flags()
     except Exception as e:
         log.warning("Feature flags init failed: %s", e)
+    # Clear stale error cache entries on startup
+    try:
+        from superai.store import store as _store
+        removed = _store.cache_clear_errors()
+        if removed:
+            log.info("Cleared %d stale error cache entries", removed)
+    except Exception as e:
+        log.warning("Cache cleanup failed: %s", e)
     port = int(os.environ.get("GOD_PORT", "8000"))
     log.info("GOD ready. Port %s", port)
     print(f"\n🌐 GOD UI: http://localhost:{port}", flush=True)
@@ -638,6 +646,15 @@ def api_repair(authorization: str | None = Header(default=None)):
     r = repair.run()
     _broadcast()
     return r
+
+
+@app.post("/api/cache/clear")
+def api_cache_clear(authorization: str | None = Header(default=None)):
+    """Clear stale cache entries. Requires REPAIR_EXECUTE."""
+    _require_perm(authorization, auth.Perm.REPAIR_EXECUTE)
+    from superai.store import store
+    removed = store.cache_clear_errors()
+    return {"ok": True, "removed": removed, "remaining": store.cache_stats().get("entries", 0)}
 
 
 @app.post("/api/chat")
