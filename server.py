@@ -919,12 +919,12 @@ async def chat_stream(body: ChatIn):
         if not brain_text:
             brain_text = str(result.get("error", "") or "Sem resposta.")
 
-        # Stream to frontend in small chunks
-        chunk_size = 6
+        # Stream to frontend in bigger chunks (less overhead, faster delivery)
+        chunk_size = 20
         for i in range(0, len(brain_text), chunk_size):
             chunk = brain_text[i:i + chunk_size]
             yield f"data: {json.dumps({'token': chunk})}\n\n"
-            await asyncio.sleep(0.015)
+            await asyncio.sleep(0.005)  # 5ms between chunks (was 15ms)
 
         yield f"data: {json.dumps({'done': True, 'via': result.get('via', 'unknown')})}\n\n"
 

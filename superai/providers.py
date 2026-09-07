@@ -261,9 +261,19 @@ class OpenAICompatAdapter(Provider):
             return {"status": "unavailable", "provider": self.id, "error": "sem model de chat (só guard/whisper/tts)"}
         try:
             on_token = kw.pop("on_token", None)
+            # Prompt caching: split into system (cacheable prefix) + user
+            user_marker = "\n\nUSER: "
+            if user_marker in prompt:
+                sys_part, user_part = prompt.split(user_marker, 1)
+                msgs = [
+                    {"role": "system", "content": sys_part},
+                    {"role": "user", "content": user_part},
+                ]
+            else:
+                msgs = [{"role": "user", "content": prompt}]
             payload = {
                 "model": model,
-                "messages": [{"role": "user", "content": prompt}],
+                "messages": msgs,
                 "max_tokens": int(kw.get("max_tokens") or 256),
             }
 
@@ -414,6 +424,24 @@ class ClaudeAdapter(Provider):
             return {"status": "unavailable", "provider": self.id, "error": h.get("error") or "sem credenciais"}
         model = kw.get("model") or (h["models"][0] if h["models"] else "claude-sonnet-4-5")
         try:
+            # Prompt caching: split prompt into system (cacheable) + user parts
+            user_marker = "\n\nUSER: "
+            if user_marker in prompt:
+                parts = prompt.split(user_marker, 1)
+                system_text = parts[0]
+                user_text = parts[1] if len(parts) > 1 else prompt
+                body: dict = {
+                    "model": model,
+                    "max_tokens": int(kw.get("max_tokens") or 256),
+                    "system": [{"type": "text", "text": system_text, "cache_control": {"type": "ephemeral"}}],
+                    "messages": [{"role": "user", "content": user_text}],
+                }
+            else:
+                body = {
+                    "model": model,
+                    "max_tokens": int(kw.get("max_tokens") or 256),
+                    "messages": [{"role": "user", "content": prompt}],
+                }
             r = _http_client.post(
                 "https://api.anthropic.com/v1/messages",
                 headers={
@@ -421,11 +449,7 @@ class ClaudeAdapter(Provider):
                     "anthropic-version": "2023-06-01",
                     "content-type": "application/json",
                 },
-                json={
-                    "model": model,
-                    "max_tokens": int(kw.get("max_tokens") or 256),
-                    "messages": [{"role": "user", "content": prompt}],
-                },
+                json=body,
                 timeout=12.0,
             )
             r.raise_for_status()
@@ -629,10 +653,10 @@ def _schedule_recovery(providers_list: list[dict]) -> None:
 
 
 def health_all() -> list[dict]:
-    """Probe every registered provider. Results cached 5s. Auto-recovery."""
+    """Probe every registered provider. Results cached 10s. Auto-recovery."""
     global _hcache, _ht
     now = time.time()
-    if _hcache is not None and now - _ht < 5.0:
+    if _hcache is not None and now - _ht < 10.0:
         return _hcache
     _hcache = [a.health() for a in ADAPTERS]
     _ht = now

@@ -9,7 +9,7 @@ from typing import Any
 
 from qdrant_client import QdrantClient
 from qdrant_client.http.exceptions import UnexpectedResponse
-from qdrant_client.models import Distance, FieldCondition, Filter, IsEmptyCondition, MatchValue, PayloadField, PointStruct, VectorParams
+from qdrant_client.models import Distance, FieldCondition, Filter, HnswConfigDiff, IsEmptyCondition, MatchValue, PayloadField, PayloadSchemaType, PointStruct, VectorParams
 
 from .config import DATA
 from .embed import DIM, embed, info as embed_info
@@ -56,7 +56,18 @@ class VectorMemory:
             try:
                 self.c.get_collection(name)
             except Exception:
-                self.c.create_collection(name, vectors_config=VectorParams(size=DIM, distance=Distance.COSINE))
+                self.c.create_collection(
+                    name,
+                    vectors_config=VectorParams(size=DIM, distance=Distance.COSINE),
+                    hnsw_config=HnswConfigDiff(m=16, ef_construct=200),
+                )
+            # Create payload index for god_id (speeds up filtered searches)
+            try:
+                self.c.create_payload_index(
+                    name, "god_id", field_schema=PayloadSchemaType.KEYWORD,
+                )
+            except Exception:
+                pass  # Already exists or collection just created
 
     def available(self) -> bool:
         return self.c is not None and self.error is None
