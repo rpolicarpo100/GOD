@@ -3289,6 +3289,23 @@ setInterval(showLearningEvidence, 60000);
 // Also show on first load
 setTimeout(showLearningEvidence, 5000);
 
+
+// ═══ IDLE WORKER — show in activity log ═══
+function showIdleWorkerStatus() {
+  fetch('/api/idle-worker/status').then(function(r){return r.json();}).then(function(d){
+    if (d.tasks_done > 0) {
+      addActivityLog('learn', 'Idle Worker: ' + d.tasks_done + ' tarefas de conhecimento');
+    }
+    if (d.last_task && d.last_task.task) {
+      addActivityLog('learn', 'Ultima tarefa: ' + d.last_task.task + ' → ' + (d.last_task.result || '').substring(0, 60));
+    }
+  }).catch(function(){});
+}
+
+// Show every 45s (between learner 60s and idle 60s)
+setInterval(showIdleWorkerStatus, 45000);
+setTimeout(showIdleWorkerStatus, 8000);
+
 </script>
 </body>
 </html>

@@ -680,6 +680,12 @@ def boot() -> None:
             learner_start()
         except Exception:
             pass
+        # Start idle worker (gains knowledge when queue is empty)
+        try:
+            from .idle_worker import start as idle_start
+            idle_start()
+        except Exception:
+            pass
         # Warmup embeddings
         try:
             from .embed import warmup as _embed_warmup

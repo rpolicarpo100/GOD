@@ -717,6 +717,26 @@ def learner_stop():
     stop()
     return {"ok": True, "message": "Autonomous learner stopped"}
 
+
+@app.get("/api/idle-worker/status")
+def idle_worker_status():
+    from superai.idle_worker import status
+    return status()
+
+
+@app.post("/api/idle-worker/start")
+def idle_worker_start():
+    from superai.idle_worker import start
+    start()
+    return {"ok": True}
+
+
+@app.post("/api/idle-worker/stop")
+def idle_worker_stop_endpoint():
+    from superai.idle_worker import stop
+    stop()
+    return {"ok": True}
+
 @app.post("/api/chat/stream")
 async def chat_stream(body: ChatIn):
     """Streaming chat via SSE — runs handle() then streams result text to frontend."""
