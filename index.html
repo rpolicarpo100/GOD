@@ -3260,6 +3260,35 @@ function filterThinkToken(token) {
   return '';
 }
 
+
+// ═══ sendChat — programmatic chat send ═══
+function sendChat(text) {
+  if (!text) return;
+  var input = document.getElementById('chat-i');
+  if (!input) return;
+  input.value = text;
+  var form = document.getElementById('chat-f');
+  if (form) form.dispatchEvent(new Event('submit', {bubbles: true}));
+}
+
+
+// ═══ LEARNING EVIDENCE — show in activity log ═══
+function showLearningEvidence() {
+  fetch('/api/learner/status').then(function(r){return r.json();}).then(function(d){
+    if (d.cycle_count > 0) {
+      addActivityLog('learn', 'Ciclos: ' + d.cycle_count + ' | Factos: ' + (d.learned_facts || 0));
+    }
+    if (d.last_cycle && d.last_cycle.summary) {
+      addActivityLog('learn', 'Ultimo ciclo: ' + d.last_cycle.summary);
+    }
+  }).catch(function(){});
+}
+
+// Show learning evidence every 60s
+setInterval(showLearningEvidence, 60000);
+// Also show on first load
+setTimeout(showLearningEvidence, 5000);
+
 </script>
 </body>
 </html>

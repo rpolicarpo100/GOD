@@ -377,7 +377,16 @@ def health_deep():
 
 @app.get("/api/metrics")
 def metrics():
-    return observer.inspect()
+    m = observer.inspect()
+    try:
+        from superai.health import diagnostics
+        d = diagnostics()
+        m["health_pct"] = d.get("health_pct", 0)
+        m["health_components"] = d.get("n_components", 0)
+        m["health_ok"] = d.get("n_ok", 0)
+    except Exception:
+        pass
+    return m
 
 
 @app.get("/api/token/usage")
