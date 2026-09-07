@@ -585,11 +585,11 @@ def _stage_llm(text, task, pipeline, merged, ctx, *, _say, _mark, _set_pipe, _br
     if task_type == "coding":
         max_tok = 2048 if cx >= 7 else 1024
     elif task_type == "research":
-        max_tok = 1024 if cx >= 5 else 512
+        max_tok = 1536 if cx >= 5 else 768
     elif task_type in ("math", "status"):
-        max_tok = 256
+        max_tok = 512
     else:
-        max_tok = 512 if cx >= 5 else 256
+        max_tok = 768 if cx >= 5 else 512
     advice = pipeline.get("route_token") or {}
     hardcore = bool(re.search(r"\b(hardcore|HARDCORE)\b", text))
     if hardcore:

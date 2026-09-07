@@ -215,7 +215,10 @@ def complete(prompt: str, **kw: Any) -> dict[str, Any]:
     hs = providers.health_all()
     avail = [h for h in hs if h.get("available")]
 
-    if len(avail) >= 2 and not prefer:
+    # Provider racing — only for complex queries (DEEP mode or hardcore)
+    # Simple queries use single provider to save tokens
+    should_race = hardcore or kw.get("max_tokens", 0) >= 768
+    if len(avail) >= 2 and not prefer and should_race:
         # Provider racing — try top2 in parallel
         import concurrent.futures
         adapters = []
