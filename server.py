@@ -176,6 +176,54 @@ def _ensure_flags():
 
 
 @asynccontextmanager
+def _stop_background_threads():
+    """Signal all background threads to stop and wait up to 5s."""
+    import time
+    threads_to_stop = []
+
+    # Signal each module's _running flag
+    for module_name, attr in [
+        ("superai.autonomous_learner", "_running"),
+        ("superai.idle_worker", "_running"),
+        ("superai.knowledge_auditor", "_running"),
+    ]:
+        try:
+            mod = __import__(module_name, fromlist=[attr])
+            if hasattr(mod, attr):
+                setattr(mod, attr, False)
+                threads_to_stop.append(module_name.split(".")[-1])
+        except Exception:
+            pass
+
+    if threads_to_stop:
+        log.info("Signaled threads to stop: %s", ", ".join(threads_to_stop))
+        time.sleep(2)  # Give threads time to finish current cycle
+
+
+def _close_httpx_clients():
+    """Close all persistent httpx clients."""
+    clients_closed = []
+    for module_name, attr in [
+        ("superai.providers", "_http_client"),
+        ("superai.websearch", "_client"),
+        ("superai.github", "_client"),
+        ("superai.news_connector", "_client"),
+        ("superai.site_aggregator", "_client"),
+        ("superai.routing", "_omni_client"),
+    ]:
+        try:
+            mod = __import__(module_name, fromlist=[attr])
+            client = getattr(mod, attr, None)
+            if client and hasattr(client, "close"):
+                client.close()
+                clients_closed.append(module_name.split(".")[-1])
+        except Exception:
+            pass
+
+    if clients_closed:
+        log.info("Closed httpx clients: %s", ", ".join(clients_closed))
+
+
 async def _lifespan(app):
     # Startup
     log.info("GOD starting up...")
@@ -203,6 +251,13 @@ async def _lifespan(app):
     yield
     # Shutdown — graceful cleanup
     log.info("GOD shutting down...")
+
+    # Stop background threads gracefully (signal + wait)
+    _stop_background_threads()
+
+    # Close httpx clients
+    _close_httpx_clients()
+
     try:
         from superai.runtime import _persist_chat
         _persist_chat()
@@ -211,8 +266,8 @@ async def _lifespan(app):
     try:
         from superai.memory_vec import vectors
         vectors.close()
-    except Exception:
-        pass
+    except Exception as e:
+        log.warning("Vector store close failed: %s", e)
     log.info("GOD shutdown complete.")
 
 
@@ -240,9 +295,10 @@ from fastapi.responses import JSONResponse
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:*", "http://127.0.0.1:*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["*"],  # Local-first: all origins (GOD runs on trusted network)
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "Accept"],
+    expose_headers=["X-Request-Id"],
 )
 
 

@@ -678,20 +678,20 @@ def boot() -> None:
         try:
             from .autonomous_learner import start as learner_start
             learner_start()
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug("autonomous_learner start failed: %s", e)
         # Start idle worker (gains knowledge when queue is empty)
         try:
             from .idle_worker import start as idle_start
             idle_start()
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug("idle_worker start failed: %s", e)
         # Start knowledge auditor (analyses, curates fine memory)
         try:
             from .knowledge_auditor import start as auditor_start
             auditor_start()
-        except Exception:
-            pass
+        except Exception as e:
+            log.debug("knowledge_auditor start failed: %s", e)
         # Warmup embeddings (aggressive — 20+ common queries)
         try:
             from .embed import warmup as _embed_warmup

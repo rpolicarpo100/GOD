@@ -361,8 +361,8 @@ def _stage_memory(text, task, pipeline, need_mem, gid, _mark):
             fine = store.mem_search(text, kinds=["fine_memory"])
             for f in (fine or [])[:3]:
                 mem.insert(0, {"kind": "fine_memory", "key": f.get("key"), "value": f.get("value")})
-        except Exception:
-            pass
+        except Exception as e:
+            bus.emit("PIPELINE_ERROR", "WARNING", str(e)[:100])
     
     pipeline["memory_hits"] = len(mem)
     pipeline["vector_hits"] = vec_mem

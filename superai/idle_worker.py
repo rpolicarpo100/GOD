@@ -60,7 +60,7 @@ def start(interval: int = 30) -> None:
                                  god_core_state="learning")
 
             except Exception as e:
-                bus.emit("IDLE_WORKER_ERROR", "WARNING", str(e))
+                bus.emit("IDLE_WORKER_ERROR", "WARNING", f"idle worker: {e}"[:100])
 
             time.sleep(_cycle_interval)
 
