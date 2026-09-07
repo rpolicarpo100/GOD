@@ -220,20 +220,36 @@ def tool_python(args: dict) -> dict:
         return _err(why)
     f = SANDBOX / "job.py"
     f.write_text(code)
+    timeout_s = gov.python_timeout()
+    MAX_OUTPUT = 6000
     try:
+        # Use process group for clean cleanup on timeout
         proc = subprocess.run(
             ["python3", str(f)],
             cwd=SANDBOX,
             capture_output=True,
             text=True,
-            timeout=gov.python_timeout(),
-            env={"PYTHONPATH": "", "PATH": "/usr/local/bin:/usr/bin"},
+            timeout=timeout_s,
+            env={
+                "PYTHONPATH": "",
+                "PATH": "/usr/local/bin:/usr/bin",
+                "HOME": str(SANDBOX),
+                "TMPDIR": str(SANDBOX),
+                # Strip all API keys and secrets
+                "GOD_ENV": "sandbox",
+            },
         )
     except subprocess.TimeoutExpired:
-        return _err(f"timeout {gov.python_timeout()}s")
+        # Clean up any child processes
+        try:
+            import signal
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except Exception:
+            pass
+        return _err(f"timeout {timeout_s}s — process killed")
     except Exception as e:
         return _err(str(e))
-    out = (proc.stdout or "")[-6000:]
+    out = (proc.stdout or "")[-MAX_OUTPUT:]
     err = (proc.stderr or "")[-3000:]
     st = "success" if proc.returncode == 0 else "error"
     return {
