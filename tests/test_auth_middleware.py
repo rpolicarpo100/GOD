@@ -43,11 +43,12 @@ class TestAuthMiddleware:
         assert r.get("status") == 401
 
     def test_read_endpoints_public(self):
-        """Read-only endpoints that are in _PUBLIC_PATHS should be allowed."""
+        """Read-only endpoints not in _SENSITIVE_PATHS should be allowed."""
         from server import _check_endpoint_auth
-        # Public endpoints should always be allowed
+        # Public endpoints always allowed
         assert _check_endpoint_auth("/api/health", None) is None
         assert _check_endpoint_auth("/api/state", None) is None
-        # /api/metrics requires auth (not in _PUBLIC_PATHS)
-        r = _check_endpoint_auth("/api/metrics", None)
-        assert r is not None  # blocked without auth
+        # /api/metrics is not sensitive — allowed without auth
+        assert _check_endpoint_auth("/api/metrics", None) is None
+        # /api/token/usage is not sensitive — allowed without auth
+        assert _check_endpoint_auth("/api/token/usage", None) is None

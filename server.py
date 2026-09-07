@@ -1343,9 +1343,13 @@ def _check_endpoint_auth(path: str, authorization: str | None) -> dict | None:
     # Public endpoints — always allowed
     if path in _PUBLIC_PATHS:
         return None
+    # Only check auth for explicitly sensitive endpoints
+    base_path = path.rstrip("/")
+    if base_path not in _SENSITIVE_PATHS:
+        return None  # Not sensitive — allow (auth checked at endpoint level if needed)
     # Check if owner exists — if not, allow setup
     if not auth.owner_exists():
-        return None  # No owner yet — allow everything for setup
+        return None
     # Extract session
     session_id = _extract_session(authorization)
     if not session_id:
@@ -1354,13 +1358,11 @@ def _check_endpoint_auth(path: str, authorization: str | None) -> dict | None:
     session = auth.validate_session(session_id)
     if not session:
         return {"error": "Sessão inválida ou expirada", "status": 401}
-    # Sensitive endpoints — check permission
-    base_path = path.rstrip("/")
-    if base_path in _SENSITIVE_PATHS:
-        required_perm = _SENSITIVE_PATHS[base_path]
-        check = auth.require_permission(session_id, required_perm)
-        if not check.get("ok"):
-            return {"error": check.get("error", "Sem permissão"), "status": 403}
+    # Check permission
+    required_perm = _SENSITIVE_PATHS[base_path]
+    check = auth.require_permission(session_id, required_perm)
+    if not check.get("ok"):
+        return {"error": check.get("error", "Sem permissão"), "status": 403}
     return None  # Allowed
 
 
