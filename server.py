@@ -1105,8 +1105,12 @@ async def stream():
         try:
             yield f"event: snapshot\ndata: {json.dumps(snapshot(), ensure_ascii=False)}\n\n"
             while True:
-                kind, payload = await q.get()
-                yield f"event: {kind}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+                try:
+                    kind, payload = await asyncio.wait_for(q.get(), timeout=30.0)
+                    yield f"event: {kind}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+                except asyncio.TimeoutError:
+                    # R-02: SSE heartbeat every 30s
+                    yield ": heartbeat\n\n"
         finally:
             unsub()
 
