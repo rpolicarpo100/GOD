@@ -499,25 +499,109 @@ def _llm_text(tool_results: list[dict]) -> str | None:
 
 
 def _format_tool_results(task: dict, tool_results: list[dict]) -> str:
-    """Format tool results in a human-readable way."""
+    """Format tool results in a clean, human-readable way."""
+    ttype = task.get("type", "general")
     parts, errors = [], []
+
     for r in tool_results:
         name = r.get("tool", "?")
-        for f in (r.get("findings") or [])[:5]:
-            if isinstance(f, dict):
-                txt = f.get("text") or f.get("title") or f.get("name")
-                if txt:
-                    parts.append(str(txt).strip())
-            elif isinstance(f, str):
-                parts.append(f.strip())
-        for e in (r.get("evidence") or [])[:3]:
-            parts.append(str(e).strip())
+        status = r.get("status", "?")
+        findings = r.get("findings") or []
+
+        # Web search results
+        if name == "web.search" and status == "success" and findings:
+            parts.append("🔍 **Resultados da pesquisa:**")
+            for i, f in enumerate(findings[:5], 1):
+                if isinstance(f, dict):
+                    title = f.get("title", "")
+                    url = f.get("url", "")
+                    snippet = f.get("snippet", "") or f.get("text", "")
+                    if title:
+                        line = f"{i}. **{title}**"
+                        if url:
+                            line += f"\n   {url}"
+                        if snippet:
+                            line += f"\n   {snippet[:150]}"
+                        parts.append(line)
+                    elif f.get("text"):
+                        parts.append(f"{i}. {f['text'][:200]}")
+                elif isinstance(f, str):
+                    parts.append(f"{i}. {f[:200]}")
+
+        # News results (search or latest)
+        elif name in ("news.search", "news.latest") and status == "success" and findings:
+            if not any("Notícias" in p for p in parts):
+                parts.append("📰 **Notícias de hoje:**")
+            seen_titles = set()
+            for f in findings[:8]:
+                if isinstance(f, dict):
+                    title = f.get("title", f.get("name", ""))
+                    cat = f.get("category", "")
+                    url = f.get("url", "")
+                    conf = f.get("confidence", 0)
+                    if title and title not in seen_titles:
+                        seen_titles.add(title)
+                        line = f"• {title}"
+                        if cat:
+                            line += f"  [{cat}]"
+                        if conf and conf > 50:
+                            line += f"  ✓"
+                        parts.append(line)
+
+        # Fetch page results
+        elif name == "web.fetch" and status == "success" and findings:
+            for f in findings[:2]:
+                if isinstance(f, dict):
+                    title = f.get("title", "")
+                    text = f.get("text", "")
+                    url = f.get("url", "")
+                    if title:
+                        parts.append(f"📄 **{title}**")
+                    if text:
+                        parts.append(text[:500])
+                    if url:
+                        parts.append(f"Fonte: {url}")
+
+        # Site search results
+        elif name == "site.search" and status == "success" and findings:
+            parts.append("🌐 **Sites consultados:**")
+            for i, f in enumerate(findings[:5], 1):
+                if isinstance(f, dict):
+                    title = f.get("title", "")
+                    site = f.get("site_name", "")
+                    if title:
+                        line = f"{i}. {title}"
+                        if site:
+                            line += f" ({site})"
+                        parts.append(line)
+
+        # State/status results
+        elif name == "state" and status == "success" and findings:
+            for f in findings[:1]:
+                if isinstance(f, dict):
+                    parts.append("📊 **Estado do sistema:**")
+                    for k, v in f.items():
+                        if v and k not in ("evidence",):
+                            parts.append(f"  {k}: {v}")
+
+        # Generic tool results
+        elif status == "success" and findings:
+            for f in findings[:5]:
+                if isinstance(f, dict):
+                    txt = f.get("text") or f.get("title") or f.get("name") or f.get("output", "")
+                    if txt:
+                        parts.append(str(txt).strip())
+                elif isinstance(f, str):
+                    parts.append(f.strip())
+
+        # Errors
         for err in (r.get("errors") or []):
             errors.append(f"⚠ {name}: {err}")
-    result = "\n".join(parts[:10]) if parts else ""
+
+    result = "\n".join(parts[:12]) if parts else ""
     if errors:
         result += ("\n\n" if result else "") + "\n".join(errors[:3])
-    return result or f"Tarefa {task['task_id']} concluída via {', '.join(r.get('tool','?') for r in tool_results)}"
+    return result or f"Tarefa concluída via {', '.join(r.get('tool','?') for r in tool_results)}"
 
 def _format_result(task: dict, pipeline: dict, tool_results: list[dict], scores: dict | None, blocked: str | None) -> str:
     speech = None if blocked else _llm_text(tool_results)
@@ -528,10 +612,17 @@ def _format_result(task: dict, pipeline: dict, tool_results: list[dict], scores:
                 ev = str(r["evidence"][0])
                 break
         toks = scores.get("tokens_actual") if scores else None
-        kind = "MEASURED" if toks else "UNKNOWN"
-        return f"{speech}\n\n— GOD · {ev or 'llm'} · tokens {toks} {kind} · cost UNKNOWN"
+        # Clean LLM response — remove meta info for natural conversation
+        clean = speech.strip()
+        # Remove common LLM artifacts
+        for prefix in ["Aqui estão", "Aqui esta", "Here are", "Encontrei", "Seguem"]:
+            if clean.startswith(prefix):
+                clean = clean[len(prefix):].lstrip(" :,-")
+        if toks:
+            return clean
+        return clean
 
-    # Format tool results in a human-readable way
+    # Format tool results in a clean, human-readable way
     if tool_results:
         return _format_tool_results(task, tool_results)
 

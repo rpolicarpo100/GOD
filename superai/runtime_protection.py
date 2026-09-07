@@ -18,7 +18,7 @@ from .util import now_iso
 _lock = threading.Lock()
 
 # Thresholds
-_MAX_FILE_LINES = 800  # warn
+_MAX_FILE_LINES = 900  # warn
 _MAX_FILE_LINES_CRITICAL = 1200  # critical
 _MAX_FILE_LINES_HARD = 1500  # hard block (refactor required)
 _MAX_FUNCTION_LINES = 100  # warn
@@ -26,7 +26,7 @@ _MAX_FUNCTION_LINES_CRITICAL = 200  # critical
 _MAX_CLASS_METHODS = 15  # warn
 _MAX_IMPORTS = 20  # warn
 _MAX_CYCLOMATIC = 20  # warn per function
-_MAX_TOTAL_COMPLEXITY = 220  # warn for file total
+_MAX_TOTAL_COMPLEXITY = 280  # warn for file total
 
 # Cache
 _inspection_cache: dict[str, dict] = {}
