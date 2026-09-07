@@ -184,7 +184,9 @@ async def _lifespan(app):
     aios.boot()
     auth.init()
     _ensure_flags()
-    log.info("GOD ready. Port %s", os.environ.get("GOD_PORT", "8000"))
+    port = os.environ.get("GOD_PORT", "8000")
+    log.info("GOD ready. Port %s", port)
+    print(f"\n🌐 GOD UI: http://localhost:{port}", flush=True)
     yield
     # Shutdown — graceful cleanup
     log.info("GOD shutting down...")
