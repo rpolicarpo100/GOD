@@ -1215,6 +1215,54 @@ def api_mission_complete(mid: str, authorization: str | None = Header(default=No
     return get_mission_control().complete_mission(mid, {"status": "done"})
 
 
+class SelfDevProposalIn(BaseModel):
+    file_path: str = ""
+    description: str = ""
+    old_content: str = ""
+    new_content: str = ""
+
+
+@app.get("/api/selfdev")
+def api_selfdev():
+    """Get self-development status."""
+    from superai.self_development import get_selfdev
+    sd = get_selfdev()
+    return {"proposals": sd.list_proposals(), "history": sd.get_history(10), "stats": sd.stats()}
+
+
+@app.post("/api/selfdev/propose")
+def api_selfdev_propose(body: SelfDevProposalIn, authorization: str | None = Header(default=None)):
+    """Propose a code change."""
+    _require_perm(authorization, auth.Perm.EVOLUTION_EXECUTE)
+    from superai.self_development import get_selfdev
+    return get_selfdev().propose_change(body.file_path, body.description,
+                                         body.old_content, body.new_content)
+
+
+@app.post("/api/selfdev/{cid}/test")
+def api_selfdev_test(cid: str, authorization: str | None = Header(default=None)):
+    """Test a proposed change."""
+    _require_perm(authorization, auth.Perm.EVOLUTION_EXECUTE)
+    from superai.self_development import get_selfdev
+    return get_selfdev().test_proposal(cid)
+
+
+@app.post("/api/selfdev/{cid}/apply")
+def api_selfdev_apply(cid: str, authorization: str | None = Header(default=None)):
+    """Approve and apply a change."""
+    _require_perm(authorization, auth.Perm.EVOLUTION_EXECUTE)
+    from superai.self_development import get_selfdev
+    return get_selfdev().approve_and_apply(cid)
+
+
+@app.post("/api/selfdev/{cid}/reject")
+def api_selfdev_reject(cid: str, authorization: str | None = Header(default=None)):
+    """Reject a proposed change."""
+    _require_perm(authorization, auth.Perm.EVOLUTION_EXECUTE)
+    from superai.self_development import get_selfdev
+    return get_selfdev().reject(cid)
+
+
 @app.post("/api/workers/register")
 def w_reg(body: WorkerIn, authorization: str | None = Header(default=None)):
     """Register worker. Remote workers require SUPERAI_WORKER_TOKEN."""
