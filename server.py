@@ -53,6 +53,9 @@ from superai.health import liveness, readiness, full_health
 from superai import feature_flags as ff
 from superai import runtime_protection as rp
 from superai import auth
+from superai.routers.auth_router import router as auth_router
+from superai.routers.knowledge_router import router as knowledge_router
+from superai.routers.external_router import router as external_router
 
 ROOT = Path(__file__).parent
 WORKER_TOKEN = os.environ.get("SUPERAI_WORKER_TOKEN") or ""
@@ -295,6 +298,12 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 
 app.add_middleware(GZipMiddleware, minimum_size=500)
+
+# Register modular routers
+app.include_router(auth_router)
+app.include_router(knowledge_router)
+app.include_router(external_router)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Local-first: all origins (GOD runs on trusted network)
