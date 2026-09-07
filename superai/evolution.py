@@ -4,7 +4,6 @@ Does not invent GitHub tools. Does not auto-modify production code.
 """
 from __future__ import annotations
 
-from typing import Any
 
 from . import benchmark
 from .config import cfg
@@ -225,18 +224,18 @@ def run_cycle() -> dict:
     obs = observe()
     bench = benchmark.run(trigger="evolution")
     exp = propose_from_observe(obs)
-    
+
     # Additional experiments based on provider performance
     provider_exp = _propose_provider_experiment(obs)
     if provider_exp:
         store.save_experiment(provider_exp)
         bus.emit("VERSION_PROPOSED", "EVOLUTION", provider_exp["title"])
-    
+
     # Auto-evolve: auto-apply LOW/MEDIUM risk pending experiments
     from .feature_flags import is_enabled
     if is_enabled("auto_evolve"):
         _auto_apply_pending()
-    
+
     bus.emit("EXPERIMENT_COMPLETED", "EVOLUTION", f"cycle {exp['id']} + bench {bench['run_id']}")
     return {"observe": obs, "benchmark": bench, "experiment": exp}
 
@@ -263,22 +262,22 @@ def _auto_apply_pending() -> None:
 def _propose_provider_experiment(obs: dict) -> dict | None:
     """Propor experimento de routing de providers baseado em performance."""
     from . import tokens as ti
-    
+
     stats = ti.provider_stats()
     if stats.get("kind") == "UNKNOWN" or stats.get("n_events", 0) < 5:
         return None
-    
+
     providers = stats.get("providers", [])
     if not providers:
         return None
-    
+
     # Find best and worst providers
     best = max(providers, key=lambda p: p.get("ok_rate", 0))
     worst = min(providers, key=lambda p: p.get("ok_rate", 1))
-    
+
     if best["ok_rate"] - worst["ok_rate"] < 0.2:
         return None  # Not enough difference
-    
+
     return {
         "id": uid("X"),
         "title": f"Reordenar providers: {best['provider']} (best) vs {worst['provider']} (worst)",
@@ -313,7 +312,7 @@ def generate_usage_experiments() -> list[dict]:
         tasks = store.tasks(50)
         if not tasks or len(tasks) < 10:
             return experiments
-        
+
         # 1. Analyze cache effectiveness per task type
         cache_misses_by_type: dict[str, int] = {}
         cache_hits_by_type: dict[str, int] = {}
@@ -323,7 +322,7 @@ def generate_usage_experiments() -> list[dict]:
                 cache_hits_by_type[ttype] = cache_hits_by_type.get(ttype, 0) + 1
             else:
                 cache_misses_by_type[ttype] = cache_misses_by_type.get(ttype, 0) + 1
-        
+
         for ttype, misses in cache_misses_by_type.items():
             hits = cache_hits_by_type.get(ttype, 0)
             total = hits + misses
@@ -342,7 +341,7 @@ def generate_usage_experiments() -> list[dict]:
                     "ts": now_iso(),
                 }
                 experiments.append(exp)
-        
+
         # 2. Analyze self-reflection frequency (indicates prompt quality issues)
         reflections = sum(1 for t in tasks if "SELF_REFLECTION" in str(t.get("route") or ""))
         if reflections >= 3 and reflections / len(tasks) > 0.15:
@@ -360,7 +359,7 @@ def generate_usage_experiments() -> list[dict]:
                 "ts": now_iso(),
             }
             experiments.append(exp)
-        
+
         # 3. Analyze task complexity distribution for token budget optimization
         complex_tasks = [t for t in tasks if (t.get("complexity") or 0) >= 7]
         if len(complex_tasks) >= 5:
@@ -380,12 +379,12 @@ def generate_usage_experiments() -> list[dict]:
                     "ts": now_iso(),
                 }
                 experiments.append(exp)
-        
+
         # Save experiments
         for exp in experiments:
             store.save_experiment(exp)
             bus.emit("VERSION_PROPOSED", "EVOLUTION", exp["title"])
-        
+
     except Exception:
         pass
     return experiments
@@ -397,7 +396,7 @@ def knowledge_gaps_summary() -> dict:
         gaps = store.mem_search("", kinds=["knowledge_gap"])
         if not gaps:
             return {"kind": "MEASURED", "gaps": [], "total": 0}
-        
+
         gap_list = []
         for g in gaps[:10]:
             val = g.get("value") or {}
@@ -413,10 +412,10 @@ def knowledge_gaps_summary() -> dict:
                 "count": val.get("count", 0),
                 "last_score": val.get("last_score"),
             })
-        
+
         # Sort by count descending
         gap_list.sort(key=lambda x: x["count"], reverse=True)
-        
+
         return {
             "kind": "MEASURED",
             "gaps": gap_list,
@@ -438,7 +437,7 @@ def experiments_summary() -> dict:
     adopted = [e for e in exps if e.get("status") == "adopted"]
     rejected = [e for e in exps if e.get("status") == "rejected"]
     blocked = [e for e in exps if e.get("status") == "blocked"]
-    
+
     return {
         "kind": "MEASURED",
         "ts": now_iso(),

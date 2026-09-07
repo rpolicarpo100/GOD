@@ -6,13 +6,12 @@ Governor can block flag changes. HIGH RISK flags require human approval.
 from __future__ import annotations
 
 import threading
-from typing import Any
 
 from .config import cfg
 from .events import bus
 from .governor import gov
 from .store import store
-from .util import now_iso, uid
+from .util import now_iso
 
 _lock = threading.Lock()
 

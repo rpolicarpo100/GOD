@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import threading
 import time
-from typing import Any
 
 from .events import bus
 from .store import store
@@ -43,7 +42,7 @@ def start(interval_idle: float = 300, interval_busy: float = 30) -> None:
         while _running:
             try:
                 # Determine interval based on activity
-                from .runtime import _chat, _last_pipeline
+                from .runtime import _chat
                 has_recent = False
                 try:
                     with _lock:
@@ -341,11 +340,11 @@ def _monitor_tracked_topics() -> None:
     """
     try:
         from .news_connector import search_news
-        
+
         # Get recent user queries to learn what topics interest them
         recent = store.tasks(20)
         user_topics: dict[str, int] = {}
-        
+
         for t in recent:
             if t.get("type") in ("news", "research", "general"):
                 title = (t.get("title") or "").lower().strip()
@@ -356,17 +355,17 @@ def _monitor_tracked_topics() -> None:
                         w = w.strip('.,;:!?"\' \t')
                         if len(w) > 3 and w not in ("como", "qual", "sobre", "para", "com", "that", "what", "this"):
                             user_topics[w] = user_topics.get(w, 0) + 1
-        
+
         if not user_topics:
             return
-        
+
         # Get top 3 topics
         top_topics = sorted(user_topics.items(), key=lambda x: x[1], reverse=True)[:3]
-        
+
         for topic, count in top_topics:
             if count < 2:  # Only track if asked about 2+ times
                 continue
-            
+
             # Check news for this topic
             news = search_news(topic, limit=3)
             if news.get("status") == "success" and news.get("results"):

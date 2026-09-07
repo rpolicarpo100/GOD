@@ -10,13 +10,11 @@ Features:
 """
 from __future__ import annotations
 
-import re
 import time
-from typing import Any
 
 import httpx
 
-from .util import now_iso, sha
+from .util import now_iso
 
 # SSRF note: base_url is hardcoded to api.github.com (trusted).
 # All requests go through this client — no user-controlled URLs.

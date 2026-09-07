@@ -6,10 +6,8 @@ Para IMPLEMENTED: CODE + INTEGRATION + VERIFICATION.
 from __future__ import annotations
 
 import time
-from typing import Any
 
-from . import gods, providers, routing
-from .events import bus
+from . import providers
 from .memory_vec import vectors
 from .store import store
 from .util import now_iso
@@ -50,7 +48,7 @@ def _check_voice() -> dict:
         "evidence": [
             f"backend: {h.get('backend', 'none')}",
             f"default voice: {h.get('default_voice', 'none')}",
-            f"API: POST /api/system/voice/speak",
+            "API: POST /api/system/voice/speak",
         ],
         "limitations": [] if h.get("available") else ["edge-tts not installed"],
         "dependencies": ["edge-tts"],
@@ -69,7 +67,7 @@ def _check_distributed_compute() -> dict:
         "enabled": bool(remote),
         "verified": True,
         "evidence": [
-            f"worker.py: exists",
+            "worker.py: exists",
             f"remote workers alive: {len(remote)}",
             "in-process worker: active",
         ],
@@ -95,7 +93,7 @@ def _check_local_llm() -> dict:
         "evidence": [
             f"Ollama: {'available' if ollama and ollama.get('available') else 'not running (port 11434)'}",
             f"Free-tier fallback: {free_providers}",
-            f"Cost: $0/1M tokens (all free providers)",
+            "Cost: $0/1M tokens (all free providers)",
             "Ollama activates automatically when port 11434 opens",
         ],
         "limitations": [
@@ -302,7 +300,7 @@ def _check_feature_flags() -> dict:
         "evidence": [
             f"{summary['n']} flags defined",
             f"{summary['n_enabled']} enabled",
-            f"governor blocks HIGH RISK in strict mode",
+            "governor blocks HIGH RISK in strict mode",
         ],
         "limitations": [],
         "dependencies": [],

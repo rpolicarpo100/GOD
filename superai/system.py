@@ -6,13 +6,9 @@ Responde: WHO AM I? WHERE AM I? WHAT IS RUNNING? WHAT CAN I DO?
 from __future__ import annotations
 
 import subprocess
-import time
-from pathlib import Path
-from typing import Any
 
-from . import aios, gods, observer, providers, queue as tq, resources, routing, tokens as ti
+from . import observer, providers, queue as tq, resources, routing, tokens as ti
 from .config import ROOT, cfg
-from .store import store
 from .util import now_iso
 
 
@@ -139,7 +135,6 @@ def _missions_summary() -> dict:
 
 def _diagnostics() -> dict:
     """Diagnósticos reais."""
-    from . import repair
     eye = observer.latest()
     return {
         "alerts": eye.get("alerts", []),

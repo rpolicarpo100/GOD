@@ -15,14 +15,14 @@ from __future__ import annotations
 
 import re
 import time
-from typing import Any
-from urllib.parse import quote_plus, urlparse
+from urllib.parse import urlparse
 
 import httpx
 
 from .config import cfg
 from .store import store
 from .util import now_iso, sha
+import contextlib
 
 _client = httpx.Client(
     timeout=15.0,
@@ -86,10 +86,8 @@ def register_site(url: str, name: str = "", category: str = "general",
     _sites[site_id] = site
 
     # Persist
-    try:
+    with contextlib.suppress(Exception):
         store.mem_put("site_registry", site_id, site)
-    except Exception:
-        pass
 
     return {"ok": True, "site_id": site_id, "site": site}
 
@@ -222,7 +220,7 @@ def aggregate(query: str) -> dict:
     This is the main entry point for autonomous research.
     """
     _load_sites()
-    
+
     aggregated = {
         "query": query,
         "sources": [],

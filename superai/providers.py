@@ -4,6 +4,7 @@ Order: local → cheap API → Claude last. No historical scores invented.
 """
 from __future__ import annotations
 
+import json
 import os
 import socket
 import threading
@@ -313,7 +314,7 @@ class OpenAICompatAdapter(Provider):
                     return {"status": "success", "provider": self.id, "adapter": self.id,
                             "model": model, "text": text, "tokens": None, "raw_usage": None,
                             "streaming": True}
-                except Exception as se:
+                except Exception:
                     # Streaming failed — fall through to non-streaming
                     pass
 

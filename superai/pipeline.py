@@ -7,23 +7,21 @@ from __future__ import annotations
 
 import re
 import time
-from typing import Any
 
-from . import aios, executive, providers, queue as tq, resources, routing, tokens as ti
-from .brain import analyze, cache_lookup, cache_store, context_pack, evaluate
+from . import aios, executive, providers, queue as tq, routing, tokens as ti
+from .brain import cache_lookup, cache_store, context_pack, evaluate
 from .validator import validate
 from .thirdeye import criticize
 from .config import ROOT, cfg
 from .events import bus
-from .governor import gov
 from .memory_vec import vectors
 from .store import store
 from . import gods
-from .util import now_iso, uid, sha
+from .util import now_iso, sha
 import logging
 
 _log = logging.getLogger("superai.pipeline")
-from . import sensitive, rate_limit, resource_limits, sandbox, network_control, adaptive_routing
+from . import sensitive, resource_limits, sandbox, adaptive_routing
 
 
 def _extract_path(text: str) -> str | None:
@@ -162,33 +160,33 @@ def _extract_and_store_knowledge(query: str, response: str, task: dict) -> None:
     """
     try:
         task_type = task.get("type", "general")
-        
+
         # Skip trivial task types
         if task_type in ("math", "status", "git", "files", "parse"):
             return
-        
+
         low = query.lower()
-        
+
         # 1. User preference detection (expanded keywords)
-        pref_keywords = ("prefiro", "gosto de", "quero que", "não gosto", 
+        pref_keywords = ("prefiro", "gosto de", "quero que", "não gosto",
                         "mais curto", "mais longo", "detalhado", "resumido",
                         "em português", "em inglês", "com código", "sem código",
                         "explique", "resume", "faz um resumo")
         if any(w in low for w in pref_keywords):
-            store.mem_put("knowledge", sha(f"pref:{query[:100]}"), 
+            store.mem_put("knowledge", sha(f"pref:{query[:100]}"),
                          f"Utilizador: {query[:200]}")
-        
+
         # 2. Style learning from response length
         if len(response) > 50:
             style = "long" if len(response) > 500 else "medium" if len(response) > 200 else "short"
             store.mem_put("style", sha(f"style:{task_type}:{style}"),
                          f"task_type={task_type} response_style={style} len={len(response)}")
-        
+
         # 3. Topic knowledge extraction
         if len(query) > 20 and len(response) > 50:
             summary = f"{query[:120]} -> {response[:200]}"
             store.mem_put("knowledge", sha(f"ep:{summary}"), summary)
-        
+
         # 4. Provider performance tracking (for adaptive routing)
         # This is handled in _record_token but we store task-type context here
         store.mem_put("task_pattern", sha(f"tp:{task_type}:{query[:60]}"),
@@ -358,18 +356,18 @@ def _stage_memory(text, task, pipeline, need_mem, gid, _mark):
         # Add task type context for better semantic matching
         if task_type and task_type != "general":
             augmented_query = f"[{task_type}] {text}"
-        
+
         kinds = ["episode", "episode:master"] if gid == "master" else [f"episode:{gid}"]
         mem = store.mem_search(augmented_query, kinds=kinds)
-        
+
         # Also search knowledge and style memories for context
         knowledge = store.mem_search(text, kinds=["knowledge", "task_pattern", "style"])
         if knowledge:
             pipeline["knowledge_hits"] = len(knowledge)
-        
+
         # Vector search with augmented query
         vec_mem = vectors.search("memory", augmented_query, k=5, min_score=0.35, god_id=gid) if vectors.available() else []
-        
+
         # Deduplicate: prefer vector results (higher quality) over SQL
         seen_texts = set()
         deduped_mem = []
@@ -379,11 +377,11 @@ def _stage_memory(text, task, pipeline, need_mem, gid, _mark):
                 seen_texts.add(val)
                 deduped_mem.append(m)
         mem = deduped_mem
-        
+
         # Add knowledge to merged results (lower priority)
         for k in (knowledge or [])[:3]:
             mem.append({"kind": "knowledge", "key": k.get("key"), "value": k.get("value")})
-        
+
         # Add fine memory (audited, curated knowledge — highest priority)
         try:
             fine = store.mem_search(text, kinds=["fine_memory"])
@@ -391,7 +389,7 @@ def _stage_memory(text, task, pipeline, need_mem, gid, _mark):
                 mem.insert(0, {"kind": "fine_memory", "key": f.get("key"), "value": f.get("value")})
         except Exception as e:
             bus.emit("PIPELINE_ERROR", "WARNING", str(e)[:100])
-    
+
     pipeline["memory_hits"] = len(mem)
     pipeline["vector_hits"] = vec_mem
     merged = list(mem)
@@ -464,16 +462,16 @@ def _stage_tools(text, task, pipeline, p, ctx, _say, _mark, _set_pipe, _broadcas
     """Stage 6a: Execute deterministic tools."""
     tool_results = []
     pipeline["route"].append("DETERMINISTIC_TOOLS")
-    
+
     # Check resource limits before tools (P2.2)
     resource_check = resource_limits.check_limits(task["task_id"])
     if not resource_check.get("ok"):
         bus.emit("RESOURCE_LIMIT", "WARNING", f"Resource limits exceeded: {resource_check.get('violations')}")
-    
+
     for step in p["steps"]:
         if not step.get("tool"):
             continue
-        
+
         # Sandbox check for file operations (P2.4)
         args = step.get("args") or {}
         if step["tool"] in ("fs.read", "fs.list", "fs.write"):
@@ -490,7 +488,7 @@ def _stage_tools(text, task, pipeline, p, ctx, _say, _mark, _set_pipe, _broadcas
                         "evidence": ["sandbox_block"],
                     })
                     continue
-        
+
         # Sandbox check for python execution (P2.4)
         if step["tool"] == "python":
             code = args.get("code", "")
@@ -511,14 +509,14 @@ def _stage_tools(text, task, pipeline, p, ctx, _say, _mark, _set_pipe, _broadcas
                             "evidence": ["sandbox_block"],
                         })
                         continue
-        
+
         bus.emit("TOOL_STARTED", "INFO", step["tool"], god_core_state="tools")
         store.incr("tool_calls")
         res = aios.syscall(step["tool"], step.get("args") or {}, actor=task["task_id"])
-        
+
         # Record tool call for resource tracking (P2.2)
         resource_limits.get_tracker().record_tool_call(task["task_id"], step["tool"])
-        
+
         tool_results.append(res)
         if res.get("status") != "success":
             bus.emit("TOOL_FAILED", "WARNING", f"{step['tool']}: {res.get('errors')}", god_core_state="error")
@@ -534,7 +532,7 @@ def _stage_tools(text, task, pipeline, p, ctx, _say, _mark, _set_pipe, _broadcas
     task["rating"] = scores
     store.save_task(task)
     bus.emit("TASK_COMPLETED", "INFO", f"{task['task_id']} overall {scores['OVERALL']} via tools", god_core_state="ready")
-    
+
     # End resource tracking (P2.2)
     resource_limits.end_tracking(task["task_id"])
     pipeline["scores"] = scores
@@ -666,7 +664,7 @@ def _stage_llm(text, task, pipeline, merged, ctx, *, _say, _mark, _set_pipe, _br
     store.incr("llm_calls")
     raw_tok = res.get("tokens")
     toks = int(raw_tok) if raw_tok is not None else 0
-    
+
     # Record adaptive routing quality (async, non-blocking)
     try:
         provider_id = res.get("adapter") or gw.get("active", "")
@@ -784,7 +782,7 @@ def run_pipeline(text: str, task: dict, from_worker: bool, *,
             # Medium risk: warn but continue
             bus.emit("SECURITY_WARNING", "WARNING", f"Sensitive data detected (risk={risk_score})", god_core_state="thinking")
             task["security_warning"] = sensitive.format_detections(sensitive_scan)
-    
+
     # 1 analyzer
     act_m = __import__('superai.mission', fromlist=['active']).active()
     if act_m:
@@ -793,7 +791,7 @@ def run_pipeline(text: str, task: dict, from_worker: bool, *,
     store.save_task(task)
     store.audit("user", "task", task["task_id"])
     bus.emit("TASK_CREATED", "INFO", f"{task['task_id']} · {task['type']} · est {task['estimated_tokens']} tok", god_core_state="thinking")
-    
+
     # Start resource tracking (P2.2)
     resource_tracker = resource_limits.get_tracker()
     resource_tracker.start_task(task["task_id"])

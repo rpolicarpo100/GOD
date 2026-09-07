@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import re
 import threading
-from typing import Any
 
 from .store import store
 from .util import now_iso, sha
@@ -66,7 +65,7 @@ def extract_triples(text: str) -> list[dict]:
     """Extract SPO triples from text using pattern matching."""
     triples = []
     low = text.lower()
-    
+
     # Pattern: "User prefers/likes Python" style
     for pred, pattern in PREDICATES.items():
         m = re.search(pattern, low)
@@ -74,12 +73,12 @@ def extract_triples(text: str) -> list[dict]:
             # Try to extract subject and object
             before = low[:m.start()].strip()
             after = low[m.end():].strip()
-            
+
             # Subject is usually before the predicate
             subject = _extract_subject(before) or "user"
             # Object is usually after the predicate
             obj = _extract_object(after)
-            
+
             if obj:
                 triples.append({
                     "subject": subject,
@@ -88,7 +87,7 @@ def extract_triples(text: str) -> list[dict]:
                     "source": text[:100],
                     "ts": now_iso(),
                 })
-    
+
     # Pattern: "X is Y" / "X é Y"
     for m in re.finditer(r"(\w+)\s+(?:é|is)\s+(?:um|uma|a|o)?\s*(\w+)", low):  # noqa: W605
         subj = m.group(1).strip()
@@ -101,7 +100,7 @@ def extract_triples(text: str) -> list[dict]:
                 "source": text[:100],
                 "ts": now_iso(),
             })
-    
+
     return triples
 
 
@@ -132,10 +131,10 @@ def store_triple(triple: dict) -> None:
     subj = triple.get("subject", "").lower()
     pred = triple.get("predicate", "").lower()
     obj = triple.get("object", "")
-    
+
     if not subj or not pred or not obj:
         return
-    
+
     # Update in-memory
     with _lock:
         key = (subj, pred)
@@ -143,7 +142,7 @@ def store_triple(triple: dict) -> None:
             _graph[key] = []
         if obj not in _graph[key]:
             _graph[key].append(obj)
-    
+
     # Persist
     try:
         triple_id = sha(f"{subj}:{pred}:{obj}")
@@ -156,7 +155,7 @@ def query(subject: str = "", predicate: str = "") -> list[dict]:
     """Query the knowledge graph."""
     _load_graph()
     results = []
-    
+
     with _lock:
         for (s, p), objects in _graph.items():
             if subject and subject.lower() not in s:
@@ -165,7 +164,7 @@ def query(subject: str = "", predicate: str = "") -> list[dict]:
                 continue
             for obj in objects:
                 results.append({"subject": s, "predicate": p, "object": obj})
-    
+
     return results
 
 
@@ -184,20 +183,20 @@ def enrich_context(text: str, task_type: str) -> str:
     """Enrich LLM context with relevant knowledge graph facts."""
     _load_graph()
     facts = []
-    
+
     # Get user preferences
     prefs = get_user_preferences()
     if prefs:
         for pred, objs in prefs.items():
             facts.append(f"User {pred}: {', '.join(objs[:3])}")
-    
+
     # Get task-type relevant facts
     with _lock:
         for (s, p), objects in _graph.items():
             if task_type in s or task_type in p:
                 for obj in objects[:2]:
                     facts.append(f"{s} {p} {obj}")
-    
+
     if facts:
         return "KNOWLEDGE:\n" + "\n".join(f"- {f}" for f in facts[:5])
     return ""
@@ -208,8 +207,8 @@ def stats() -> dict:
     _load_graph()
     with _lock:
         n_triples = sum(len(objs) for objs in _graph.values())
-        n_subjects = len(set(s for s, _ in _graph.keys()))
-        n_predicates = len(set(p for _, p in _graph.keys()))
+        n_subjects = len(set(s for s, _ in _graph))
+        n_predicates = len(set(p for _, p in _graph))
         return {
             "kind": "MEASURED",
             "triples": n_triples,

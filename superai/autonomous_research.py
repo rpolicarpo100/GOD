@@ -16,8 +16,6 @@ Triggers:
 from __future__ import annotations
 
 import re
-import time
-from typing import Any
 
 from .events import bus
 from .util import now_iso
@@ -132,7 +130,7 @@ async def autonomous_research(query: str, strategy: str = "web_search") -> dict:
 
     # 1. Search registered sites first
     try:
-        from .site_aggregator import search_sites, aggregate
+        from .site_aggregator import aggregate
         agg = aggregate(query)
         if agg.get("sources"):
             for src in agg["sources"][:5]:

@@ -17,9 +17,7 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import Any
 
-from .util import now_iso
 
 # ═══════════════════════════════
 # PATH RESTRICTIONS
@@ -117,7 +115,7 @@ def check_path(path: str, operation: str = "read") -> dict:
             "kind": "MEASURED",
             "reason": f"Cannot resolve path: {path}",
         }
-    
+
     # Check blocked paths
     for blocked in _BLOCKED_PATHS:
         if resolved_str.startswith(blocked):
@@ -126,21 +124,21 @@ def check_path(path: str, operation: str = "read") -> dict:
                 "kind": "MEASURED",
                 "reason": f"Blocked path: {blocked}",
             }
-    
+
     # Check allowed bases
     allowed = False
     for base in allowed_bases:
         if resolved_str.startswith(base):
             allowed = True
             break
-    
+
     if not allowed:
         return {
             "ok": False,
             "kind": "MEASURED",
             "reason": f"Path outside allowed bases: {resolved_str}",
         }
-    
+
     # Check traversal in original path
     if '..' in path:
         # Check if resolved path is still within allowed base
@@ -151,7 +149,7 @@ def check_path(path: str, operation: str = "read") -> dict:
                 "kind": "MEASURED",
                 "reason": "Path traversal detected",
             }
-    
+
     # Write operations: extra restrictions
     if operation == "write":
         # Can't write to system dirs
@@ -162,7 +160,7 @@ def check_path(path: str, operation: str = "read") -> dict:
                     "kind": "MEASURED",
                     "reason": "Cannot write to base directory",
                 }
-    
+
     return {
         "ok": True,
         "kind": "MEASURED",
@@ -174,14 +172,14 @@ def check_symlink(path: str) -> dict:
     """Check if path is a symlink pointing outside allowed area."""
     allowed_bases = _get_allowed_bases()
     p = Path(path)
-    
+
     if not p.is_symlink():
         return {"ok": True, "kind": "MEASURED", "is_symlink": False}
-    
+
     try:
         target = p.resolve()
         target_str = str(target)
-        
+
         for base in allowed_bases:
             if target_str.startswith(base):
                 return {
@@ -190,7 +188,7 @@ def check_symlink(path: str) -> dict:
                     "is_symlink": True,
                     "target": target_str,
                 }
-        
+
         return {
             "ok": False,
             "kind": "MEASURED",
@@ -245,21 +243,21 @@ def check_import(module_name: str) -> dict:
     """Check if a module import is allowed in sandbox."""
     # Extract top-level module
     top = module_name.split('.')[0]
-    
+
     if top in _BLOCKED_MODULES:
         return {
             "ok": False,
             "kind": "MEASURED",
             "reason": f"Blocked module: {top}",
         }
-    
+
     if top in _SAFE_MODULES:
         return {
             "ok": True,
             "kind": "MEASURED",
             "safe": True,
         }
-    
+
     # Unknown modules need review
     return {
         "ok": True,
@@ -293,7 +291,7 @@ _BLOCKED_PORTS = {
 def check_network(host: str, port: int, allow_lan: bool = False) -> dict:
     """Check if network access is allowed."""
     host_lower = host.lower()
-    
+
     # Always blocked ports
     if port in _BLOCKED_PORTS:
         return {
@@ -301,7 +299,7 @@ def check_network(host: str, port: int, allow_lan: bool = False) -> dict:
             "kind": "MEASURED",
             "reason": f"Blocked port: {port}",
         }
-    
+
     # Localhost always allowed
     if host_lower in _ALLOWED_HOSTS:
         return {
@@ -310,7 +308,7 @@ def check_network(host: str, port: int, allow_lan: bool = False) -> dict:
             "host": host,
             "port": port,
         }
-    
+
     # LAN: only with explicit flag
     if allow_lan:
         # Check if it's actually a LAN address
@@ -322,7 +320,7 @@ def check_network(host: str, port: int, allow_lan: bool = False) -> dict:
                 "port": port,
                 "lan": True,
             }
-    
+
     return {
         "ok": False,
         "kind": "MEASURED",
@@ -388,27 +386,27 @@ def check_command(cmd: str) -> dict:
     parts = cmd.strip().split()
     if not parts:
         return {"ok": False, "kind": "MEASURED", "reason": "Empty command"}
-    
+
     base_cmd = parts[0]
-    
+
     # Check path
     if '/' in base_cmd:
         base_cmd = os.path.basename(base_cmd)
-    
+
     if base_cmd in _BLOCKED_COMMANDS:
         return {
             "ok": False,
             "kind": "MEASURED",
             "reason": f"Blocked command: {base_cmd}",
         }
-    
+
     if base_cmd in _SAFE_COMMANDS:
         return {
             "ok": True,
             "kind": "MEASURED",
             "safe": True,
         }
-    
+
     return {
         "ok": True,
         "kind": "MEASURED",

@@ -6,10 +6,10 @@ Routes future queries to the best-fit provider based on learned performance.
 from __future__ import annotations
 
 import threading
-from typing import Any
 
 from .store import store
 from .util import now_iso, sha
+import contextlib
 
 _lock = threading.Lock()
 
@@ -28,7 +28,7 @@ def record_quality(provider: str, task_type: str, quality_score: float) -> None:
     """Record quality score for a provider+task_type combination."""
     if not provider or not task_type:
         return
-    
+
     with _lock:
         if provider not in _scores:
             _scores[provider] = {}
@@ -40,15 +40,13 @@ def record_quality(provider: str, task_type: str, quality_score: float) -> None:
             entry["score"] = entry["score"] * (1 - _ALPHA) + quality_score * _ALPHA
             entry["n"] += 1
             entry["last_update"] = now_iso()
-    
+
     # Persist to store
-    try:
+    with contextlib.suppress(Exception):
         store.mem_put("adaptive_routing", sha(f"{provider}:{task_type}"),
                      {"provider": provider, "task_type": task_type,
                       "score": _scores[provider][task_type]["score"],
                       "n": _scores[provider][task_type]["n"]})
-    except Exception:
-        pass
 
 
 def get_provider_score(provider: str, task_type: str) -> float | None:
@@ -73,7 +71,7 @@ def rank_providers(providers: list[dict], task_type: str) -> list[dict]:
         else:
             # Default: use ok_rate if available
             scored.append({**p, "_learned_score": p.get("ok_rate", 0.5), "_rank_source": "default"})
-    
+
     # Sort by learned score descending
     scored.sort(key=lambda p: p["_learned_score"], reverse=True)
     return scored
@@ -96,8 +94,4 @@ def get_stats() -> dict:
 
 def _load_from_store() -> None:
     """Load persisted scores from store on startup."""
-    try:
-        # This is best-effort — scores will rebuild from live data
-        pass
-    except Exception:
-        pass
+    # Scores rebuild from live data — no persistence needed yet

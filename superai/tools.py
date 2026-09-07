@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import os
 import unicodedata
 import csv
 import io
@@ -9,7 +10,7 @@ import operator
 import re
 import subprocess
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from lxml import etree
 

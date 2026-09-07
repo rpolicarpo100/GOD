@@ -10,6 +10,7 @@ from .events import bus
 from .resources import host
 from .store import store
 from .util import now_iso
+import contextlib
 
 _lock = threading.Lock()
 _last_codes: set[str] = set()
@@ -21,10 +22,8 @@ def _ratings(n: int = 40) -> list[dict]:
         rows = c.execute("SELECT scores FROM ratings ORDER BY ts DESC LIMIT ?", (n,)).fetchall()
     out = []
     for r in rows:
-        try:
+        with contextlib.suppress(Exception):
             out.append(json.loads(r["scores"]))
-        except Exception:
-            pass
     return out
 
 

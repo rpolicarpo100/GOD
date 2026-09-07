@@ -14,10 +14,7 @@ Evidence: task outcome verification
 from __future__ import annotations
 
 import ast
-import json
 import re
-from pathlib import Path
-from typing import Any
 
 from .util import now_iso
 

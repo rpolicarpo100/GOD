@@ -6,7 +6,6 @@ Não inventa preços, usage de provider, nem poupanças em dinheiro.
 from __future__ import annotations
 
 import json
-from typing import Any
 
 from .brain import firewall as _firewall
 from .config import cfg

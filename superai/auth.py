@@ -10,9 +10,10 @@ import os
 import secrets
 import threading
 import time
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+import contextlib
 
 
 def _atomic_write_json(path: Path, data) -> None:
@@ -30,10 +31,8 @@ def _atomic_write_json(path: Path, data) -> None:
         os.replace(tmp_path, str(path))
     except Exception:
         # Clean up temp file on failure
-        try:
+        with contextlib.suppress(OSError):
             os.unlink(tmp_path)
-        except OSError:
-            pass
         raise
 
 
@@ -41,10 +40,8 @@ def _atomic_append_jsonl(path: Path, event: dict) -> None:
     """Append a JSON line atomically (best-effort for append)."""
     import fcntl
     with open(path, "a", encoding="utf-8") as f:
-        try:
+        with contextlib.suppress(OSError, AttributeError):  # Windows — fcntl not available
             fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-        except (OSError, AttributeError):
-            pass  # Windows — fcntl not available
         f.write(json.dumps(event, ensure_ascii=False) + "\n")
         try:
             f.flush()
@@ -52,9 +49,9 @@ def _atomic_append_jsonl(path: Path, event: dict) -> None:
         except OSError:
             pass
 
-from typing import Any
 
 from .config import DATA
+import contextlib
 
 # ═══════════════════════════════
 # CONSTANTS
@@ -88,26 +85,26 @@ class Role(str, Enum):
 class Perm:
     # Chat
     CHAT_USE = "chat.use"
-    
+
     # Memory
     MEMORY_READ = "memory.read"
     MEMORY_WRITE = "memory.write"
-    
+
     # Tools
     TOOLS_EXECUTE = "tools.execute"
-    
+
     # Config
     CONFIG_READ = "config.read"
     CONFIG_WRITE = "config.write"
-    
+
     # Governor
     GOVERNOR_READ = "governor.read"
     GOVERNOR_OVERRIDE = "governor.override"
-    
+
     # GOD profiles
     GODS_MANAGE = "gods.manage"
     GODS_ACTIVATE = "gods.activate"
-    
+
     # Admin
     REPAIR_EXECUTE = "repair.execute"
     EVOLUTION_EXECUTE = "evolution.execute"
@@ -116,7 +113,7 @@ class Perm:
     OS_KILL = "os.kill"
     SECURITY_MANAGE = "security.manage"
     REMOTE_ENABLE = "remote.enable"
-    
+
     # System
     SYSTEM_READ = "system.read"
     SYSTEM_WRITE = "system.write"
@@ -172,30 +169,30 @@ OPERATION_RISK: dict[str, int] = {
     "config.read": Risk.INFO,
     "governor.read": Risk.INFO,
     "system.read": Risk.INFO,
-    
+
     # Low risk
     "memory.write": Risk.LOW,
     "tools.execute": Risk.LOW,
     "benchmark.run": Risk.LOW,
-    
+
     # Moderate
     "config.write": Risk.MODERATE,
     "evolution.execute": Risk.MODERATE,
     "repair.execute": Risk.MODERATE,
-    
+
     # High risk — requires approval
     "governor.override": Risk.HIGH,
     "gods.manage": Risk.HIGH,
     "gods.activate": Risk.HIGH,
     "flags.manage": Risk.HIGH,
     "worker.manage": Risk.HIGH,
-    
+
     # Critical — requires auth + approval + confirmation
     "os.execute": Risk.CRITICAL,
     "os.kill": Risk.CRITICAL,
     "security.manage": Risk.CRITICAL,
     "remote.enable": Risk.CRITICAL,
-    
+
     # Forbidden by default
     "self_elevation": Risk.FORBIDDEN,
 }
@@ -260,7 +257,7 @@ def create_owner(username: str, password: str) -> dict:
         return {"ok": False, "error": "Username deve ter >= 3 caracteres"}
     if not password or len(password) < 8:
         return {"ok": False, "error": "Password deve ter >= 8 caracteres"}
-    
+
     uid = "owner-" + secrets.token_hex(8)
     pw_hash, pw_salt = _hash_password(password)
     users[uid] = {
@@ -286,7 +283,7 @@ def create_user(username: str, password: str, role: str = Role.GUEST) -> dict:
         return {"ok": False, "error": "Não é possível criar OWNER via create_user"}
     if any(u.get("username") == username for u in users.values()):
         return {"ok": False, "error": "Username já existe"}
-    
+
     uid = f"{role.lower()}-{secrets.token_hex(8)}"
     pw_hash, pw_salt = _hash_password(password)
     users[uid] = {
@@ -337,19 +334,19 @@ def login(username: str, password: str) -> dict:
         if u.get("username") == username and u.get("active"):
             user = u
             break
-    
+
     if not user:
         _audit("auth.login_fail", None, {"username": username, "reason": "user_not_found"})
         return {"ok": False, "error": "Credenciais inválidas"}
-    
+
     if not _verify_password(password, user["password_hash"], user["password_salt"]):
         _audit("auth.login_fail", user["id"], {"username": username, "reason": "bad_password"})
         return {"ok": False, "error": "Credenciais inválidas"}
-    
+
     # Update last login
     users[user["id"]]["last_login"] = time.time()
     _save_users(users)
-    
+
     # Create session (thread-safe)
     session_id = secrets.token_urlsafe(32)
     now = time.time()
@@ -363,7 +360,7 @@ def login(username: str, password: str) -> dict:
             "active": True,
         }
         _save_sessions()
-    
+
     _audit("auth.login", user["id"], {"session_id": session_id})
     return {
         "ok": True,
@@ -387,15 +384,15 @@ def validate_session(session_id: str) -> dict | None:
     """Validate session. Returns session info or None."""
     if not session_id:
         return None
-    
+
     with _sessions_lock:
         if session_id not in _sessions:
             return None
-        
+
         s = _sessions[session_id]
         if not s.get("active"):
             return None
-        
+
         now = time.time()
         # Check absolute timeout
         if now - s["created_at"] > SESSION_TIMEOUT:
@@ -403,18 +400,18 @@ def validate_session(session_id: str) -> dict | None:
             _save_sessions()
             _audit("auth.session_expired", s["user_id"], {"reason": "absolute_timeout"})
             return None
-        
+
         # Check inactivity
         if now - s["last_active"] > SESSION_INACTIVE:
             s["active"] = False
             _save_sessions()
             _audit("auth.session_expired", s["user_id"], {"reason": "inactivity"})
             return None
-        
+
         # Update last active
         s["last_active"] = now
         _save_sessions()
-        
+
         return {
             "session_id": s["session_id"],
             "user_id": s["user_id"],
@@ -437,7 +434,7 @@ def require_permission(session_id: str | None, permission: str) -> dict:
         session = None
     else:
         session = validate_session(session_id)
-    
+
     # No session = check if operation is low risk (auto-allow for chat/read)
     if not session:
         risk = OPERATION_RISK.get(permission, Risk.HIGH)
@@ -445,11 +442,11 @@ def require_permission(session_id: str | None, permission: str) -> dict:
             return {"user_id": "anonymous", "role": Role.GUEST, "permission": permission}
         _audit("auth.no_session", None, {"permission": permission})
         return {"ok": False, "error": "Autenticação necessária", "code": 401}
-    
+
     if not has_permission(session["role"], permission):
         _audit("auth.denied", session["user_id"], {"permission": permission, "role": session["role"]})
         return {"ok": False, "error": "Permissão negada", "code": 403}
-    
+
     return {
         "ok": True,
         "user_id": session["user_id"],
@@ -499,10 +496,8 @@ def audit_log(limit: int = 50) -> list[dict]:
     lines = AUDIT_FILE.read_text().strip().split("\n")
     events = []
     for line in lines[-limit:]:
-        try:
+        with contextlib.suppress(json.JSONDecodeError):
             events.append(json.loads(line))
-        except json.JSONDecodeError:
-            pass
     return events
 
 # ═══════════════════════════════
@@ -535,7 +530,7 @@ def _save_overrides():
     _ensure_auth_dir()
     _atomic_write_json(OVERRIDES_FILE, _overrides)
 
-def create_override(user_id: str, action: str, scope: str, reason: str, 
+def create_override(user_id: str, action: str, scope: str, reason: str,
                    risk_level: int = Risk.HIGH, duration_seconds: int = 600) -> dict:
     """Create a governor override request."""
     oid = "ovr-" + secrets.token_hex(8)
@@ -673,12 +668,12 @@ def decide_approval(approval_id: str, approver_id: str, approve: bool) -> dict:
             a["state"] = ApprovalState.EXPIRED
             _save_approvals()
             return {"ok": False, "error": "Approval expirado"}
-        
+
         a["state"] = ApprovalState.APPROVED if approve else ApprovalState.DENIED
         a["approved_by"] = approver_id
         a["decision_at"] = time.time()
         _save_approvals()
-    
+
     action = "approval.approved" if approve else "approval.denied"
     _audit(action, approver_id, {"approval_id": approval_id})
     return {"ok": True, "state": a["state"]}
@@ -698,7 +693,7 @@ def consume_approval(approval_id: str) -> dict:
             a["state"] = ApprovalState.EXPIRED
             _save_approvals()
             return {"ok": False, "error": "Approval expirado"}
-        
+
         a["consumed"] = True
         a["state"] = ApprovalState.CONSUMED
         _save_approvals()
@@ -726,15 +721,15 @@ def pending_approvals() -> list[dict]:
     """List pending approvals."""
     with _approvals_lock:
         _load_approvals()
-        return [a for a in _approvals.values() 
-                if a["state"] == ApprovalState.PENDING 
+        return [a for a in _approvals.values()
+                if a["state"] == ApprovalState.PENDING
                 and time.time() <= a["expires_at"]]
 
 # ═══════════════════════════════
 # SECURITY FLOW
 # ═══════════════════════════════
 
-def security_check(session_id: str | None, permission: str, 
+def security_check(session_id: str | None, permission: str,
                   resource: str = "", scope: str = "") -> dict:
     """
     Full security flow:
@@ -750,21 +745,21 @@ def security_check(session_id: str | None, permission: str,
             return {"ok": False, "error": "Sessão inválida ou expirada", "code": 401}
     else:
         session = {"user_id": "anonymous", "role": Role.GUEST}
-    
+
     # Step 2: Authorize
     if not has_permission(session["role"], permission):
         _audit("security.denied", session["user_id"], {"permission": permission})
         return {"ok": False, "error": "Permissão negada", "code": 403}
-    
+
     # Step 3: Risk classification
     risk = get_risk_level(permission)
-    
+
     # Step 4: If high/critical risk, require approval
     if risk >= Risk.HIGH:
         # Check for existing valid approval
         approvals = _approvals if hasattr(_approvals, 'values') else {}
         for a in (approvals.values() if hasattr(approvals, 'values') else []):
-            if (a.get("user_id") == session["user_id"] 
+            if (a.get("user_id") == session["user_id"]
                 and a.get("action") == permission
                 and a.get("state") == ApprovalState.APPROVED
                 and not a.get("consumed")
@@ -777,7 +772,7 @@ def security_check(session_id: str | None, permission: str,
                     "requires_approval": True,
                     "approval_id": a["id"],
                 }
-        
+
         return {
             "ok": False,
             "error": f"Operação de risco {risk} requer aprovação",
@@ -785,7 +780,7 @@ def security_check(session_id: str | None, permission: str,
             "risk": risk,
             "requires_approval": True,
         }
-    
+
     return {
         "ok": True,
         "user_id": session["user_id"],
@@ -804,7 +799,7 @@ def init():
         _load_sessions()
         # Clean expired sessions
         now = time.time()
-        expired = [sid for sid, s in _sessions.items() 
+        expired = [sid for sid, s in _sessions.items()
                    if now - s.get("created_at", 0) > SESSION_TIMEOUT
                    or now - s.get("last_active", 0) > SESSION_INACTIVE]
         for sid in expired:

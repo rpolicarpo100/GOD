@@ -11,8 +11,6 @@ Features:
 from __future__ import annotations
 
 import time
-from typing import Any
-from urllib.parse import quote_plus
 
 import httpx
 

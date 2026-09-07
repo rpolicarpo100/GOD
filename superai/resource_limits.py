@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import threading
 import time
-from typing import Any
 
 from .util import now_iso
 
@@ -25,26 +24,26 @@ from .util import now_iso
 DEFAULT_LIMITS = {
     # Memory
     "max_memory_mb": 512,
-    
+
     # CPU
     "max_cpu_seconds": 30,
-    
+
     # Files
     "max_file_size_mb": 10,
     "max_files_per_task": 20,
-    
+
     # Tools
     "max_tool_calls": 10,
     "max_tool_time_seconds": 60,
-    
+
     # Tokens
     "max_tokens_per_task": 4000,
     "max_tokens_per_session": 50000,
-    
+
     # Concurrency
     "max_concurrent_tasks": 5,
     "max_queue_size": 100,
-    
+
     # Network
     "max_requests_per_minute": 60,
     "max_request_size_mb": 1,
@@ -78,13 +77,13 @@ ROLE_MULTIPLIERS = {
 
 class ResourceTracker:
     """Track resource usage per task and session."""
-    
+
     def __init__(self):
         self._lock = threading.Lock()
         self._task_usage: dict[str, dict] = {}  # task_id → usage
         self._session_usage: dict[str, dict] = {}  # session_id → usage
         self._active_tasks: int = 0
-    
+
     def start_task(self, task_id: str, session_id: str = None) -> dict:
         """Start tracking a task. Returns limits for this task."""
         with self._lock:
@@ -100,7 +99,7 @@ class ResourceTracker:
                 "file_bytes_written": 0,
             }
             self._active_tasks += 1
-            
+
             if session_id:
                 if session_id not in self._session_usage:
                     self._session_usage[session_id] = {
@@ -109,9 +108,9 @@ class ResourceTracker:
                         "start_time": time.time(),
                     }
                 self._session_usage[session_id]["tasks"] += 1
-        
+
         return {"task_id": task_id, "started": now_iso()}
-    
+
     def record_tool_call(self, task_id: str, tool_name: str, duration_ms: float = 0):
         """Record a tool call."""
         with self._lock:
@@ -119,7 +118,7 @@ class ResourceTracker:
                 u = self._task_usage[task_id]
                 u["tool_calls"] += 1
                 u["tool_time"] += duration_ms / 1000
-    
+
     def record_tokens(self, task_id: str, session_id: str, tokens: int):
         """Record token usage."""
         with self._lock:
@@ -127,7 +126,7 @@ class ResourceTracker:
                 self._task_usage[task_id]["tokens"] += tokens
             if session_id and session_id in self._session_usage:
                 self._session_usage[session_id]["total_tokens"] += tokens
-    
+
     def record_file_access(self, task_id: str, bytes_read: int = 0, bytes_written: int = 0):
         """Record file access."""
         with self._lock:
@@ -136,7 +135,7 @@ class ResourceTracker:
                 u["files_accessed"] += 1
                 u["file_bytes_read"] += bytes_read
                 u["file_bytes_written"] += bytes_written
-    
+
     def end_task(self, task_id: str) -> dict:
         """Stop tracking a task. Returns final usage."""
         with self._lock:
@@ -146,7 +145,7 @@ class ResourceTracker:
                 usage["end_time"] = time.time()
                 usage["duration_seconds"] = usage["end_time"] - usage["start_time"]
             return usage
-    
+
     def check_limits(
         self,
         task_id: str,
@@ -158,17 +157,17 @@ class ResourceTracker:
             usage = self._task_usage.get(task_id)
             if not usage:
                 return {"ok": True, "kind": "MEASURED", "reason": "not tracking"}
-            
+
             limits = MODE_LIMITS.get(mode, DEFAULT_LIMITS).copy()
             multiplier = ROLE_MULTIPLIERS.get(role, 1.0)
-            
+
             # Apply role multiplier
             for key in limits:
                 if key.startswith("max_"):
                     limits[key] = int(limits[key] * multiplier)
-            
+
             violations = []
-            
+
             # Check CPU time
             elapsed = time.time() - usage["start_time"]
             if elapsed > limits["max_cpu_seconds"]:
@@ -177,7 +176,7 @@ class ResourceTracker:
                     "current": round(elapsed, 2),
                     "max": limits["max_cpu_seconds"],
                 })
-            
+
             # Check tool calls
             if usage["tool_calls"] > limits["max_tool_calls"]:
                 violations.append({
@@ -185,7 +184,7 @@ class ResourceTracker:
                     "current": usage["tool_calls"],
                     "max": limits["max_tool_calls"],
                 })
-            
+
             # Check tokens
             if usage["tokens"] > limits["max_tokens_per_task"]:
                 violations.append({
@@ -193,7 +192,7 @@ class ResourceTracker:
                     "current": usage["tokens"],
                     "max": limits["max_tokens_per_task"],
                 })
-            
+
             # Check file size
             total_file_bytes = usage["file_bytes_read"] + usage["file_bytes_written"]
             max_file_bytes = limits["max_file_size_mb"] * 1024 * 1024
@@ -203,7 +202,7 @@ class ResourceTracker:
                     "current_mb": round(total_file_bytes / (1024 * 1024), 2),
                     "max_mb": limits["max_file_size_mb"],
                 })
-            
+
             # Check concurrent tasks
             if self._active_tasks > limits["max_concurrent_tasks"]:
                 violations.append({
@@ -211,7 +210,7 @@ class ResourceTracker:
                     "current": self._active_tasks,
                     "max": limits["max_concurrent_tasks"],
                 })
-            
+
             return {
                 "kind": "MEASURED",
                 "ok": len(violations) == 0,
@@ -227,7 +226,7 @@ class ResourceTracker:
                 },
                 "limits": limits,
             }
-    
+
     def get_session_usage(self, session_id: str) -> dict:
         """Get session-level usage."""
         with self._lock:

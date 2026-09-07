@@ -6,10 +6,8 @@ Permite reconstruir: WHAT HAPPENED? WHY? WHEN? WHICH PATH?
 from __future__ import annotations
 
 import threading
-from typing import Any
 
 from .events import bus
-from .store import store
 from .util import now_iso, uid
 
 _lock = threading.Lock()

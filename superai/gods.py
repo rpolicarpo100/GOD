@@ -8,10 +8,10 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Any
 
 from .config import DATA
 from .util import now_iso
+import contextlib
 
 DIR = DATA / "gods"
 ACTIVE = DIR / "active"
@@ -179,10 +179,8 @@ def save(raw: dict, bump: bool = True) -> dict:
         )
         old = sorted(hist.glob(f"{body['id']}-v*.json"))
         for f in old[:-10]:
-            try:
+            with contextlib.suppress(Exception):
                 f.unlink()
-            except Exception:
-                pass
     elif not existing:
         body["version"] = 1
         body["created"] = now_iso()

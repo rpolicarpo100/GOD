@@ -13,7 +13,6 @@ from __future__ import annotations
 import ipaddress
 import socket
 import threading
-from typing import Any
 
 from .util import now_iso
 
@@ -54,7 +53,7 @@ _MAX_CONNECTIONS_PER_MINUTE = 30
 
 class NetworkController:
     """Control network access."""
-    
+
     def __init__(self):
         self._lock = threading.Lock()
         self._connection_log: list[dict] = []
@@ -64,7 +63,7 @@ class NetworkController:
             "allow_lan": False,
             "allow_remote": False,
         }
-    
+
     def set_policy(
         self,
         allow_outbound: bool = False,
@@ -78,7 +77,7 @@ class NetworkController:
                 "allow_lan": allow_lan,
                 "allow_remote": allow_remote,
             }
-    
+
     def check_connection(
         self,
         host: str,
@@ -89,10 +88,10 @@ class NetworkController:
         """Check if a network connection is allowed."""
         import time
         now = time.time()
-        
+
         # Normalize host
         host_lower = host.lower()
-        
+
         # Always allowed: localhost
         if host_lower in _ALWAYS_ALLOWED_HOSTS:
             return {
@@ -102,7 +101,7 @@ class NetworkController:
                 "port": port,
                 "zone": "localhost",
             }
-        
+
         # Check blocked ports
         if port in _BLOCKED_PORTS:
             self._log_connection(host, port, direction, False, "blocked_port")
@@ -111,10 +110,10 @@ class NetworkController:
                 "kind": "MEASURED",
                 "reason": f"Blocked port: {port}",
             }
-        
+
         # Check if LAN
         is_lan = self._is_lan(host)
-        
+
         if is_lan:
             if not self._policy.get("allow_lan"):
                 self._log_connection(host, port, direction, False, "lan_blocked")
@@ -132,19 +131,19 @@ class NetworkController:
                     "kind": "MEASURED",
                     "reason": "Remote access not enabled",
                 }
-        
+
         # Check rate limit
         with self._lock:
             key = f"{host}:{port}"
             if key not in self._connection_counts:
                 self._connection_counts[key] = []
-            
+
             # Clean old entries
             self._connection_counts[key] = [
                 t for t in self._connection_counts[key]
                 if now - t <60
             ]
-            
+
             if len(self._connection_counts[key]) >= _MAX_CONNECTIONS_PER_MINUTE:
                 self._log_connection(host, port, direction, False, "rate_limited")
                 return {
@@ -152,9 +151,9 @@ class NetworkController:
                     "kind": "MEASURED",
                     "reason": f"Rate limit exceeded ({_MAX_CONNECTIONS_PER_MINUTE}/min)",
                 }
-            
+
             self._connection_counts[key].append(now)
-        
+
         # Check outbound policy
         if direction == "outbound" and not self._policy.get("allow_outbound"):
             # Check if port is in allowed list
@@ -165,7 +164,7 @@ class NetworkController:
                     "kind": "MEASURED",
                     "reason": f"Outbound port {port} not in allowed list",
                 }
-        
+
         self._log_connection(host, port, direction, True, "allowed")
         return {
             "ok": True,
@@ -174,7 +173,7 @@ class NetworkController:
             "port": port,
             "zone": "lan" if is_lan else "remote",
         }
-    
+
     def _is_lan(self, host: str) -> bool:
         """Check if host is on LAN."""
         try:
@@ -188,7 +187,7 @@ class NetworkController:
                 return ip.is_private
             except Exception:
                 return False
-    
+
     def _log_connection(
         self,
         host: str,
@@ -210,19 +209,19 @@ class NetworkController:
             # Keep log size manageable
             if len(self._connection_log) >1000:
                 self._connection_log = self._connection_log[-500:]
-    
+
     def get_connection_log(self, limit: int =50) -> list[dict]:
         """Get recent connection log."""
         with self._lock:
             return list(reversed(self._connection_log[-limit:]))
-    
+
     def get_stats(self) -> dict:
         """Get network control statistics."""
         with self._lock:
             total = len(self._connection_log)
             allowed = sum(1 for c in self._connection_log if c["allowed"])
             blocked = total - allowed
-            
+
             return {
                 "kind": "MEASURED",
                 "policy": self._policy.copy(),

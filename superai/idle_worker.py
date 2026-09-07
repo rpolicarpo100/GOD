@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import threading
 import time
-from typing import Any
 
 from .events import bus
 from .store import store
@@ -88,7 +87,7 @@ def status() -> dict:
 
 def _pick_task() -> dict | None:
     """Pick what knowledge to acquire next. Priority-ordered."""
-    
+
     # Priority 1: Research tracked news topics
     tracked = store.mem_search("", kinds=["tracked_topic"])
     if tracked:

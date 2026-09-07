@@ -11,10 +11,8 @@ import ast
 import threading
 import time
 from pathlib import Path
-from typing import Any
 
 from .config import ROOT
-from .events import bus
 from .util import now_iso
 
 _lock = threading.Lock()

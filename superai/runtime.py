@@ -12,12 +12,9 @@ import threading
 import time
 from copy import deepcopy
 from pathlib import Path
-from typing import Any
 
-from . import aios, benchmark, evolution, executive, mission, observer, plane, providers, queue as tq, resources, routing, tokens as ti
-from .brain import analyze, cache_lookup, cache_store, context_pack, evaluate
-from .validator import validate
-from .thirdeye import criticize
+from . import aios, mission, observer, plane, providers, queue as tq, resources, routing, tokens as ti
+from .brain import analyze
 from .config import ROOT, cfg
 from .events import bus
 from .governor import gov
@@ -29,6 +26,7 @@ from . import gods
 from .nodes import registry as node_registry
 from .tools import catalog
 from .util import now_iso, uid
+import contextlib
 
 _chat: list[dict] = []
 _chat_persist_ts = 0.0
@@ -87,10 +85,8 @@ def _record_perf(text: str, task: dict, result: dict, elapsed_ms: float) -> None
         _perf_history.insert(0, entry)
         _perf_history = _perf_history[:PERF_HISTORY_MAX]
     # Also save to SQLite
-    try:
+    with contextlib.suppress(Exception):
         store.save_perf(entry)
-    except Exception:
-        pass
 
 
 # ── Helpers (staying in runtime.py) ──────────────────────────────────────────
@@ -149,10 +145,8 @@ def _broadcast() -> None:
 
     with _lock:
         if _bcast_timer is not None:
-            try:
+            with contextlib.suppress(Exception):
                 _bcast_timer.cancel()
-            except Exception:
-                pass
         t = threading.Timer(0.2, fire)
         t.daemon = True
         _bcast_timer = t
@@ -384,9 +378,9 @@ def _dialogue(n: int = 4, current: str | None = None) -> list[str]:
     skipped_current = False
 
     summary = _build_conversation_summary()
-    
+
     user_msgs = [m for m in msgs if m.get("role") in ("user", "brain") and str(m.get("text") or "").strip()]
-    
+
     for i, m in enumerate(reversed(user_msgs)):
         role = m.get("role")
         text = str(m.get("text") or "").strip()
@@ -398,7 +392,7 @@ def _dialogue(n: int = 4, current: str | None = None) -> list[str]:
         if role == "brain" and "\n\n— GOD ·" in text:
             text = text.split("\n\n— GOD ·", 1)[0].strip()
         who = "TU" if role == "user" else "GOD"
-        
+
         if i < n:
             # Recent: full text
             recent.append(f"{who}: {text[:180]}")
@@ -407,7 +401,7 @@ def _dialogue(n: int = 4, current: str | None = None) -> list[str]:
             compressed = text[:60].replace("\n", " ").strip()
             if compressed:
                 older.append(f"{who}({compressed}...)")
-    
+
     out: list[str] = []
     if summary:
         out.append("CONTEXTO: " + summary)
@@ -654,10 +648,10 @@ def handle(text: str, from_worker: bool = False) -> dict:
         _dialogue=_dialogue, _enqueue=_enqueue, _lock=_lock,
     )
     elapsed_ms = round((time.perf_counter() - t0) * 1000, 1)
-    
+
     # Record performance history
     _record_perf(text, task, result, elapsed_ms)
-    
+
     bus.emit("RESPONSE_COMPLETED", "INFO", f"resposta em {elapsed_ms}ms", god_core_state="ready", latency_ms=elapsed_ms)
     return result
 
@@ -673,7 +667,7 @@ def set_params(patch: dict) -> dict:
 def boot() -> None:
     gods.ensure()
     _restore_chat()
-    
+
     # Pre-warm embeddings in background (non-blocking)
     import threading as _threading
     def _warmup():
@@ -736,7 +730,7 @@ def boot() -> None:
         except Exception:
             pass
     _threading.Thread(target=_warmup, name="god-warmup", daemon=True).start()
-    
+
     if not _chat:
         mode, reason = resolve_mode()
         _say(

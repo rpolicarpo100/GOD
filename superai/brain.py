@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import re
 from typing import Any
 
@@ -340,11 +341,8 @@ def cache_store(text: str, result: dict, quality: float, ns: str = "") -> None:
     if is_enabled("semantic_cache"):
         from .memory_vec import vectors
         if vectors.available():
-            try:
-                import json as _json
+            with contextlib.suppress(Exception):  # Non-critical cache write
                 vectors.upsert("cache", key, norm, {"result": result, "quality": quality, "ts": now_iso()})
-            except Exception:
-                pass  # Non-critical
 
 
 def evaluate(task: dict, tool_results: list[dict], llm_used: bool, tokens_actual: int) -> dict:

@@ -13,10 +13,7 @@ B-06: Auto-correction — tracks repeated findings and applies corrective action
 """
 from __future__ import annotations
 
-import json
 import logging
-import threading
-from typing import Any
 
 from .events import bus
 from .store import store

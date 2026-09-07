@@ -14,9 +14,7 @@ Never stores detected data. Only reports risk.
 from __future__ import annotations
 
 import re
-from typing import Any
 
-from .util import now_iso
 
 # ═══════════════════════════════
 # DETECTION PATTERNS
@@ -84,10 +82,10 @@ def scan_text(text: str) -> list[dict]:
     """
     if not text:
         return []
-    
+
     detections = []
     lines = text.split('\n')
-    
+
     for line_num, line in enumerate(lines, 1):
         for pattern_name, pattern in _PATTERNS.items():
             matches = pattern.finditer(line)
@@ -100,18 +98,18 @@ def scan_text(text: str) -> list[dict]:
                     "context": _mask_context(line, m.start(), m.end()),
                     "kind": "MEASURED",
                 })
-    
+
     return detections
 
 
 def scan_file(path: str) -> dict:
     """Scan a file for sensitive data."""
     from pathlib import Path
-    
+
     p = Path(path)
     if not p.exists():
         return {"kind": "MEASURED", "exists": False, "detections": []}
-    
+
     try:
         text = p.read_text(errors='ignore')
         detections = scan_text(text)
@@ -131,23 +129,23 @@ def scan_file(path: str) -> dict:
 def scan_task_content(task: dict) -> dict:
     """Scan task text and params for sensitive data."""
     parts = []
-    
+
     # Scan task text
     if task.get("text"):
         parts.append(("text", scan_text(task["text"])))
-    
+
     # Scan task params
     params = task.get("params") or {}
     for key, value in params.items():
         if isinstance(value, str):
             parts.append((f"param:{key}", scan_text(value)))
-    
+
     all_detections = []
     for source, detections in parts:
         for d in detections:
             d["source"] = source
             all_detections.append(d)
-    
+
     return {
         "kind": "MEASURED",
         "task_id": task.get("task_id"),
@@ -199,13 +197,13 @@ def _cpf_valid(cpf: str) -> bool:
         return False
     if cpf == cpf[0] * 11:
         return False
-    
+
     # First digit
     total = sum(int(cpf[i]) * (10 - i) for i in range(9))
     digit1 = (total * 10 % 11) % 10
     if int(cpf[9]) != digit1:
         return False
-    
+
     # Second digit
     total = sum(int(cpf[i]) * (11 - i) for i in range(10))
     digit2 = (total * 10 % 11) % 10
@@ -223,9 +221,9 @@ def _get_recommendation(detections: list[dict]) -> str:
     """Get recommendation based on detections."""
     if not detections:
         return "No sensitive data detected"
-    
+
     max_risk = max(d["risk"] for d in detections)
-    
+
     if max_risk >= 5:
         return "BLOCK: Contains high-risk sensitive data (keys, passwords)"
     if max_risk >= 4:
@@ -238,23 +236,23 @@ def _get_recommendation(detections: list[dict]) -> str:
 def format_detections(scan_result: dict) -> str:
     """Format scan results for display."""
     detections = scan_result.get("detections", [])
-    
+
     if not detections:
         return "✓ No sensitive data detected"
-    
+
     lines = [f"⚠ {len(detections)} sensitive data detection(s):"]
-    
+
     for d in detections[:10]:  # Limit display
         risk_emoji = "🔴" if d["risk"] >= 5 else "🟡" if d["risk"] >= 3 else "🟢"
         lines.append(f"  {risk_emoji} [{d['type']}] risk={d['risk']} line={d.get('line', '?')}")
         if d.get("context"):
             lines.append(f"     context: {d['context']}")
-    
+
     if len(detections) > 10:
         lines.append(f"  ... and {len(detections) - 10} more")
-    
+
     rec = scan_result.get("recommendation")
     if rec:
         lines.append(f"\n{rec}")
-    
+
     return "\n".join(lines)

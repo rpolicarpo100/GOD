@@ -13,8 +13,8 @@ from __future__ import annotations
 import numpy as np
 
 from .util import normalize_query
+import contextlib
 
-import functools
 
 DIM = 384
 _neural = None
@@ -57,10 +57,8 @@ def embed(text: str) -> list[float]:
     cache_key = q[:200]  # Truncate for cache key
     if cache_key in _embed_cache:
         # Move to end (most recently used)
-        try:
+        with contextlib.suppress(ValueError):
             _embed_cache_order.remove(cache_key)
-        except ValueError:
-            pass
         _embed_cache_order.append(cache_key)
         return _embed_cache[cache_key]
     # Compute embedding
@@ -102,12 +100,12 @@ def embed_batch(texts: list[str]) -> list[list[float]]:
         return []
     if len(texts) == 1:
         return [embed(texts[0])]
-    
+
     # Check cache for each
     results: list[list[float] | None] = [None] * len(texts)
     uncached_indices: list[int] = []
     uncached_texts: list[str] = []
-    
+
     for i, text in enumerate(texts):
         q = normalize_query(text) or text or " "
         cache_key = q[:200]
@@ -116,7 +114,7 @@ def embed_batch(texts: list[str]) -> list[list[float]]:
         else:
             uncached_indices.append(i)
             uncached_texts.append(q)
-    
+
     # Batch compute uncached
     if uncached_texts:
         model = _get_neural()
@@ -139,12 +137,12 @@ def embed_batch(texts: list[str]) -> list[list[float]]:
             # Lexical fallback
             for idx in uncached_indices:
                 results[idx] = embed(texts[idx])
-    
+
     # Evict if over size
     while len(_embed_cache) > _EMBED_CACHE_SIZE:
         old_key = _embed_cache_order.pop(0)
         _embed_cache.pop(old_key, None)
-    
+
     return [r for r in results if r is not None]
 
 

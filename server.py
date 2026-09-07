@@ -11,8 +11,8 @@ from pathlib import Path
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import FileResponse, ORJSONResponse, StreamingResponse
+from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.responses import FileResponse, StreamingResponse
 
 from superai.config import DATA
 from pydantic import BaseModel
@@ -48,7 +48,7 @@ from superai.runtime import handle, resolve_mode, set_params, snapshot
 from superai.util import uid
 from superai.system import system_state
 from superai.capabilities import can, get_capability, capabilities_summary
-from superai.trace import get_trace, recent_traces, trace_summary, format_trace
+from superai.trace import recent_traces, trace_summary
 from superai.health import liveness, readiness, full_health
 from superai import feature_flags as ff
 from superai import runtime_protection as rp
@@ -387,7 +387,8 @@ def health():
 @app.get("/api/admin/backup")
 def admin_backup():
     """Download a backup of the GOD database."""
-    import shutil, datetime as _dt
+    import shutil
+    import datetime as _dt
     ts = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
     db_path = DATA / "god.db"
     if not db_path.exists():
@@ -404,7 +405,6 @@ def admin_backup():
 @app.get("/api/health/deep")
 def health_deep():
     """Deep health check — tests each component."""
-    import datetime
     checks = {}
 
     # SQLite
@@ -653,7 +653,7 @@ def pipeline_timing():
         "kind": "MEASURED",
         "available": True,
         "stage_times": lp.get("stage_times", {}),
-        "total_ms": round((time.perf_counter() - lp.get("t0", time.perf_counter())) * 1000, 1) if lp.get("t0") else None,
+        "total_ms": round((_time.perf_counter() - lp.get("t0", _time.perf_counter())) * 1000, 1) if lp.get("t0") else None,
         "llm_ms": lp.get("llm_ms"),
         "route": lp.get("route"),
         "cache": lp.get("cache"),
@@ -680,8 +680,10 @@ def web_health():
 
 
 @app.post("/api/github/configure")
-def github_configure(body: dict = {}):
+def github_configure(body: dict = None):
     from superai import github
+    if body is None:
+        body = {}
     token = body.get("token", "")
     if token:
         github.configure(token)
@@ -721,8 +723,10 @@ def list_sites():
 
 
 @app.post("/api/sites/register")
-def register_site(body: dict = {}):
+def register_site(body: dict = None):
     from superai.site_aggregator import register_site
+    if body is None:
+        body = {}
     return register_site(
         url=body.get("url", ""),
         name=body.get("name", ""),
@@ -732,8 +736,10 @@ def register_site(body: dict = {}):
 
 
 @app.post("/api/sites/remove")
-def remove_site(body: dict = {}):
+def remove_site(body: dict = None):
     from superai.site_aggregator import remove_site
+    if body is None:
+        body = {}
     return remove_site(body.get("id", ""))
 
 
@@ -849,12 +855,12 @@ def brain_status():
     from superai.idle_worker import status as idle_status
     from superai.knowledge_auditor import status as auditor_status
     from superai.health import diagnostics
-    
+
     health = diagnostics()
     learner = learner_status()
     idle = idle_status()
     auditor = auditor_status()
-    
+
     return {
         "health_pct": health.get("health_pct", 0),
         "health_components": health.get("components", {}),

@@ -11,13 +11,10 @@ Features:
 """
 from __future__ import annotations
 
-import json
 import threading
 import time
-from typing import Any
 
 from .config import cfg
-from .util import now_iso
 
 # ═══════════════════════════════
 # CONFIGURATION
@@ -31,7 +28,7 @@ DEFAULT_TOP_K = 5
 
 class CohereReranker:
     """Cohere rerank integration."""
-    
+
     def __init__(self):
         self._lock = threading.Lock()
         self._api_key: str | None = None
@@ -41,23 +38,23 @@ class CohereReranker:
             "errors": 0,
         }
         self._initialized = False
-    
+
     def _ensure_init(self):
         """Lazy initialization."""
         if self._initialized:
             return
-        
+
         # Try to get API key from config
         self._api_key = cfg.get("cohere_api_key") or cfg.get("COHERE_API_KEY")
         self._initialized = True
-    
+
     def available(self) -> bool:
         """Check if Cohere rerank is available."""
         self._ensure_init()
-        
+
         if not self._api_key:
             return False
-        
+
         # Check monthly limit
         with self._lock:
             if self._usage["month_start"]:
@@ -66,12 +63,12 @@ class CohereReranker:
                 if now - self._usage["month_start"] >30 * 24 * 3600:
                     self._usage["calls"] = 0
                     self._usage["month_start"] = now
-            
+
             if self._usage["calls"] >= MAX_CALLS_PER_MONTH:
                 return False
-        
+
         return True
-    
+
     def rerank(
         self,
         query: str,
@@ -93,45 +90,45 @@ class CohereReranker:
                 ],
                 "fallback": True,
             }
-        
+
         try:
             import httpx as _httpx
-            
+
             headers = {
                 "Authorization": f"Bearer {self._api_key}",
                 "Content-Type": "application/json",
             }
-            
+
             payload = {
                 "query": query,
                 "documents": documents,
                 "top_n": top_k,
                 "model": model,
             }
-            
+
             response = _httpx.post(
                 COHERE_API_URL,
                 headers=headers,
                 json=payload,
                 timeout=10,
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
                 results = []
-                
+
                 for r in data.get("results", []):
                     results.append({
                         "index": r.get("index", 0),
                         "text": documents[r.get("index", 0)] if r.get("index", 0) < len(documents) else "",
                         "score": r.get("relevance_score", 0),
                     })
-                
+
                 with self._lock:
                     self._usage["calls"] += 1
                     if not self._usage["month_start"]:
                         self._usage["month_start"] = time.time()
-                
+
                 return {
                     "kind": "MEASURED",
                     "available": True,
@@ -142,7 +139,7 @@ class CohereReranker:
             else:
                 with self._lock:
                     self._usage["errors"] += 1
-                
+
                 return {
                     "kind": "MEASURED",
                     "available": False,
@@ -153,11 +150,11 @@ class CohereReranker:
                     ],
                     "fallback": True,
                 }
-                
+
         except Exception as e:
             with self._lock:
                 self._usage["errors"] += 1
-            
+
             return {
                 "kind": "MEASURED",
                 "available": False,
@@ -168,7 +165,7 @@ class CohereReranker:
                 ],
                 "fallback": True,
             }
-    
+
     def get_usage(self) -> dict:
         """Get usage statistics."""
         with self._lock:
@@ -181,18 +178,18 @@ class CohereReranker:
                 "errors": self._usage["errors"],
                 "month_start": self._usage["month_start"],
             }
-    
+
     def format_usage(self) -> str:
         """Format usage for display."""
         usage = self.get_usage()
-        
+
         lines = [
             f"Cohere Rerank: {'Available' if usage['available'] else 'Unavailable'}",
             f"Calls: {usage['calls']}/{usage['limit']}",
             f"Remaining: {usage['remaining']}",
             f"Errors: {usage['errors']}",
         ]
-        
+
         return "\n".join(lines)
 
 

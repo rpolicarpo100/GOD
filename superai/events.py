@@ -4,6 +4,7 @@ import threading
 from typing import Any, Callable
 
 from .util import now_iso, uid
+import contextlib
 
 Listener = Callable[[str, dict], None]
 
@@ -20,10 +21,8 @@ class EventBus:
 
         def unsub() -> None:
             with self._lock:
-                try:
+                with contextlib.suppress(ValueError):
                     self._subs.remove(fn)
-                except ValueError:
-                    pass
 
         return unsub
 
@@ -31,10 +30,8 @@ class EventBus:
         with self._lock:
             subs = list(self._subs)
         for fn in subs:
-            try:
+            with contextlib.suppress(Exception):
                 fn(kind, payload)
-            except Exception:
-                pass
 
     def emit(self, name: str, level: str, msg: str, **extra: Any) -> dict:
         ev = {"id": uid("ev"), "name": name, "level": level, "msg": msg, "ts": now_iso(), **extra}

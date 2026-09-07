@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import atexit
+import contextlib
 import os
 import threading
 import uuid
@@ -13,6 +14,7 @@ from qdrant_client.models import Distance, FieldCondition, Filter, HnswConfigDif
 
 from .config import DATA
 from .embed import DIM, embed, info as embed_info
+import contextlib
 
 MEM = "memory"
 CACHE = "cache"
@@ -46,10 +48,8 @@ class VectorMemory:
         c = self.c
         if c is not None:
             self.c = None
-            try:
+            with contextlib.suppress(Exception):
                 c.close()
-            except Exception:
-                pass
 
     def _ensure(self, name: str) -> None:
         with self._lock:
@@ -62,12 +62,10 @@ class VectorMemory:
                     hnsw_config=HnswConfigDiff(m=16, ef_construct=200),
                 )
             # Create payload index for god_id (speeds up filtered searches)
-            try:
+            with contextlib.suppress(Exception):  # Already exists or collection just created
                 self.c.create_payload_index(
                     name, "god_id", field_schema=PayloadSchemaType.KEYWORD,
                 )
-            except Exception:
-                pass  # Already exists or collection just created
 
     def available(self) -> bool:
         return self.c is not None and self.error is None

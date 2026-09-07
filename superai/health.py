@@ -6,10 +6,8 @@ DIAGNOSTICS: Que componentes estão disponíveis? Que falhou? Porquê?
 """
 from __future__ import annotations
 
-from typing import Any
 
-from . import aios, observer, providers, queue as tq, resources, routing
-from .events import bus
+from . import observer, providers, queue as tq, resources, routing
 from .memory_vec import vectors
 from .store import store
 from .util import now_iso
@@ -131,7 +129,7 @@ def diagnostics() -> dict:
             "error": str(e),
             "actionable": True,
         })
-    
+
     # Embeddings
     try:
         from .embed import info as embed_info
@@ -152,7 +150,7 @@ def diagnostics() -> dict:
             "error": "Embedding system unavailable",
             "actionable": True,
         })
-    
+
     # Autonomous learner
     try:
         from .autonomous_learner import status as learner_status
@@ -166,7 +164,7 @@ def diagnostics() -> dict:
         })
     except Exception:
         pass
-    
+
     # News connector
     try:
         from .news_connector import health as news_health
@@ -180,7 +178,7 @@ def diagnostics() -> dict:
         })
     except Exception:
         pass
-    
+
     # Qdrant
     qh = vectors.health()
     components.append({
@@ -222,7 +220,7 @@ def diagnostics() -> dict:
     total_weight = sum(c.get("weight", 0) for c in weighted_components)
     ok_weight = sum(c.get("weight", 0) for c in weighted_components if c["status"] == "ok")
     health_pct = round(ok_weight / max(total_weight, 1) * 100) if total_weight > 0 else 0
-    
+
     # Score: only count infrastructure, not alerts
     infra = [c for c in components if c["status"] != "alert"]
     n_ok = sum(1 for c in infra if c["status"] == "ok")
