@@ -289,6 +289,11 @@ def _stage_cache(text, task, pipeline, need_mem, gid, _say, _mark, _set_pipe, _b
                 pipeline["cache"] = "semantic"
     if hit:
         store.incr("cache_hits")
+        try:
+            from .trace import record_system_metric
+            record_system_metric("cache_hits")
+        except Exception:
+            pass
         bus.emit("CACHE_HIT", "INFO", f"{task['task_id']} {pipeline.get('cache') or 'hash'} cache", god_core_state="ready")
         pipeline["cache"] = pipeline.get("cache") if pipeline.get("cache") == "semantic" else "hit"
         pipeline["route"] = ["CACHE"] if pipeline["cache"] != "semantic" else ["SEMANTIC_CACHE"]
@@ -307,6 +312,11 @@ def _stage_cache(text, task, pipeline, need_mem, gid, _say, _mark, _set_pipe, _b
         _broadcast()
         return {"ok": True, "via": "cache"}
     store.incr("cache_misses")
+    try:
+        from .trace import record_system_metric
+        record_system_metric("cache_misses")
+    except Exception:
+        pass
     bus.emit("CACHE_MISS", "INFO", task["task_id"], god_core_state="thinking")
     _mark(pipeline, "cache")
     return None  # no cache hit, continue
@@ -518,6 +528,14 @@ def _stage_tools(text, task, pipeline, p, ctx, _say, _mark, _set_pipe, _broadcas
         resource_limits.get_tracker().record_tool_call(task["task_id"], step["tool"])
 
         tool_results.append(res)
+        # Record telemetry
+        try:
+            from .trace import record_system_metric
+            record_system_metric("tool_calls_total")
+            if res.get("status") == "success":
+                record_system_metric("tool_calls_success")
+        except Exception:
+            pass
         if res.get("status") != "success":
             bus.emit("TOOL_FAILED", "WARNING", f"{step['tool']}: {res.get('errors')}", god_core_state="error")
     scores = evaluate(task, tool_results, llm_used=False, tokens_actual=0)
@@ -647,6 +665,13 @@ def _stage_llm(text, task, pipeline, merged, ctx, *, _say, _mark, _set_pipe, _br
     pipeline["llm_adapter"] = res.get("adapter") or res.get("provider")
     _mark(pipeline, "llm")
 
+    # Record LLM telemetry
+    try:
+        from .trace import record_system_metric
+        record_system_metric("llm_calls_total")
+    except Exception:
+        pass
+
     # LLM failed
     if res.get("status") != "success":
         bus.emit("MODEL_FAILED", "WARNING", str(res.get("error")), god_core_state="error")
@@ -665,6 +690,11 @@ def _stage_llm(text, task, pipeline, merged, ctx, *, _say, _mark, _set_pipe, _br
 
     # LLM success
     store.incr("llm_calls")
+    try:
+        from .trace import record_system_metric
+        record_system_metric("llm_calls_success")
+    except Exception:
+        pass
     raw_tok = res.get("tokens")
     toks = int(raw_tok) if raw_tok is not None else 0
 

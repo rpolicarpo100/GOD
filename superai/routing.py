@@ -180,6 +180,19 @@ class DirectAdapter(RoutingAdapter):
                 last = {"adapter": a.id, "error": f"circuit open (failures={a._failures})"}
                 continue
             res = a.complete(prompt, **kw)
+            # Record telemetry
+            try:
+                from .trace import record_provider_call
+                t_success = res.get("status") == "success" and bool(str(res.get("text") or "").strip())
+                record_provider_call(
+                    provider_id=a.id, model=res.get("model", ""),
+                    success=t_success, latency_ms=res.get("latency_ms", 0) or 0,
+                    tokens=res.get("tokens", 0) or 0,
+                    error=res.get("error") if not t_success else None,
+                    task_type=kw.get("task_type", "chat"),
+                )
+            except Exception:
+                pass
             if res.get("status") == "success" and str(res.get("text") or "").strip():
                 rl_record(a.id)
                 if hasattr(a, 'record_success'):

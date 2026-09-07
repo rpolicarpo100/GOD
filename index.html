@@ -1810,13 +1810,18 @@ function refreshActiveTab(tab) {
         }).join('') || '<div class="empty">Sem componentes</div>';
       }
     }).catch(function(){});
-    fetch('/api/suggestions').then(function(r){return r.json();}).then(function(d){
-      var sug = d.suggestions || [];
+    fetch('/api/self-model').then(function(r){return r.json();}).then(function(d){
+      var items = [];
+      (d.limitations||[]).forEach(function(s){items.push({text:s,type:'limit'});});
+      (d.suggestions||[]).forEach(function(s){items.push({text:s,type:'sug'});});
       var el = $('ai-suggestions');
       if (el) {
-        if (sug.length) {
-          el.innerHTML = sug.map(function(s){
-            return '<div style="padding:8px 12px;background:var(--glow);border:1px solid rgba(139,108,199,.12);border-radius:8px;margin-bottom:6px;font-size:11px;line-height:1.5">'+esc(s)+'</div>';
+        if (items.length) {
+          el.innerHTML = items.map(function(i){
+            var bg = i.type==='limit'?'var(--crit-dim)':'var(--glow)';
+            var br = i.type==='limit'?'rgba(232,96,96,.12)':'rgba(139,108,199,.12)';
+            var ic = i.type==='limit'?'🔴':'💡';
+            return '<div style="padding:8px 12px;background:'+bg+';border:1px solid '+br+';border-radius:8px;margin-bottom:6px;font-size:11px;line-height:1.5">'+ic+' '+esc(i.text)+'</div>';
           }).join('');
         } else {
           el.innerHTML = '<div class="empty">Sem sugestoes. GOD precisa de interacoes para gerar sugestoes.</div>';

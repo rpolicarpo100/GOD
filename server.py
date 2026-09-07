@@ -936,6 +936,13 @@ def brain_status():
     }
 
 
+@app.get("/api/self-model")
+def api_self_model():
+    """GOD's self-model: capabilities, limitations, suggestions."""
+    from superai.self_model import get_self_model
+    return get_self_model()
+
+
 @app.get("/api/providers/health")
 def providers_health():
     """Health status of all LLM providers."""
