@@ -255,6 +255,11 @@ async def _global_error_handler(request: Request, exc: Exception):
 
 @app.middleware("http")
 async def _log_middleware(request: Request, call_next):
+    # Auth check for sensitive endpoints
+    auth_err = _check_endpoint_auth(request.url.path, request.headers.get("authorization"))
+    if auth_err:
+        return JSONResponse(status_code=auth_err.get("status", 401), content={"error": auth_err["error"]})
+
     t0 = _time.time()
     response = await call_next(request)
     ms = (_time.time() - t0) * 1000
@@ -1285,6 +1290,79 @@ class OverrideIn(BaseModel):
     reason: str = ""
     risk_level: int = 3
     duration_seconds: int = 600
+
+
+# ═══════════════════════════════════════════════════════════════
+# AUTH DEPENDENCY — centralised session validation
+# ═══════════════════════════════════════════════════════════════
+
+def _extract_session(authorization: str | None) -> str | None:
+    """Extract session_id from Authorization header."""
+    if not authorization:
+        return None
+    return authorization.replace("Bearer ", "").strip() or None
+
+# PUBLIC endpoints (no auth required)
+_PUBLIC_PATHS = {
+    "/",
+    "/api/auth/status",
+    "/api/auth/setup",
+    "/api/auth/login",
+    "/api/health",
+    "/api/state",
+}
+
+# SENSITIVE endpoints (require auth + permission)
+_SENSITIVE_PATHS = {
+    "/api/admin/backup": auth.Perm.SECURITY_MANAGE,
+    "/api/repair": auth.Perm.REPAIR_EXECUTE,
+    "/api/params": auth.Perm.CONFIG_WRITE,
+    "/api/gods": auth.Perm.GODS_MANAGE,
+    "/api/auth/users": auth.Perm.SECURITY_MANAGE,
+    "/api/auth/audit": auth.Perm.SECURITY_MANAGE,
+    "/api/auth/approvals": auth.Perm.SECURITY_MANAGE,
+    "/api/auth/overrides": auth.Perm.SECURITY_MANAGE,
+    "/api/security/network/policy": auth.Perm.SECURITY_MANAGE,
+    "/api/system/resource-mode": auth.Perm.CONFIG_WRITE,
+    "/api/system/nodes": auth.Perm.WORKER_MANAGE,
+    "/api/github/configure": auth.Perm.CONFIG_WRITE,
+    "/api/sites/register": auth.Perm.TOOLS_EXECUTE,
+    "/api/sites/remove": auth.Perm.TOOLS_EXECUTE,
+    "/api/web/search": auth.Perm.TOOLS_EXECUTE,
+    "/api/web/fetch": auth.Perm.TOOLS_EXECUTE,
+    "/api/learner/start": auth.Perm.EVOLUTION_EXECUTE,
+    "/api/learner/stop": auth.Perm.EVOLUTION_EXECUTE,
+    "/api/idle-worker/start": auth.Perm.EVOLUTION_EXECUTE,
+    "/api/idle-worker/stop": auth.Perm.EVOLUTION_EXECUTE,
+    "/api/auditor/force": auth.Perm.EVOLUTION_EXECUTE,
+    "/api/chat": auth.Perm.CHAT_USE,
+}
+
+def _check_endpoint_auth(path: str, authorization: str | None) -> dict | None:
+    """Check auth for an endpoint. Returns error dict or None (allowed)."""
+    # Public endpoints — always allowed
+    if path in _PUBLIC_PATHS:
+        return None
+    # Check if owner exists — if not, allow setup
+    if not auth.owner_exists():
+        return None  # No owner yet — allow everything for setup
+    # Extract session
+    session_id = _extract_session(authorization)
+    if not session_id:
+        return {"error": "Autenticação necessária", "status": 401}
+    # Validate session
+    session = auth.validate_session(session_id)
+    if not session:
+        return {"error": "Sessão inválida ou expirada", "status": 401}
+    # Sensitive endpoints — check permission
+    base_path = path.rstrip("/")
+    if base_path in _SENSITIVE_PATHS:
+        required_perm = _SENSITIVE_PATHS[base_path]
+        check = auth.require_permission(session_id, required_perm)
+        if not check.get("ok"):
+            return {"error": check.get("error", "Sem permissão"), "status": 403}
+    return None  # Allowed
+
 
 @app.get("/api/auth/status")
 def api_auth_status():

@@ -95,7 +95,7 @@ class CohereReranker:
             }
         
         try:
-            import requests
+            import httpx as _httpx
             
             headers = {
                 "Authorization": f"Bearer {self._api_key}",
@@ -109,7 +109,7 @@ class CohereReranker:
                 "model": model,
             }
             
-            response = requests.post(
+            response = _httpx.post(
                 COHERE_API_URL,
                 headers=headers,
                 json=payload,
