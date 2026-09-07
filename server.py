@@ -903,7 +903,14 @@ async def chat_stream(body: ChatIn):
 
     async def _stream():
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, lambda: handle(body.text, from_worker=body.from_worker))
+        try:
+            result = await asyncio.wait_for(
+                loop.run_in_executor(None, lambda: handle(body.text, from_worker=body.from_worker)),
+                timeout=60.0,
+            )
+        except asyncio.TimeoutError:
+            yield f"data: {json.dumps({'error': 'Timeout — resposta demorou mais de 60s', 'done': True})}\n\n"
+            return
 
         # Get the brain response text from _chat (last brain message)
         brain_text = ""
@@ -1434,7 +1441,11 @@ def api_auth_setup(body: LoginIn):
 
 @app.post("/api/auth/login")
 def api_auth_login(body: LoginIn):
-    """Login and get session."""
+    """Login and get session. Rate limited to prevent brute-force."""
+    from superai.rate_limit import check as rl_check
+    rl = rl_check("login", "auth/login", "anonymous")
+    if not rl.get("allowed", True):
+        raise HTTPException(429, f"Rate limited. Tenta novamente em {rl.get('retry_after', 60)}s")
     r = auth.login(body.username, body.password)
     if not r.get("ok"):
         raise HTTPException(401, r.get("error"))

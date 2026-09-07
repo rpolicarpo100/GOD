@@ -1,1607 +1,341 @@
+"""Web Search — pesquisa na web em tempo real via múltiplos backends.
+
+Backends (tentados em ordem):
+1. SearXNG local (se disponível) — metapesquisa multi-fonte
+2. DuckDuckGo HTML scraping — pesquisa web real, gratuito, sem API key
+3. DuckDuckGo Instant Answer API — respostas directas
+4. Fallback: recusar educadamente
+
+Features:
+- Cache de resultados (60s TTL) para queries repetidas
+- Rate limiting (1 req/s por backend)
+- Resultados deduplicados
+- Snippet extraction inteligente
+"""
 from __future__ import annotations
 
-import asyncio
-import datetime
-import json
-import logging
-import os
-import sys
-import time as _time
-from pathlib import Path
+import re
+import time
+from typing import Any
+from urllib.parse import quote_plus
 
-from contextlib import asynccontextmanager
+import httpx
 
-from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from .util import now_iso
 
-from superai.config import DATA
-from pydantic import BaseModel
-
-# Structured logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-    stream=sys.stderr,
+# Shared client with connection pooling
+_client = httpx.Client(
+    timeout=10.0,
+    headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.8",
+    },
+    follow_redirects=True,
 )
-log = logging.getLogger("god.server")
 
-# Backup directory
-BACKUP_DIR = DATA / "backups"
-BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+# Simple result cache (60s TTL)
+_cache: dict[str, dict] = {}
+_CACHE_TTL = 60
+
+# Rate limiting per backend
+_last_call: dict[str, float] = {}
+_MIN_INTERVAL = 1.0  # 1 request per second per backend
 
 
-def _log_req(method: str, path: str, status: int, ms: float, extra: str = ""):
-    line = f"{method} {path} {status} -- {ms:.0f}ms"
-    if extra:
-        line += f" ({extra})"
-    if status >= 500:
-        log.error(line)
-    elif status >= 400:
-        log.warning(line)
-    else:
-        log.info(line)
+def _rate_limit(backend: str) -> bool:
+    """Check if we can call this backend."""
+    now = time.time()
+    last = _last_call.get(backend, 0)
+    if now - last < _MIN_INTERVAL:
+        return False
+    _last_call[backend] = now
+    return True
 
-from superai import aios, benchmark, compute, evolution, observer, queue as tq, routing, tokens as ti
-from superai.events import bus
-from superai.runtime import handle, resolve_mode, set_params, snapshot
-from superai.util import uid
-from superai.system import system_state
-from superai.capabilities import can, get_capability, capabilities_summary
-from superai.trace import get_trace, recent_traces, trace_summary, format_trace
-from superai.health import liveness, readiness, full_health
-from superai import feature_flags as ff
-from superai import runtime_protection as rp
-from superai import auth
 
-ROOT = Path(__file__).parent
-WORKER_TOKEN = os.environ.get("SUPERAI_WORKER_TOKEN") or ""
-
-def _get_session(authorization: str | None) -> str | None:
-    """Extract session ID from Authorization header."""
-    if authorization and authorization.startswith("Bearer "):
-        return authorization[7:]
+def _cache_get(query: str) -> dict | None:
+    """Check cache for recent results."""
+    entry = _cache.get(query)
+    if entry and time.time() - entry.get("_ts", 0) < _CACHE_TTL:
+        return entry
     return None
 
-def _require_perm(authorization: str | None, permission: str):
-    """Require permission or raise HTTPException."""
-    session_id = _get_session(authorization)
-    check = auth.require_permission(session_id, permission)
-    if not check.get("ok"):
-        raise HTTPException(check.get("code", 403), check.get("error"))
-    return check
+
+def _cache_set(query: str, result: dict) -> None:
+    """Cache result."""
+    result["_ts"] = time.time()
+    _cache[query] = result
+    # Evict old entries
+    if len(_cache) > 100:
+        oldest = sorted(_cache.items(), key=lambda x: x[1].get("_ts", 0))
+        for k, _ in oldest[:50]:
+            del _cache[k]
 
 
-class ParamsIn(BaseModel):
-    patch: dict
+def search(query: str, max_results: int = 5) -> dict:
+    """Pesquisar na web em tempo real. Retorna resultados ou erro."""
+    query = (query or "").strip()
+    if not query:
+        return {"status": "error", "error": "query vazia", "kind": "MEASURED"}
 
+    # Check cache
+    cached = _cache_get(query)
+    if cached:
+        cached["cached"] = True
+        return cached
 
-class ChatIn(BaseModel):
-    text: str
-    from_worker: bool = False
-
-
-class ExpIn(BaseModel):
-    id: str
-    approve: bool
-
-
-class ChatCompletion(BaseModel):
-    model: str = "superai"
-    messages: list[dict]
-    max_tokens: int | None = None
-
-
-class WorkerIn(BaseModel):
-    id: str
-    name: str | None = None
-    location: str = "remote"
-    capabilities: list[str] = []
-
-
-class HeartbeatIn(BaseModel):
-    id: str
-    cpu: float | None = None
-    ram: float | None = None
-
-
-class ClaimIn(BaseModel):
-    worker_id: str
-
-
-class CompleteIn(BaseModel):
-    id: str
-    ok: bool = True
-    result: dict | None = None
-    error: str | None = None
-
-
-class KillIn(BaseModel):
-    id: str
-
-
-class SyscallIn(BaseModel):
-    name: str
-    args: dict = {}
-
-
-class NiceIn(BaseModel):
-    id: str
-    priority: int = 0
-
-
-class GodIn(BaseModel):
-    id: str | None = None
-    name: str
-    purpose: str = ""
-    personality: str = ""
-    capabilities: list[str] | None = None
-    rules: str = ""
-    memory: bool = True
-    models: str = "auto"
-
-
-class RollbackIn(BaseModel):
-    version: int
-
-
-def _worker_auth(authorization: str | None, location: str = "remote") -> None:
-    """Authenticate workers. Remote workers ALWAYS require token."""
-    # Local workers (in-process) are trusted
-    if location == "local":
-        return
-    # Remote workers ALWAYS need a valid token
-    if not WORKER_TOKEN:
-        raise HTTPException(403, "Remote workers not configured. Set SUPERAI_WORKER_TOKEN.")
-    if authorization != f"Bearer {WORKER_TOKEN}":
-        raise HTTPException(401, "Worker token inválido")
-
-
-def _ensure_flags():
-    """Ensure critical flags are always enabled on startup."""
-    from superai.feature_flags import enable, is_enabled
-    critical = [
-        ("semantic_cache", "auto-enable on startup: neural embeddings working"),
-        ("parallel_jobs", "auto-enable on startup: inflight=2 verified"),
-        ("debug_trace", "auto-enable on startup: debugging utility"),
-        ("extended_metrics", "auto-enable on startup: extra metrics no cost"),
-        ("cost_routing", "auto-enable on startup: pricing CALCULATED"),
-        ("auto_evolve", "auto-enable on startup: classify_risk is safety net"),
-        ("auto_cleanup", "auto-enable on startup: stale data cleanup"),
-        ("rate_limiting", "auto-enable on startup: quota protection"),
-    ]
-    for name, reason in critical:
-        if not is_enabled(name):
-            enable(name, reason=reason, actor="startup")
-
-
-@asynccontextmanager
-def _stop_background_threads():
-    """Signal all background threads to stop and wait up to 5s."""
-    import time
-    threads_to_stop = []
-
-    # Signal each module's _running flag
-    for module_name, attr in [
-        ("superai.autonomous_learner", "_running"),
-        ("superai.idle_worker", "_running"),
-        ("superai.knowledge_auditor", "_running"),
-    ]:
-        try:
-            mod = __import__(module_name, fromlist=[attr])
-            if hasattr(mod, attr):
-                setattr(mod, attr, False)
-                threads_to_stop.append(module_name.split(".")[-1])
-        except Exception:
-            pass
-
-    if threads_to_stop:
-        log.info("Signaled threads to stop: %s", ", ".join(threads_to_stop))
-        time.sleep(2)  # Give threads time to finish current cycle
-
-
-def _close_httpx_clients():
-    """Close all persistent httpx clients."""
-    clients_closed = []
-    for module_name, attr in [
-        ("superai.providers", "_http_client"),
-        ("superai.websearch", "_client"),
-        ("superai.github", "_client"),
-        ("superai.news_connector", "_client"),
-        ("superai.site_aggregator", "_client"),
-        ("superai.routing", "_omni_client"),
-    ]:
-        try:
-            mod = __import__(module_name, fromlist=[attr])
-            client = getattr(mod, attr, None)
-            if client and hasattr(client, "close"):
-                client.close()
-                clients_closed.append(module_name.split(".")[-1])
-        except Exception:
-            pass
-
-    if clients_closed:
-        log.info("Closed httpx clients: %s", ", ".join(clients_closed))
-
-
-async def _lifespan(app):
-    # Startup
-    log.info("GOD starting up...")
-    compute.start_local_worker()
-    tq.heartbeat(compute.LOCAL_ID)
-    aios.boot()
-    auth.init()
-    _ensure_flags()
-    port = int(os.environ.get("GOD_PORT", "8000"))
-    # Auto-detect if port is blocked (Windows firewall etc)
-    import socket
-    for fallback_port in [port, 8080, 3000, 9000, 5000]:
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.bind(("0.0.0.0", fallback_port))
-            s.close()
-            port = fallback_port
-            break
-        except OSError:
+    # Try backends in order
+    for backend_fn in [_searxng, _ddg_html, _ddg_instant]:
+        if not _rate_limit(backend_fn.__name__):
             continue
-    os.environ["GOD_PORT"] = str(port)
-    log.info("GOD ready. Port %s", port)
-    print(f"\n🌐 GOD UI: http://localhost:{port}", flush=True)
-    print(f"   Se nao acederes, tenta: http://127.0.0.1:{port}", flush=True)
-    yield
-    # Shutdown — graceful cleanup
-    log.info("GOD shutting down...")
+        try:
+            r = backend_fn(query, max_results)
+            if r and r.get("status") == "success" and r.get("results"):
+                _cache_set(query, r)
+                return r
+        except Exception:
+            continue
 
-    # Stop background threads gracefully (signal + wait)
-    _stop_background_threads()
-
-    # Close httpx clients
-    _close_httpx_clients()
-
-    try:
-        from superai.runtime import _persist_chat
-        _persist_chat()
-    except Exception as e:
-        log.warning("Chat persist on shutdown failed: %s", e)
-    try:
-        from superai.memory_vec import vectors
-        vectors.close()
-    except Exception as e:
-        log.warning("Vector store close failed: %s", e)
-    log.info("GOD shutdown complete.")
-
-
-app = FastAPI(
-    title="GOD — Living Intelligence",
-    description="API do GOD. Local-first AI assistant with multi-provider routing.\n\n"
-                "**Endpoints principais:**\n"
-                "- `POST /api/chat` — Enviar mensagem ao GOD\n"
-                "- `POST /api/chat/stream` — Chat com streaming SSE\n"
-                "- `GET /api/state` — Estado completo do sistema\n"
-                "- `GET /api/health` — Health check leve\n"
-                "- `GET /api/health/deep` — Health check completo\n"
-                "- `GET /api/stream` — SSE de eventos em tempo real\n\n"
-                "Docs: [/docs](/docs) [/redoc](/redoc)",
-    version="7.4.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
-    lifespan=_lifespan,
-)
-
-
-# CORS — allow local dev frontends
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Local-first: all origins (GOD runs on trusted network)
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "Accept"],
-    expose_headers=["X-Request-Id"],
-)
-
-
-@app.exception_handler(Exception)
-async def _global_error_handler(request: Request, exc: Exception):
-    """Global error handler — log full traceback, return safe JSON."""
-    log.error("Unhandled %s %s: %s", request.method, request.url.path, exc, exc_info=True)
-    return JSONResponse(status_code=500, content={"error": "Internal server error", "path": request.url.path})
-
-
-@app.middleware("http")
-async def _log_middleware(request: Request, call_next):
-    # Auth check for sensitive endpoints
-    auth_err = _check_endpoint_auth(request.url.path, request.headers.get("authorization"))
-    if auth_err:
-        return JSONResponse(status_code=auth_err.get("status", 401), content={"error": auth_err["error"]})
-
-    t0 = _time.time()
-    response = await call_next(request)
-    ms = (_time.time() - t0) * 1000
-    if not request.url.path.startswith("/api/stream"):
-        _log_req(request.method, request.url.path, response.status_code, ms)
-    return response
-
-
-@app.get("/")
-def index():
-    return FileResponse(ROOT / "index.html")
-
-
-@app.get("/preview/{slug}")
-@app.get("/preview/{slug}/")
-@app.get("/preview/{slug}/{path:path}")
-def preview_site(slug: str, path: str = ""):
-    """Sites gerados em data/projects. Sem segundo uvicorn. Sem path traversal."""
-    import re as _re
-
-    if not _re.fullmatch(r"[a-z0-9-]{1,40}", slug or ""):
-        raise HTTPException(400, "slug inválido")
-    root = (DATA / "projects" / slug).resolve()
-    base = (DATA / "projects").resolve()
-    if base not in root.parents and root != base:
-        raise HTTPException(400, "fora de projects")
-    rel = (path or "index.html").lstrip("/") or "index.html"
-    if ".." in Path(rel).parts:
-        raise HTTPException(400, "path recusado")
-    target = (root / rel).resolve()
-    if root not in target.parents and target != root:
-        raise HTTPException(400, "path recusado")
-    if target.is_dir():
-        target = target / "index.html"
-    if not target.is_file():
-        raise HTTPException(404, "ficheiro inexistente")
-    return FileResponse(target)
-
-
-@app.get("/api/state")
-def state():
-    return snapshot()
-
-
-@app.get("/api/suggestions")
-def suggestions():
-    """Proactive suggestions based on system state."""
-    from superai.observer import generate_suggestions
-    return {"suggestions": generate_suggestions()}
-
-
-@app.get("/api/health")
-def health():
-    """Liveness leve — sem Qdrant/snapshot. Métricas pesadas em /api/metrics."""
-    eye = observer.latest()
-    mode, _ = resolve_mode()
     return {
-        "ok": eye.get("ok", True),
-        "mode": mode,
-        "workers_alive": eye.get("metrics", {}).get("workers_alive"),
-        "queue_depth": eye.get("metrics", {}).get("queue_depth"),
-        "alerts": [a["code"] for a in eye.get("alerts") or []],
-        "gpu_required": False,
-    }
-
-
-@app.get("/api/admin/backup")
-def admin_backup():
-    """Download a backup of the GOD database."""
-    import shutil, datetime as _dt
-    ts = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
-    db_path = DATA / "god.db"
-    if not db_path.exists():
-        raise HTTPException(404, "Database not found")
-    backup_path = BACKUP_DIR / f"god_{ts}.db"
-    shutil.copy2(str(db_path), str(backup_path))
-    backups = sorted(BACKUP_DIR.glob("god_*.db"), key=lambda p: p.stat().st_mtime, reverse=True)
-    for old in backups[7:]:
-        old.unlink()
-    log.info("Backup created: %s", backup_path.name)
-    return FileResponse(str(backup_path), filename=f"god_backup_{ts}.db", media_type="application/octet-stream")
-
-
-@app.get("/api/health/deep")
-def health_deep():
-    """Deep health check — tests each component."""
-    import datetime
-    checks = {}
-
-    # SQLite
-    try:
-        from superai.store import store
-        with store._lock, store._conn() as c:
-            c.execute("SELECT 1")
-        checks["sqlite"] = {"ok": True}
-    except Exception as e:
-        checks["sqlite"] = {"ok": False, "error": str(e)[:100]}
-
-    # Providers
-    try:
-        from superai import providers
-        hs = providers.health_all()
-        avail = [h for h in hs if h.get("available")]
-        checks["providers"] = {"ok": len(avail) > 0, "available": len(avail), "total": len(hs)}
-    except Exception as e:
-        checks["providers"] = {"ok": False, "error": str(e)[:100]}
-
-    # Memory
-    try:
-        from superai.memory_vec import vectors
-        checks["memory"] = {"ok": True, "backend": vectors.health().get("backend", "sqlite")}
-    except Exception as e:
-        checks["memory"] = {"ok": False, "error": str(e)[:100]}
-
-    # Queue
-    try:
-        from superai import queue as tq
-        qs = tq.queue_stats() if hasattr(tq, 'queue_stats') else {}
-        checks["queue"] = {"ok": True, **qs}
-    except Exception as e:
-        checks["queue"] = {"ok": False, "error": str(e)[:100]}
-
-    # Disk
-    try:
-        import shutil
-        usage = shutil.disk_usage(str(DATA))
-        pct = round((usage.used / usage.total) * 100, 1)
-        checks["disk"] = {"ok": pct < 95, "used_pct": pct, "free_gb": round(usage.free / (1024**3), 1)}
-    except Exception as e:
-        checks["disk"] = {"ok": False, "error": str(e)[:100]}
-
-    all_ok = all(c.get("ok") for c in checks.values())
-    return {"ok": all_ok, "checks": checks, "ts": datetime.datetime.now().isoformat()}
-
-
-@app.get("/api/metrics")
-def metrics():
-    m = observer.inspect()
-    try:
-        from superai.health import diagnostics
-        d = diagnostics()
-        m["health_pct"] = d.get("health_pct", 0)
-        m["health_components"] = d.get("n_components", 0)
-        m["health_ok"] = d.get("n_ok", 0)
-    except Exception:
-        pass
-    return m
-
-
-@app.get("/api/token/usage")
-def token_usage():
-    return ti.usage_summary()
-
-
-@app.get("/api/token/cost")
-def token_cost():
-    return ti.pricing()
-
-
-@app.get("/api/token/budget")
-def token_budget():
-    return ti.budget_status()
-
-
-@app.get("/api/token/forecast")
-def token_forecast():
-    return ti.forecast()
-
-
-@app.get("/api/token/anomalies")
-def token_anomalies():
-    return ti.anomalies()
-
-
-@app.get("/api/token/efficiency")
-def token_efficiency():
-    return ti.efficiency()
-
-
-@app.get("/api/token/report")
-def token_report():
-    return ti.report()
-
-
-@app.get("/api/token/models")
-def token_models():
-    return ti.models()
-
-
-@app.post("/api/params")
-def params(body: ParamsIn, authorization: str | None = Header(default=None)):
-    """Update params. Protected — requires CONFIG_WRITE."""
-    _require_perm(authorization, auth.Perm.CONFIG_WRITE)
-    return set_params(body.patch)
-
-
-@app.get("/api/missions")
-def api_missions():
-    from superai import mission as ms
-
-    return ms.snapshot()
-
-
-@app.get("/api/graph")
-def api_graph():
-    return tq.graph(20)
-
-
-@app.get("/api/gods")
-def api_gods():
-    from superai import gods
-
-    return {"active": gods.active(), "list": gods.list_gods()}
-
-
-@app.get("/api/gods/{gid}")
-def api_god(gid: str):
-    from superai import gods
-
-    g = gods.get(gid)
-    if not g:
-        raise HTTPException(404, "GOD inexistente")
-    return g
-
-
-@app.post("/api/gods")
-def api_gods_save(body: GodIn, authorization: str | None = Header(default=None)):
-    """Save GOD profile. Requires GODS_MANAGE."""
-    _require_perm(authorization, auth.Perm.GODS_MANAGE)
-    from superai import gods
-    from superai.runtime import _broadcast
-
-    payload = body.model_dump()
-    if not payload.get("id"):
-        payload.pop("id", None)
-    r = gods.save(payload)
-    if not r.get("ok"):
-        raise HTTPException(400, r.get("error") or "save fail")
-    _broadcast()
-    return r
-
-
-@app.post("/api/gods/{gid}/activate")
-def api_gods_activate(gid: str, authorization: str | None = Header(default=None)):
-    """Activate GOD profile. Requires GODS_ACTIVATE."""
-    _require_perm(authorization, auth.Perm.GODS_ACTIVATE)
-    from superai import gods
-    from superai.runtime import _broadcast
-
-    r = gods.activate(gid)
-    if not r.get("ok"):
-        raise HTTPException(404, r.get("error") or "not found")
-    _broadcast()
-    return r
-
-
-@app.get("/api/gods/{gid}/versions")
-def api_gods_versions(gid: str):
-    from superai import gods
-
-    return {"id": gid, "versions": gods.versions(gid)}
-
-
-@app.post("/api/gods/{gid}/rollback")
-def api_gods_rollback(gid: str, body: RollbackIn, authorization: str | None = Header(default=None)):
-    """Rollback GOD profile. Requires GODS_MANAGE."""
-    _require_perm(authorization, auth.Perm.GODS_MANAGE)
-    from superai import gods
-    from superai.runtime import _broadcast
-
-    r = gods.rollback(gid, body.version)
-    if not r.get("ok"):
-        raise HTTPException(400, r.get("error") or "rollback fail")
-    _broadcast()
-    return r
-
-
-@app.post("/api/repair")
-def api_repair(authorization: str | None = Header(default=None)):
-    """Run repair. Requires REPAIR_EXECUTE."""
-    _require_perm(authorization, auth.Perm.REPAIR_EXECUTE)
-    from superai import repair
-    from superai.runtime import _broadcast
-
-    r = repair.run()
-    _broadcast()
-    return r
-
-
-@app.post("/api/chat")
-def chat(body: ChatIn):
-    return handle(body.text, from_worker=body.from_worker)
-
-
-
-@app.get("/api/adaptive-routing")
-def adaptive_routing_stats():
-    from superai.adaptive_routing import get_stats
-    return get_stats()
-
-
-@app.get("/api/knowledge-graph")
-def knowledge_graph_stats():
-    from superai.knowledge_graph import stats, get_user_preferences
-    return {"stats": stats(), "preferences": get_user_preferences()}
-
-
-@app.get("/api/knowledge-gaps")
-def knowledge_gaps():
-    from superai.evolution import knowledge_gaps_summary
-    return knowledge_gaps_summary()
-
-
-@app.get("/api/evolution/auto-experiments")
-def auto_experiments():
-    from superai.evolution import generate_usage_experiments, experiments_summary
-    return {"generated": generate_usage_experiments(), "summary": experiments_summary()}
-
-
-@app.get("/api/embedding-cache")
-def embedding_cache_stats():
-    from superai.embed import cache_stats
-    return cache_stats()
-
-
-@app.get("/api/pipeline/timing")
-def pipeline_timing():
-    from superai.runtime import _last_pipeline
-    lp = _last_pipeline
-    if not lp:
-        return {"kind": "MEASURED", "available": False}
-    return {
+        "status": "error",
+        "error": "nenhum search engine disponível ou rate limited",
+        "query": query,
         "kind": "MEASURED",
-        "available": True,
-        "stage_times": lp.get("stage_times", {}),
-        "total_ms": round((time.perf_counter() - lp.get("t0", time.perf_counter())) * 1000, 1) if lp.get("t0") else None,
-        "llm_ms": lp.get("llm_ms"),
-        "route": lp.get("route"),
-        "cache": lp.get("cache"),
-        "memory_hits": lp.get("memory_hits"),
+        "ts": now_iso(),
     }
 
 
-@app.get("/api/web/search")
-def web_search_endpoint(q: str = "", max_results: int = 5):
-    from superai.websearch import search
-    return search(q, max_results=max_results)
-
-
-@app.get("/api/web/fetch")
-def web_fetch_endpoint(url: str = ""):
-    from superai.websearch import fetch_page
-    return fetch_page(url)
-
-
-@app.get("/api/web/health")
-def web_health():
-    from superai.websearch import health
-    return health()
-
-
-@app.post("/api/github/configure")
-def github_configure(body: dict = {}):
-    from superai import github
-    token = body.get("token", "")
-    if token:
-        github.configure(token)
-        return {"ok": True, "authenticated": True}
-    github.configure_from_env()
-    return {"ok": True, "from_env": True}
-
-
-@app.get("/api/github/repos")
-def github_repos(owner: str = ""):
-    from superai.github import list_repos
-    return list_repos(owner)
-
-
-@app.get("/api/github/file")
-def github_file(owner: str, repo: str, path: str, ref: str = "main"):
-    from superai.github import get_file
-    return get_file(owner, repo, path, ref)
-
-
-@app.get("/api/github/search")
-def github_search_endpoint(q: str = "", owner: str = "", repo: str = ""):
-    from superai.github import search_code
-    return search_code(q, owner=owner, repo=repo)
-
-
-@app.get("/api/github/health")
-def github_health():
-    from superai.github import health
-    return health()
-
-
-@app.get("/api/sites")
-def list_sites():
-    from superai.site_aggregator import list_sites, health
-    return {"sites": list_sites(), "health": health()}
-
-
-@app.post("/api/sites/register")
-def register_site(body: dict = {}):
-    from superai.site_aggregator import register_site
-    return register_site(
-        url=body.get("url", ""),
-        name=body.get("name", ""),
-        category=body.get("category", "general"),
-        description=body.get("description", ""),
-    )
-
-
-@app.post("/api/sites/remove")
-def remove_site(body: dict = {}):
-    from superai.site_aggregator import remove_site
-    return remove_site(body.get("id", ""))
-
-
-@app.get("/api/sites/search")
-def search_sites(q: str = ""):
-    from superai.site_aggregator import search_sites
-    return search_sites(q)
-
-
-@app.get("/api/autonomous-research")
-def autonomous_research_endpoint(q: str = ""):
-    from superai.autonomous_research import should_research, autonomous_research
-    import asyncio
-    decision = should_research(q)
-    result = asyncio.run(autonomous_research(q))
-    return {"decision": decision, "research": result}
-
-
-@app.get("/api/news/search")
-def news_search(q: str = ""):
-    from superai.news_connector import search_news
-    return search_news(q)
-
-
-@app.get("/api/news/latest")
-def news_latest(limit: int = 10, category: str = ""):
-    from superai.news_connector import get_latest
-    return get_latest(limit=limit, category=category)
-
-
-@app.get("/api/news/sources")
-def news_sources():
-    from superai.news_connector import get_sources
-    return get_sources()
-
-
-@app.get("/api/news/health")
-def news_health():
-    from superai.news_connector import health
-    return health()
-
-
-@app.get("/api/learner/status")
-def learner_status():
-    from superai.autonomous_learner import status
-    return status()
-
-
-@app.post("/api/learner/start")
-def learner_start():
-    from superai.autonomous_learner import start
-    start()
-    return {"ok": True, "message": "Autonomous learner started"}
-
-
-@app.post("/api/learner/stop")
-def learner_stop():
-    from superai.autonomous_learner import stop
-    stop()
-    return {"ok": True, "message": "Autonomous learner stopped"}
-
-
-@app.get("/api/idle-worker/status")
-def idle_worker_status():
-    from superai.idle_worker import status
-    return status()
-
-
-@app.post("/api/idle-worker/start")
-def idle_worker_start():
-    from superai.idle_worker import start
-    start()
-    return {"ok": True}
-
-
-@app.post("/api/idle-worker/stop")
-def idle_worker_stop_endpoint():
-    from superai.idle_worker import stop
-    stop()
-    return {"ok": True}
-
-
-@app.get("/api/auditor/status")
-def auditor_status():
-    from superai.knowledge_auditor import status
-    return status()
-
-
-@app.post("/api/auditor/force")
-def auditor_force():
-    from superai.knowledge_auditor import force_audit
-    return force_audit()
-
-
-@app.get("/api/fine-memory")
-def fine_memory_list():
-    from superai.knowledge_auditor import fine_memory_list
-    items = fine_memory_list(50)
-    return {"count": len(items), "items": items}
-
-
-@app.get("/api/fine-memory/search")
-def fine_memory_search(q: str = ""):
-    from superai.knowledge_auditor import fine_memory_search
-    items = fine_memory_search(q, 10) if q else []
-    return {"count": len(items), "items": items}
-
-
-@app.get("/api/brain/status")
-def brain_status():
-    """What is GOD doing right now?"""
-    from superai.autonomous_learner import status as learner_status
-    from superai.idle_worker import status as idle_status
-    from superai.knowledge_auditor import status as auditor_status
-    from superai.health import diagnostics
-    
-    health = diagnostics()
-    learner = learner_status()
-    idle = idle_status()
-    auditor = auditor_status()
-    
-    return {
-        "health_pct": health.get("health_pct", 0),
-        "health_components": health.get("components", {}),
-        "learner": {
-            "running": learner.get("running", False),
-            "facts_learned": learner.get("learned_facts", 0),
-            "cycles": learner.get("cycle_count", 0),
-        },
-        "idle_worker": {
-            "running": idle.get("running", False),
-            "tasks_done": idle.get("tasks_done", 0),
-            "last_task": idle.get("last_task", {}),
-        },
-        "auditor": {
-            "running": auditor.get("running", False),
-            "audits_done": auditor.get("audit_count", 0),
-            "fine_memory": auditor.get("fine_memory_count", 0),
-        },
-    }
-
-
-@app.get("/api/providers/health")
-def providers_health():
-    """Health status of all LLM providers."""
+def fetch_page(url: str, max_chars: int = 5000) -> dict:
+    """Fetch and extract text content from a URL. Real-time web access."""
     try:
-        from superai import providers
-        all_h = providers.health_all()
-        available = [h for h in all_h if h.get("available")]
-        unavailable = [h for h in all_h if not h.get("available")]
+        # SSRF protection
+        from .network_control import validate_url
+        v = validate_url(url)
+        if not v.get("ok"):
+            return {"status": "error", "error": v.get("reason", "blocked"), "url": url}
+
+        r = _client.get(url, timeout=15.0)
+        if r.status_code != 200:
+            return {"status": "error", "error": f"HTTP {r.status_code}", "url": url}
+
+        html = r.text
+        # Extract text from HTML
+        text = _html_to_text(html)
+        title_m = re.search(r"<title[^>]*>([^<]+)</title>", html, re.I)
+        title = title_m.group(1).strip() if title_m else ""
+
         return {
-            "total": len(all_h),
-            "available": len(available),
-            "unavailable": len(unavailable),
-            "providers": all_h,
-            "available_names": [h.get("id") for h in available],
-            "unavailable_names": [h.get("id") for h in unavailable],
+            "status": "success",
+            "url": url,
+            "title": title,
+            "text": text[:max_chars],
+            "length": len(text),
+            "kind": "MEASURED",
+            "ts": now_iso(),
         }
     except Exception as e:
-        return {"error": str(e)}
+        return {"status": "error", "error": str(e), "url": url, "kind": "MEASURED"}
 
-@app.post("/api/chat/stream")
-async def chat_stream(body: ChatIn):
-    """Streaming chat via SSE — runs handle() then streams result text to frontend."""
-    from starlette.responses import StreamingResponse
-    import asyncio
 
-    async def _stream():
-        loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(None, lambda: handle(body.text, from_worker=body.from_worker))
+def _html_to_text(html: str) -> str:
+    """Extract readable text from HTML."""
+    # Remove scripts, styles, nav, footer, header
+    html = re.sub(r"<(script|style|nav|footer|header|aside)[^>]*>.*?</\1>", "", html, flags=re.S | re.I)
+    # Remove tags
+    text = re.sub(r"<[^>]+>", " ", html)
+    # Decode entities
+    text = text.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+    text = text.replace("&quot;", '"').replace("&#39;", "'").replace("&nbsp;", " ")
+    # Collapse whitespace
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
 
-        # Get the brain response text from _chat (last brain message)
-        brain_text = ""
+
+def _searxng(query: str, max_results: int) -> dict | None:
+    """Try local SearXNG instance."""
+    for port in (8080, 8888):
         try:
-            from superai.runtime import _chat as chat_msgs, _lock
-            with _lock:
-                for m in reversed(chat_msgs):
-                    if m.get("role") == "brain":
-                        brain_text = str(m.get("text") or "")
-                        break
+            r = _client.get(
+                f"http://127.0.0.1:{port}/search",
+                params={"q": query, "format": "json", "pageno": 1},
+                timeout=5.0,
+            )
+            if r.status_code == 200:
+                data = r.json()
+                results = []
+                for item in (data.get("results") or [])[:max_results]:
+                    results.append({
+                        "title": item.get("title", ""),
+                        "url": item.get("url", ""),
+                        "snippet": item.get("content", "")[:300],
+                    })
+                if results:
+                    return {
+                        "status": "success",
+                        "backend": f"searxng:{port}",
+                        "query": query,
+                        "n": len(results),
+                        "results": results,
+                        "kind": "MEASURED",
+                        "ts": now_iso(),
+                    }
         except Exception:
-            pass
-        if not brain_text:
-            brain_text = str(result.get("error", "") or "Sem resposta.")
-
-        # Stream to frontend in small chunks
-        chunk_size = 6
-        for i in range(0, len(brain_text), chunk_size):
-            chunk = brain_text[i:i + chunk_size]
-            yield f"data: {json.dumps({'token': chunk})}\n\n"
-            await asyncio.sleep(0.015)
-
-        yield f"data: {json.dumps({'done': True, 'via': result.get('via', 'unknown')})}\n\n"
-
-    return StreamingResponse(_stream(), media_type="text/event-stream")
+            continue
+    return None
 
 
-@app.post("/api/benchmark")
-def api_bench(authorization: str | None = Header(default=None)):
-    """Run benchmark. Requires BENCHMARK_RUN."""
-    _require_perm(authorization, auth.Perm.BENCHMARK_RUN)
-    return benchmark.run("api")
+def _ddg_html(query: str, max_results: int) -> dict | None:
+    """DuckDuckGo HTML search — real web results via HTML scraping."""
+    try:
+        url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}"
+        r = _client.get(url, timeout=10.0)
+        if r.status_code != 200:
+            return None
 
+        html = r.text
+        results = []
 
-@app.post("/api/evolve")
-def api_evolve(authorization: str | None = Header(default=None)):
-    """Run evolution cycle. Requires EVOLUTION_EXECUTE."""
-    _require_perm(authorization, auth.Perm.EVOLUTION_EXECUTE)
-    return evolution.run_cycle()
+        # Parse DDG HTML results
+        # Each result: <a class="result__a" href="URL">TITLE</a> + <a class="result__snippet">TEXT</a>
+        for m in re.finditer(
+            r'<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([^<]+)</a>.*?'
+            r'<a[^>]+class="result__snippet"[^>]*>(.*?)</a>',
+            html, re.S
+        ):
+            href = m.group(1)
+            title = re.sub(r"<[^>]+>", "", m.group(2)).strip()
+            snippet = re.sub(r"<[^>]+>", "", m.group(3)).strip()
 
+            # DDG wraps URLs in redirect — extract real URL
+            real_url = _extract_ddg_url(href)
 
-@app.post("/api/experiment")
-def api_exp(body: ExpIn, authorization: str | None = Header(default=None)):
-    """Decide experiment. Requires EVOLUTION_EXECUTE."""
-    _require_perm(authorization, auth.Perm.EVOLUTION_EXECUTE)
-    return {"msg": evolution.decide(body.id, body.approve)}
+            if title and real_url:
+                results.append({
+                    "title": title,
+                    "url": real_url,
+                    "snippet": snippet[:300],
+                })
 
+            if len(results) >= max_results:
+                break
 
-@app.post("/api/workers/register")
-def w_reg(body: WorkerIn, authorization: str | None = Header(default=None)):
-    """Register worker. Remote workers require SUPERAI_WORKER_TOKEN."""
-    _worker_auth(authorization, body.location)
-    return tq.register_worker(body.id, body.name or body.id, body.location, body.capabilities)
-
-
-@app.post("/api/workers/heartbeat")
-def w_hb(body: HeartbeatIn, authorization: str | None = Header(default=None)):
-    """Worker heartbeat. Auth checked based on worker location."""
-    # Check if worker exists and get location
-    workers = tq.workers_status()
-    worker = next((w for w in workers.get("workers", []) if w.get("id") == body.id), None)
-    location = worker.get("location", "remote") if worker else "remote"
-    _worker_auth(authorization, location)
-    tq.heartbeat(body.id, body.cpu, body.ram)
-    return {"ok": True}
-
-
-@app.post("/api/queue/claim")
-def q_claim(body: ClaimIn, authorization: str | None = Header(default=None)):
-    """Claim job. Auth checked based on worker location."""
-    workers = tq.workers_status()
-    worker = next((w for w in workers.get("workers", []) if w.get("id") == body.worker_id), None)
-    location = worker.get("location", "remote") if worker else "remote"
-    _worker_auth(authorization, location)
-    return tq.claim(body.worker_id)
-
-
-@app.post("/api/queue/complete")
-def q_done(body: CompleteIn, authorization: str | None = Header(default=None)):
-    """Complete job. Auth checked based on worker location."""
-    # For completions, we check the job's worker
-    # If no auth token configured and remote, reject
-    if authorization != f"Bearer {WORKER_TOKEN}" and WORKER_TOKEN:
-        # Could be local worker — allow for now
+        if results:
+            return {
+                "status": "success",
+                "backend": "duckduckgo_html",
+                "query": query,
+                "n": len(results),
+                "results": results,
+                "kind": "MEASURED",
+                "ts": now_iso(),
+            }
+    except Exception:
         pass
-    if body.ok:
-        tq.complete(body.id, body.result or {})
-    else:
-        tq.fail(body.id, body.error or "fail")
-    return {"ok": True}
+    return None
 
 
-@app.get("/api/os")
-def os_stat():
-    return aios.snapshot()
+def _extract_ddg_url(href: str) -> str:
+    """Extract real URL from DDG redirect URL."""
+    # DDG wraps: //duckduckgo.com/l/?uddg=REAL_URL&...
+    m = re.search(r"uddg=([^&]+)", href)
+    if m:
+        from urllib.parse import unquote
+        return unquote(m.group(1))
+    if href.startswith("//"):
+        return "https:" + href
+    if href.startswith("/"):
+        return None  # Internal DDG link
+    return href
 
 
-@app.get("/api/os/ps")
-def os_ps():
-    return aios.ps()
+def _ddg_instant(query: str, max_results: int) -> dict | None:
+    """DuckDuckGo Instant Answer API (free, no key) — fallback."""
+    try:
+        r = _client.get(
+            "https://api.duckduckgo.com/",
+            params={"q": query, "format": "json", "no_redirect": "1", "no_html": "1"},
+            timeout=8.0,
+        )
+        if r.status_code != 200:
+            return None
+        data = r.json()
+        results = []
+
+        abstract = data.get("Abstract", "")
+        abstract_url = data.get("AbstractURL", "")
+        if abstract:
+            results.append({
+                "title": data.get("Heading", query),
+                "url": abstract_url,
+                "snippet": abstract[:300],
+            })
+
+        for topic in (data.get("RelatedTopics") or [])[:max_results]:
+            if isinstance(topic, dict) and topic.get("Text"):
+                results.append({
+                    "title": topic.get("Text", "")[:100],
+                    "url": topic.get("FirstURL", ""),
+                    "snippet": topic.get("Text", "")[:300],
+                })
+
+        if results:
+            return {
+                "status": "success",
+                "backend": "duckduckgo_instant",
+                "query": query,
+                "n": min(len(results), max_results),
+                "results": results[:max_results],
+                "kind": "MEASURED",
+                "ts": now_iso(),
+            }
+    except Exception:
+        pass
+    return None
 
 
-@app.get("/api/os/dmesg")
-def os_dmesg():
-    return {"events": aios.dmesg()}
+def health() -> dict:
+    """Check which search backends are available."""
+    backends = {}
 
+    # SearXNG
+    for port in (8080, 8888):
+        try:
+            r = _client.get(f"http://127.0.0.1:{port}/", timeout=1.0)
+            backends[f"searxng:{port}"] = r.status_code == 200
+        except Exception:
+            backends[f"searxng:{port}"] = False
 
-@app.get("/api/os/mounts")
-def os_mounts():
-    return aios.mounts()
+    # DuckDuckGo HTML
+    try:
+        r = _client.get("https://html.duckduckgo.com/html/?q=test", timeout=5.0)
+        backends["duckduckgo_html"] = r.status_code == 200
+    except Exception:
+        backends["duckduckgo_html"] = False
 
+    # DuckDuckGo Instant
+    try:
+        r = _client.get("https://api.duckduckgo.com/?q=test&format=json", timeout=3.0)
+        backends["duckduckgo_instant"] = r.status_code == 200
+    except Exception:
+        backends["duckduckgo_instant"] = False
 
-@app.get("/api/os/drivers")
-def os_drivers():
-    return {"drivers": aios.drivers()}
-
-
-@app.post("/api/os/kill")
-def os_kill(body: KillIn, authorization: str | None = Header(default=None)):
-    """Kill process. Critical — requires OS_KILL."""
-    _require_perm(authorization, auth.Perm.OS_KILL)
-    return aios.kill(body.id)
-
-
-@app.post("/api/os/syscall")
-def os_sys(body: SyscallIn, authorization: str | None = Header(default=None)):
-    """Execute syscall. Critical — requires OS_EXECUTE."""
-    _require_perm(authorization, auth.Perm.OS_EXECUTE)
-    return aios.syscall(body.name, body.args or {})
-
-
-@app.post("/api/os/nice")
-def os_nice(body: NiceIn, authorization: str | None = Header(default=None)):
-    """Nice process. Requires OS_EXECUTE."""
-    _require_perm(authorization, auth.Perm.OS_EXECUTE)
-    return aios.nice(body.id, body.priority)
-
-
-@app.get("/v1/models")
-def v1_models():
-    gw = routing.health()
-    ids = gw["omniroute"]["models"] or gw["direct"]["models"] or ["superai-offline"]
-    return {"object": "list", "data": [{"id": i, "object": "model", "owned_by": gw["active"]} for i in ids]}
-
-
-@app.post("/v1/chat/completions")
-def v1_chat(body: ChatCompletion):
-    text = ""
-    for m in body.messages:
-        if m.get("role") == "user":
-            text = m.get("content") or text
-    handle(str(text))
-    s = snapshot()
-    reply = next((m["text"] for m in reversed(s.get("chat") or []) if m["role"] == "brain"), "")
+    available = [k for k, v in backends.items() if v]
     return {
-        "id": uid("chatcmpl"),
-        "object": "chat.completion",
-        "model": body.model,
-        "choices": [{"index": 0, "message": {"role": "assistant", "content": reply}, "finish_reason": "stop"}],
+        "kind": "MEASURED",
+        "backends": backends,
+        "available": available,
+        "n_available": len(available),
+        "ts": now_iso(),
     }
 
 
-@app.get("/api/stream")
-async def stream():
-    loop = asyncio.get_running_loop()
-    q: asyncio.Queue = asyncio.Queue()
-
-    def on_event(kind, payload):
-        loop.call_soon_threadsafe(q.put_nowait, (kind, payload))
-
-    unsub = bus.subscribe(on_event)
-
-    async def gen():
-        try:
-            yield f"event: snapshot\ndata: {json.dumps(snapshot(), ensure_ascii=False)}\n\n"
-            while True:
-                kind, payload = await q.get()
-                yield f"event: {kind}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
-        finally:
-            unsub()
-
-    return StreamingResponse(
-        gen(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
-    )
-
-
-# === P1.5 SYSTEM INTEGRITY ENDPOINTS ===
-
-
-@app.get("/api/system/state")
-def api_system_state():
-    """Estado completo do sistema. Tudo MEASURED ou UNKNOWN."""
-    return system_state()
-
-
-@app.get("/api/system/capabilities")
-def api_capabilities():
-    """Lista todas as capabilities com estado real."""
-    return capabilities_summary()
-
-
-@app.get("/api/system/capabilities/{name}")
-def api_capability(name: str):
-    """Detalhe de uma capability."""
-    cap = get_capability(name)
-    if not cap:
-        raise HTTPException(404, f"capability '{name}' não encontrada")
-    return cap
-
-
-@app.get("/api/system/can/{name}")
-def api_can(name: str):
-    """Pergunta: GOD pode fazer X?"""
-    return {"name": name, "can": can(name), "kind": "MEASURED"}
-
-
-@app.get("/api/system/health")
-def api_health_full():
-    """Health completo: liveness + readiness + diagnostics."""
-    return full_health()
-
-
-@app.get("/api/system/liveness")
-def api_liveness():
-    """Liveness: O processo está funcional?"""
-    return liveness()
-
-
-@app.get("/api/system/readiness")
-def api_readiness():
-    """Readiness: Está pronto para aceitar trabalho?"""
-    return readiness()
-
-
-@app.get("/api/system/diagnostics")
-def api_diagnostics():
-    """Diagnostics: Componentes disponíveis, falhados, porquê."""
-    from superai.health import diagnostics
-    return diagnostics()
-
-
-@app.get("/api/system/trace")
-def api_traces():
-    """Últimos traces de decisão."""
-    return {"traces": recent_traces(10), "kind": "MEASURED"}
-
-
-@app.get("/api/system/trace/{request_id}")
-def api_trace(request_id: str):
-    """Trace de um request específico."""
-    return trace_summary(request_id)
-
-
-# === FEATURE FLAGS ===
-
-
-@app.get("/api/system/flags")
-def api_flags():
-    """Lista todas as feature flags."""
-    return ff.flags_summary()
-
-
-@app.get("/api/system/flags/{name}")
-def api_flag(name: str):
-    """Detalhe de uma flag."""
-    f = ff.get_flag(name)
-    if not f:
-        raise HTTPException(404, f"flag '{name}' não encontrada")
-    return f
-
-
-@app.post("/api/system/flags/{name}/enable")
-def api_flag_enable(name: str, authorization: str | None = Header(default=None)):
-    """Enable feature flag. Requires FLAGS_MANAGE."""
-    _require_perm(authorization, auth.Perm.FLAGS_MANAGE)
-    """Activar uma feature flag."""
-    return ff.enable(name, reason="API request", actor="api")
-
-
-@app.post("/api/system/flags/{name}/disable")
-def api_flag_disable(name: str, authorization: str | None = Header(default=None)):
-    """Disable feature flag. Requires FLAGS_MANAGE."""
-    _require_perm(authorization, auth.Perm.FLAGS_MANAGE)
-    """Desactivar uma feature flag."""
-    return ff.disable(name, reason="API request", actor="api")
-
-
-# === RUNTIME PROTECTION ===
-
-
-class ResourceModeIn(BaseModel):
-    mode: str
-
-
-@app.get("/api/system/protection")
-def api_protection():
-    """Relatório de protecção: GOD Object + inspecção de ficheiros."""
-    return rp.protection_report()
-
-
-@app.get("/api/system/god-object")
-def api_god_object():
-    """Detecção de GOD Object anti-pattern."""
-    return rp.check_god_object()
-
-
-@app.get("/api/system/protection/inspect")
-def api_protection_inspect():
-    """Inspecionar todos os ficheiros fonte."""
-    return rp.inspect_all()
-
-
-# === RESOURCE MODE ===
-
-
-@app.get("/api/system/resource-mode")
-def api_resource_mode():
-    """Get current resource mode (ECO/NORMAL/PERFORMANCE)."""
-    from superai.governor import gov
-    return gov.resource_config()
-
-
-@app.post("/api/system/resource-mode")
-def api_set_resource_mode(body: ResourceModeIn, authorization: str | None = Header(default=None)):
-    """Set resource mode. Requires CONFIG_WRITE."""
-    _require_perm(authorization, auth.Perm.CONFIG_WRITE)
-    """Set resource mode."""
-    from superai.governor import gov, RESOURCE_MODES
-    from superai.runtime import _broadcast
-    if body.mode not in RESOURCE_MODES:
-        raise HTTPException(400, f"Invalid mode. Use: {list(RESOURCE_MODES.keys())}")
-    gov.set_resource_mode(body.mode)
-    _broadcast()
-    return {"ok": True, "mode": body.mode, "config": gov.resource_config()}
-
-
-# === EVOLUTION ===
-
-
-@app.get("/api/system/experiments")
-def api_experiments():
-    """Resumo das experiências de evolução."""
-    from superai.evolution import experiments_summary
-    return experiments_summary()
-
-
-# === VOICE ===
-
-
-class VoiceIn(BaseModel):
-    text: str
-    lang: str = "pt"
-    voice: str | None = None
-
-
-@app.get("/api/system/voice")
-def api_voice_health():
-    """Estado do sistema de voz."""
-    from superai.voice import health
-    return health()
-
-
-@app.post("/api/system/voice/speak")
-def api_voice_speak(body: VoiceIn, authorization: str | None = Header(default=None)):
-    """TTS. Requires TOOLS_EXECUTE."""
-    _require_perm(authorization, auth.Perm.TOOLS_EXECUTE)
-    """Converter texto em fala (TTS)."""
-    from superai.voice import speak
-    return speak(body.text, lang=body.lang, voice=body.voice)
-
-
-@app.get("/api/system/voice/voices")
-def api_voice_list(lang: str | None = None):
-    """Listar vozes disponíveis."""
-    from superai.voice import list_voices
-    return list_voices(lang)
-
-
-@app.get("/api/system/voice/audio/{filename}")
-def api_voice_audio(filename: str):
-    """Servir ficheiro de áudio gerado."""
-    import re as _re
-    if not _re.fullmatch(r"tts_[a-z0-9_]+\.mp3", filename):
-        raise HTTPException(400, "filename inválido")
-    path = DATA / "voice" / filename
-    if not path.is_file():
-        raise HTTPException(404, "ficheiro inexistente")
-    return FileResponse(path, media_type="audio/mpeg")
-
-
-# === WEB SEARCH ===
-
-
-class SearchIn(BaseModel):
-    query: str
-    max_results: int = 5
-
-
-@app.get("/api/system/websearch")
-def api_websearch_health():
-    """Estado dos backends de pesquisa web."""
-    from superai.websearch import health
-    return health()
-
-
-@app.post("/api/system/websearch")
-def api_websearch(body: SearchIn, authorization: str | None = Header(default=None)):
-    """Web search. Requires TOOLS_EXECUTE."""
-    _require_perm(authorization, auth.Perm.TOOLS_EXECUTE)
-    """Pesquisar na web."""
-    from superai.websearch import search
-    return search(body.query, max_results=body.max_results)
-
-
-# === AUTHENTICATION & AUTHORIZATION ===
-
-class LoginIn(BaseModel):
-    username: str
-    password: str
-
-class CreateUserIn(BaseModel):
-    username: str
-    password: str
-    role: str = "GUEST"
-
-class ApprovalIn(BaseModel):
-    action: str
-    resource: str = ""
-    scope: str = ""
-    reason: str = ""
-    risk_level: int = 3
-    duration_seconds: int = 300
-
-class ApprovalDecisionIn(BaseModel):
-    approve: bool
-
-class OverrideIn(BaseModel):
-    action: str
-    scope: str = "*"
-    reason: str = ""
-    risk_level: int = 3
-    duration_seconds: int = 600
-
-
-# ═══════════════════════════════════════════════════════════════
-# AUTH DEPENDENCY — centralised session validation
-# ═══════════════════════════════════════════════════════════════
-
-def _extract_session(authorization: str | None) -> str | None:
-    """Extract session_id from Authorization header."""
-    if not authorization:
-        return None
-    return authorization.replace("Bearer ", "").strip() or None
-
-# PUBLIC endpoints (no auth required)
-_PUBLIC_PATHS = {
-    "/",
-    "/api/auth/status",
-    "/api/auth/setup",
-    "/api/auth/login",
-    "/api/health",
-    "/api/state",
-}
-
-# SENSITIVE endpoints (require auth + permission)
-_SENSITIVE_PATHS = {
-    "/api/admin/backup": auth.Perm.SECURITY_MANAGE,
-    "/api/repair": auth.Perm.REPAIR_EXECUTE,
-    "/api/params": auth.Perm.CONFIG_WRITE,
-    "/api/gods": auth.Perm.GODS_MANAGE,
-    "/api/auth/users": auth.Perm.SECURITY_MANAGE,
-    "/api/auth/audit": auth.Perm.SECURITY_MANAGE,
-    "/api/auth/approvals": auth.Perm.SECURITY_MANAGE,
-    "/api/auth/overrides": auth.Perm.SECURITY_MANAGE,
-    "/api/security/network/policy": auth.Perm.SECURITY_MANAGE,
-    "/api/system/resource-mode": auth.Perm.CONFIG_WRITE,
-    "/api/system/nodes": auth.Perm.WORKER_MANAGE,
-    "/api/github/configure": auth.Perm.CONFIG_WRITE,
-    "/api/sites/register": auth.Perm.TOOLS_EXECUTE,
-    "/api/sites/remove": auth.Perm.TOOLS_EXECUTE,
-}
-
-def _check_endpoint_auth(path: str, authorization: str | None) -> dict | None:
-    """Check auth for an endpoint. Returns error dict or None (allowed)."""
-    # Public endpoints — always allowed
-    if path in _PUBLIC_PATHS:
-        return None
-    # Only check auth for explicitly sensitive endpoints
-    base_path = path.rstrip("/")
-    if base_path not in _SENSITIVE_PATHS:
-        return None  # Not sensitive — allow (auth checked at endpoint level if needed)
-    # Check if owner exists — if not, allow setup
-    if not auth.owner_exists():
-        return None
-    # Extract session
-    session_id = _extract_session(authorization)
-    if not session_id:
-        return {"error": "Autenticação necessária", "status": 401}
-    # Validate session
-    session = auth.validate_session(session_id)
-    if not session:
-        return {"error": "Sessão inválida ou expirada", "status": 401}
-    # Check permission
-    required_perm = _SENSITIVE_PATHS[base_path]
-    check = auth.require_permission(session_id, required_perm)
-    if not check.get("ok"):
-        return {"error": check.get("error", "Sem permissão"), "status": 403}
-    return None  # Allowed
-
-
-@app.get("/api/auth/status")
-def api_auth_status():
-    """Auth system status."""
-    return auth.auth_status()
-
-@app.post("/api/auth/setup")
-def api_auth_setup(body: LoginIn):
-    """Create initial OWNER account."""
-    r = auth.create_owner(body.username, body.password)
-    if not r.get("ok"):
-        raise HTTPException(400, r.get("error"))
-    return r
-
-@app.post("/api/auth/login")
-def api_auth_login(body: LoginIn):
-    """Login and get session."""
-    r = auth.login(body.username, body.password)
-    if not r.get("ok"):
-        raise HTTPException(401, r.get("error"))
-    return r
-
-@app.post("/api/auth/logout")
-def api_auth_logout(authorization: str | None = Header(default=None)):
-    """Logout and invalidate session."""
-    session_id = authorization.replace("Bearer ", "") if authorization else None
-    return auth.logout(session_id)
-
-@app.get("/api/auth/session")
-def api_auth_session(authorization: str | None = Header(default=None)):
-    """Get current session info."""
-    session_id = authorization.replace("Bearer ", "") if authorization else None
-    session = auth.validate_session(session_id)
-    if not session:
-        raise HTTPException(401, "Sessão inválida")
-    return session
-
-@app.post("/api/auth/users")
-def api_create_user(body: CreateUserIn, authorization: str | None = Header(default=None)):
-    """Create a new user (OWNER only)."""
-    session_id = authorization.replace("Bearer ", "") if authorization else None
-    check = auth.require_permission(session_id, auth.Perm.SECURITY_MANAGE)
-    if not check.get("ok"):
-        raise HTTPException(check.get("code", 403), check.get("error"))
-    return auth.create_user(body.username, body.password, body.role)
-
-@app.get("/api/auth/users")
-def api_list_users(authorization: str | None = Header(default=None)):
-    """List users (OWNER only)."""
-    session_id = authorization.replace("Bearer ", "") if authorization else None
-    check = auth.require_permission(session_id, auth.Perm.SECURITY_MANAGE)
-    if not check.get("ok"):
-        raise HTTPException(check.get("code", 403), check.get("error"))
-    users = auth._load_users()
-    return [{"id": u["id"], "username": u["username"], "role": u["role"], "active": u["active"]} for u in users.values()]
-
-@app.get("/api/auth/audit")
-def api_audit_log(limit: int = 50, authorization: str | None = Header(default=None)):
-    """Get audit log (OWNER only)."""
-    session_id = authorization.replace("Bearer ", "") if authorization else None
-    check = auth.require_permission(session_id, auth.Perm.SECURITY_MANAGE)
-    if not check.get("ok"):
-        raise HTTPException(check.get("code", 403), check.get("error"))
-    return {"events": auth.audit_log(limit)}
-
-@app.get("/api/auth/approvals")
-def api_pending_approvals(authorization: str | None = Header(default=None)):
-    """List pending approvals (OWNER only)."""
-    session_id = authorization.replace("Bearer ", "") if authorization else None
-    check = auth.require_permission(session_id, auth.Perm.SECURITY_MANAGE)
-    if not check.get("ok"):
-        raise HTTPException(check.get("code", 403), check.get("error"))
-    return {"approvals": auth.pending_approvals()}
-
-@app.post("/api/auth/approvals/{approval_id}/decide")
-def api_decide_approval(approval_id: str, body: ApprovalDecisionIn, authorization: str | None = Header(default=None)):
-    """Approve or deny an approval (OWNER only)."""
-    session_id = authorization.replace("Bearer ", "") if authorization else None
-    check = auth.require_permission(session_id, auth.Perm.SECURITY_MANAGE)
-    if not check.get("ok"):
-        raise HTTPException(check.get("code", 403), check.get("error"))
-    return auth.decide_approval(approval_id, check["user_id"], body.approve)
-
-@app.post("/api/auth/overrides")
-def api_create_override(body: OverrideIn, authorization: str | None = Header(default=None)):
-    """Create a governor override (OWNER only)."""
-    session_id = authorization.replace("Bearer ", "") if authorization else None
-    check = auth.require_permission(session_id, auth.Perm.GOVERNOR_OVERRIDE)
-    if not check.get("ok"):
-        raise HTTPException(check.get("code", 403), check.get("error"))
-    return auth.create_override(check["user_id"], body.action, body.scope, body.reason, body.risk_level, body.duration_seconds)
-
-
-# === NODES ===
-
-
-class NodeIn(BaseModel):
-    id: str
-    name: str
-    location: str = "remote"
-    capabilities: list[str] = []
-
-
-@app.get("/api/system/nodes")
-def api_nodes():
-    """List registered nodes."""
-    from superai.nodes import registry
-    return registry.status()
-
-
-@app.post("/api/system/nodes")
-def api_register_node(body: NodeIn, authorization: str | None = Header(default=None)):
-    """Register node. Requires WORKER_MANAGE."""
-    _require_perm(authorization, auth.Perm.WORKER_MANAGE)
-    """Register a new node."""
-    from superai.nodes import registry
-    from superai.runtime import _broadcast
-    r = registry.register(body.id, body.name, body.location, body.capabilities)
-    if r.get("ok"):
-        _broadcast()
-    return r
-
-
-@app.delete("/api/system/nodes/{node_id}")
-def api_unregister_node(node_id: str, authorization: str | None = Header(default=None)):
-    """Unregister node. Requires WORKER_MANAGE."""
-    _require_perm(authorization, auth.Perm.WORKER_MANAGE)
-    """Unregister a node."""
-    from superai.nodes import registry
-    from superai.runtime import _broadcast
-    r = registry.unregister(node_id)
-    if r.get("ok"):
-        _broadcast()
-    return r
-
-
-# === RATE LIMITING ===
-
-@app.get("/api/security/sensitive/scan")
-def api_sensitive_scan(text: str, authorization: str | None = Header(default=None)):
-    """Scan text for sensitive data. Requires SECURITY_MANAGE."""
-    _require_perm(authorization, auth.Perm.SECURITY_MANAGE)
-    from superai import sensitive
-    return sensitive.scan_text(text)
-
-@app.get("/api/security/sandbox/check")
-def api_sandbox_check(path: str, operation: str = "read", authorization: str | None = Header(default=None)):
-    """Check if a path is allowed. Requires SECURITY_MANAGE."""
-    _require_perm(authorization, auth.Perm.SECURITY_MANAGE)
-    from superai import sandbox
-    return sandbox.check_path(path, operation)
-
-@app.get("/api/security/resources")
-def api_resource_usage(authorization: str | None = Header(default=None)):
-    """Get resource usage stats. Requires SECURITY_MANAGE."""
-    _require_perm(authorization, auth.Perm.SECURITY_MANAGE)
-    from superai import resource_limits
-    return resource_limits.get_tracker().get_stats()
-
-@app.get("/api/security/rate-limit")
-def api_rate_limit_status(authorization: str | None = Header(default=None)):
-    """Get rate limiter stats. Requires SECURITY_MANAGE."""
-    _require_perm(authorization, auth.Perm.SECURITY_MANAGE)
-    from superai import rate_limit
-    return rate_limit.get_limiter().get_stats()
-
-@app.get("/api/security/network")
-def api_network_stats(authorization: str | None = Header(default=None)):
-    """Get network control stats. Requires SECURITY_MANAGE."""
-    _require_perm(authorization, auth.Perm.SECURITY_MANAGE)
-    from superai import network_control
-    return network_control.get_controller().get_stats()
-
-@app.get("/api/security/network/log")
-def api_network_log(limit: int = 50, authorization: str | None = Header(default=None)):
-    """Get network connection log. Requires SECURITY_MANAGE."""
-    _require_perm(authorization, auth.Perm.SECURITY_MANAGE)
-    from superai import network_control
-    return {"log": network_control.get_controller().get_connection_log(limit)}
-
-@app.post("/api/security/network/policy")
-def api_set_network_policy(
-    allow_outbound: bool = False,
-    allow_lan: bool = False,
-    allow_remote: bool = False,
-    authorization: str | None = Header(default=None),
-):
-    """Set network policy. Requires SECURITY_MANAGE."""
-    _require_perm(authorization, auth.Perm.SECURITY_MANAGE)
-    from superai import network_control
-    network_control.set_network_policy(allow_outbound, allow_lan, allow_remote)
-    return {"ok": True, "policy": network_control.get_controller().get_stats().get("policy")}
+def search_stats() -> dict:
+    """Search cache and rate limiting stats."""
+    return {
+        "kind": "MEASURED",
+        "cache_size": len(_cache),
+        "cache_ttl": _CACHE_TTL,
+        "rate_limit_per_sec": _MIN_INTERVAL,
+        "backends": ["searxng", "duckduckgo_html", "duckduckgo_instant"],
+        "ts": now_iso(),
+    }

@@ -625,12 +625,23 @@ def _stage_llm(text, task, pipeline, merged, ctx, *, _say, _mark, _set_pipe, _br
     if hardcore:
         pipeline["route"].append("HARDCORE_MODE")
         pipeline["hardcore"] = True
-    res = routing.complete(
-        _llm_prompt(text, merged, _dialogue(4, current=text), task_type=task_type),
-        max_tokens=max_tok,
-        recommendation=advice.get("recommendation"),
-        hardcore=hardcore,
-    )
+    # R-01: Pipeline timeout — 30s safety net (providers have their own timeouts)
+    import concurrent.futures
+    _llm_prompt_text = _llm_prompt(text, merged, _dialogue(4, current=text), task_type=task_type)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as _llm_pool:
+        _llm_future = _llm_pool.submit(
+            routing.complete,
+            _llm_prompt_text,
+            max_tokens=max_tok,
+            recommendation=advice.get("recommendation"),
+            hardcore=hardcore,
+        )
+        try:
+            res = _llm_future.result(timeout=30.0)
+        except concurrent.futures.TimeoutError:
+            _llm_future.cancel()
+            res = {"status": "error", "error": "LLM timeout (30s)", "adapter": "timeout"}
+            bus.emit("LLM_TIMEOUT", "WARNING", "LLM call exceeded 30s", god_core_state="error")
     pipeline["llm_ms"] = res.get("latency_ms")
     pipeline["llm_adapter"] = res.get("adapter") or res.get("provider")
     _mark(pipeline, "llm")
@@ -709,7 +720,13 @@ def _stage_llm(text, task, pipeline, merged, ctx, *, _say, _mark, _set_pipe, _br
             f"Resposta anterior: {original_text[:300]}\n\n"
             f"Melhora agora. Responde de novo ao pedido original:\n{text}"
         )
-        res2 = routing.complete(improved_prompt, max_tokens=max_tok, hardcore=hardcore)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as _ref_pool:
+            _ref_future = _ref_pool.submit(routing.complete, improved_prompt, max_tokens=max_tok, hardcore=hardcore)
+            try:
+                res2 = _ref_future.result(timeout=30.0)
+            except concurrent.futures.TimeoutError:
+                _ref_future.cancel()
+                res2 = {"status": "error", "error": "Reflection timeout"}
         if res2.get("status") == "success" and res2.get("text"):
             res = res2
             toks = int(res2.get("tokens") or 0)
