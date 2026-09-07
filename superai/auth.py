@@ -13,6 +13,45 @@ import time
 from dataclasses import dataclass, field, asdict
 from enum import Enum
 from pathlib import Path
+
+
+def _atomic_write_json(path: Path, data) -> None:
+    """Write JSON atomically: write to temp file, then rename.
+    Prevents corruption from concurrent writes or crashes."""
+    import tempfile
+    tmp_fd, tmp_path = tempfile.mkstemp(
+        dir=str(path.parent),
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+    )
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        os.replace(tmp_path, str(path))
+    except Exception:
+        # Clean up temp file on failure
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+
+
+def _atomic_append_jsonl(path: Path, event: dict) -> None:
+    """Append a JSON line atomically (best-effort for append)."""
+    import fcntl
+    with open(path, "a", encoding="utf-8") as f:
+        try:
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+        except (OSError, AttributeError):
+            pass  # Windows — fcntl not available
+        f.write(json.dumps(event, ensure_ascii=False) + "\n")
+        try:
+            f.flush()
+            os.fsync(f.fileno())
+        except OSError:
+            pass
+
 from typing import Any
 
 from .config import DATA
@@ -205,7 +244,7 @@ def _load_users() -> dict[str, dict]:
 
 def _save_users(users: dict[str, dict]):
     _ensure_auth_dir()
-    USERS_FILE.write_text(json.dumps(users, indent=2))
+    _atomic_write_json(USERS_FILE, users)
 
 def owner_exists() -> bool:
     """Check if an OWNER account exists."""
@@ -288,7 +327,7 @@ def _load_sessions():
 
 def _save_sessions():
     _ensure_auth_dir()
-    SESSIONS_FILE.write_text(json.dumps(_sessions, indent=2))
+    _atomic_write_json(SESSIONS_FILE, _sessions)
 
 def login(username: str, password: str) -> dict:
     """Authenticate user and create session."""
@@ -494,7 +533,7 @@ def _load_overrides():
 
 def _save_overrides():
     _ensure_auth_dir()
-    OVERRIDES_FILE.write_text(json.dumps(_overrides, indent=2))
+    _atomic_write_json(OVERRIDES_FILE, _overrides)
 
 def create_override(user_id: str, action: str, scope: str, reason: str, 
                    risk_level: int = Risk.HIGH, duration_seconds: int = 600) -> dict:
@@ -593,7 +632,7 @@ def _load_approvals():
 
 def _save_approvals():
     _ensure_auth_dir()
-    APPROVALS_FILE.write_text(json.dumps(_approvals, indent=2))
+    _atomic_write_json(APPROVALS_FILE, _approvals)
 
 def request_approval(user_id: str, action: str, resource: str, scope: str = "",
                     reason: str = "", risk_level: int = Risk.HIGH,
