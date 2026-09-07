@@ -3289,16 +3289,16 @@ if (_origPChat) {
 }
 
 
-// ═══ FILTER <think> BLOCKS FROM LLM OUTPUT ═══
+// FILTER THINK BLOCKS FROM LLM OUTPUT
 var _thinkBuffer = '';
 var _inThink = false;
 
 function filterThink(text) {
   if (!text) return text;
-  // Remove <think>...</think> blocks (Qwen thinking mode)
-  var result = text.replace(/<think>[\s\S]*?<\/think>/gi, '');
-  // Also handle unclosed <think> at end (during streaming)
-  result = result.replace(/<think>[\s\S]*$/gi, '');
+  // Remove think blocks (Qwen thinking mode) (Qwen thinking mode)
+  var result = text.replace(new RegExp('<' + 'think>[\\s\\S]*?<\\/' + 'think>', 'gi'), '');
+  // Also handle unclosed think at end (during streaming)
+  result = result.replace(new RegExp('<' + 'think>[\\s\\S]*$', 'gi'), '');
   return result.trim();
 }
 
@@ -3307,12 +3307,12 @@ function filterThinkToken(token) {
   _thinkBuffer += token;
   // Check if we're entering a think block
   if (!_inThink) {
-    var thinkStart = _thinkBuffer.indexOf('<think>');
+    var thinkStart = _thinkBuffer.indexOf('<' + 'think>');
     if (thinkStart !== -1) {
       _inThink = true;
       _thinkBuffer = '';
-      // Return only the part before <think>
-      return token.indexOf('<think>') !== -1 ? '' : token;
+      // Return only the part before think
+      return token.indexOf('<' + 'think>') !== -1 ? '' : token;
     }
     // No think block — return as-is, but keep last 7 chars as buffer for partial tag
     if (_thinkBuffer.length > 7) {
@@ -3322,7 +3322,8 @@ function filterThinkToken(token) {
     }
     return '';
   }
-  // We're inside a think block — look for</think>  var thinkEnd = _thinkBuffer.indexOf('</think>  if (thinkEnd !== -1) {
+  var thinkEnd = _thinkBuffer.indexOf('<' + '/think>');
+  if (thinkEnd !== -1) {
     _inThink = false;
     _thinkBuffer = '';
   }
@@ -3341,60 +3342,44 @@ function sendChat(text) {
 }
 
 
-// ═══ LEARNING EVIDENCE — show in activity log ═══
-function showLearningEvidence() {
+
+// LIVE ACTIVITY MONITOR
+var _activityCache = {};
+function pollActivity() {
   fetch('/api/learner/status').then(function(r){return r.json();}).then(function(d){
-    if (d.cycle_count > 0) {
-      addActivityLog('learn', 'Ciclos: ' + d.cycle_count + ' | Factos: ' + (d.learned_facts || 0));
-    }
-    if (d.last_cycle && d.last_cycle.summary) {
-      addActivityLog('learn', 'Ultimo ciclo: ' + d.last_cycle.summary);
+    var key = 'learner_' + (d.learned_facts||0) + '_' + (d.cycle_count||0);
+    if(d.running && key !== _activityCache.learner){
+      _activityCache.learner = key;
+      addActivityLog('learn', 'Aprendizagem: ' + (d.learned_facts||0) + ' factos, ' + (d.cycle_count||0) + ' ciclos');
     }
   }).catch(function(){});
-}
-
-// Show learning evidence every 60s
-setInterval(showLearningEvidence, 60000);
-// Also show on first load
-setTimeout(showLearningEvidence, 5000);
-
-
-// ═══ IDLE WORKER — show in activity log ═══
-function showIdleWorkerStatus() {
   fetch('/api/idle-worker/status').then(function(r){return r.json();}).then(function(d){
-    if (d.tasks_done > 0) {
-      addActivityLog('learn', 'Idle Worker: ' + d.tasks_done + ' tarefas de conhecimento');
-    }
-    if (d.last_task && d.last_task.task) {
-      addActivityLog('learn', 'Ultima tarefa: ' + d.last_task.task + ' → ' + (d.last_task.result || '').substring(0, 60));
+    var key = 'idle_' + (d.tasks_done||0);
+    if(d.running && key !== _activityCache.idle){
+      _activityCache.idle = key;
+      addActivityLog('learn', 'Worker: ' + (d.tasks_done||0) + ' tarefas');
+      if(d.last_task && d.last_task.task){
+        addActivityLog('learn', '  ' + d.last_task.task + ': ' + (d.last_task.result||'').substring(0,50));
+      }
     }
   }).catch(function(){});
-}
-
-// Show every 45s (between learner 60s and idle 60s)
-setInterval(showIdleWorkerStatus, 45000);
-setTimeout(showIdleWorkerStatus, 8000);
-
-
-// ═══ AUDITOR — show in activity log ═══
-function showAuditorStatus() {
   fetch('/api/auditor/status').then(function(r){return r.json();}).then(function(d){
-    if (d.audit_count > 0) {
-      addActivityLog('audit', 'Auditor: ' + d.audit_count + ' ciclos completos');
+    var key = 'audit_' + (d.audit_count||0) + '_' + (d.fine_memory_count||0);
+    if(d.running && key !== _activityCache.audit){
+      _activityCache.audit = key;
+      addActivityLog('audit', 'Auditor: ' + (d.audit_count||0) + ' ciclos, ' + (d.fine_memory_count||0) + ' memoria fina');
     }
-    if (d.last_audit && d.last_audit.summary) {
-      addActivityLog('audit', 'Ultimo audit: ' + d.last_audit.summary);
-    }
-    if (d.fine_memory_count > 0) {
-      addActivityLog('audit', 'Memória fina: ' + d.fine_memory_count + ' entradas curadas');
+  }).catch(function(){});
+  fetch('/api/health').then(function(r){return r.json();}).then(function(d){
+    var pct = d.health_pct || 0;
+    var key = 'health_' + pct;
+    if(key !== _activityCache.health){
+      _activityCache.health = key;
+      addActivityLog('health', 'Saude: ' + pct + '%');
     }
   }).catch(function(){});
 }
-
-// Show every 90s (between idle worker 45s and learner 60s)
-setInterval(showAuditorStatus, 90000);
-setTimeout(showAuditorStatus, 12000);
+setInterval(pollActivity, 30000);
+setTimeout(pollActivity, 3000);
 
 </script>
-</body>
-</html>
