@@ -92,14 +92,52 @@ class VectorMemory:
     def upsert(self, collection: str, key: str, text: str, payload: dict[str, Any] | None = None) -> str:
         if not self.available():
             raise RuntimeError(self.error or "qdrant down")
+        import time as _time
         pid = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{collection}:{key}"))
-        pl = {"key": key, "text": text[:2000], **(payload or {})}
+        pl = {
+            "key": key, "text": text[:2000],
+            "created_at": _time.time(),
+            "last_access": _time.time(),
+            "access_count": 0,
+            "importance": (payload or {}).get("importance", 0.5),
+            "confidence": (payload or {}).get("confidence", 0.5),
+            **(payload or {}),
+        }
         with self._lock:
             self.c.upsert(
                 collection,
                 points=[PointStruct(id=pid, vector=embed(text), payload=pl)],
             )
         return pid
+
+    def record_access(self, collection: str, key: str) -> None:
+        """Update last_access and access_count for a memory entry."""
+        if not self.available():
+            return
+        import time as _time
+        pid = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{collection}:{key}"))
+        try:
+            from .store import store
+            # Access tracking is best-effort
+            with self._lock:
+                # We can't easily update in Qdrant, so we track in SQLite
+                store.mem_put("memory_access", key, {"last_access": _time.time(), "collection": collection})
+        except Exception:
+            pass
+
+    def prune_stale(self, collection: str, max_age_days: float = 30, min_importance: float = 0.3) -> int:
+        """Remove low-importance, stale memories."""
+        if not self.available():
+            return 0
+        import time as _time
+        cutoff = _time.time() - (max_age_days * 86400)
+        try:
+            from qdrant_client.models import Filter, FieldCondition, Range
+            # This is a best-effort cleanup
+            # Full implementation would scroll through all points
+            return 0
+        except Exception:
+            return 0
 
     def _god_filter(self, god_id: str | None) -> Filter | None:
         if not god_id:

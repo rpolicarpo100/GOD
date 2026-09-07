@@ -222,6 +222,8 @@ def propose_with_risk(title: str, hypothesis: str, change: str, metric: str,
 
 def run_cycle() -> dict:
     obs = observe()
+    # Capture baseline BEFORE any changes
+    baseline = _capture_baseline()
     bench = benchmark.run(trigger="evolution")
     exp = propose_from_observe(obs)
 
@@ -236,8 +238,42 @@ def run_cycle() -> dict:
     if is_enabled("auto_evolve"):
         _auto_apply_pending()
 
+    # Compare benchmark with baseline
+    comparison = _compare_with_baseline(baseline, bench)
+
     bus.emit("EXPERIMENT_COMPLETED", "EVOLUTION", f"cycle {exp['id']} + bench {bench['run_id']}")
-    return {"observe": obs, "benchmark": bench, "experiment": exp}
+    return {"observe": obs, "benchmark": bench, "experiment": exp, "baseline": baseline, "comparison": comparison}
+
+
+def _capture_baseline() -> dict:
+    """Capture current system metrics as baseline for comparison."""
+    try:
+        from .trace import get_system_metrics, all_provider_scores
+        return {
+            "ts": now_iso(),
+            "metrics": get_system_metrics(),
+            "provider_scores": all_provider_scores(),
+        }
+    except Exception:
+        return {"ts": now_iso(), "metrics": {}, "provider_scores": {}}
+
+
+def _compare_with_baseline(baseline: dict, bench: dict) -> dict:
+    """Compare current benchmark with baseline."""
+    if not baseline or not bench:
+        return {"status": "no_comparison", "kind": "UNKNOWN"}
+    b_metrics = baseline.get("metrics", {})
+    return {
+        "status": "compared",
+        "kind": "MEASURED",
+        "baseline_ts": baseline.get("ts"),
+        "benchmark_run": bench.get("run_id"),
+        "benchmark_passed": bench.get("n_passed", 0),
+        "benchmark_total": bench.get("n_total", 0),
+        "baseline_llm_calls": b_metrics.get("llm_calls_total", 0),
+        "baseline_tool_calls": b_metrics.get("tool_calls_total", 0),
+        "baseline_cache_hits": b_metrics.get("cache_hits", 0),
+    }
 
 
 def _auto_apply_pending() -> None:
