@@ -525,7 +525,10 @@ def _stage_tools(text, task, pipeline, p, ctx, _say, _mark, _set_pipe, _broadcas
     critique = criticize(pipeline, task, tool_results, scores)
     _record_token(task, pipeline, ctx, actual=0, status="ok", via="tools", quality_score=scores.get("OVERALL"))
     store.mem_put(f"episode:{gods.active_id()}", task["title"], {"task_id": task["task_id"], "type": task["type"], "overall": scores["OVERALL"]})
-    cache_store(text, {"summary": tool_results, "scores": scores}, scores["OVERALL"], ns=gods.active_id())
+    # Only cache if at least one tool succeeded
+    any_success = any(r.get("status") == "success" for r in tool_results)
+    if any_success:
+        cache_store(text, {"summary": tool_results, "scores": scores}, scores["OVERALL"], ns=gods.active_id())
     _index_task(task, text, scores)
     task["status"] = "done"
     task["via"] = "tools"

@@ -399,9 +399,17 @@ def health():
     """Liveness leve — sem Qdrant/snapshot. Métricas pesadas em /api/metrics."""
     eye = observer.latest()
     mode, _ = resolve_mode()
+    # Health percentage
+    try:
+        from superai.health import diagnostics
+        d = diagnostics()
+        health_pct = d.get("health_pct", 0)
+    except Exception:
+        health_pct = 0
     return {
         "ok": eye.get("ok", True),
         "mode": mode,
+        "health_pct": health_pct,
         "workers_alive": eye.get("metrics", {}).get("workers_alive"),
         "queue_depth": eye.get("metrics", {}).get("queue_depth"),
         "alerts": [a["code"] for a in eye.get("alerts") or []],
