@@ -314,6 +314,34 @@ def _stage_cache(text, task, pipeline, need_mem, gid, _say, _mark, _set_pipe, _b
     return None  # no cache hit, continue
 
 
+def _rerank_memory(memories: list[dict], query: str, task_type: str) -> list[dict]:
+    """B-08: Re-rank memory results by combined relevance score.
+
+    Scoring: vector_similarity * 0.5 + keyword_match * 0.3 + kind_bonus * 0.2
+    """
+    if not memories:
+        return memories
+    _stops = {"o", "a", "os", "as", "um", "uma", "de", "do", "da", "em", "no", "na",
+              "que", "e", "é", "para", "com", "por", "se", "não", "eu", "tu", "ele",
+              "the", "is", "an", "and", "or", "of", "to", "in", "for", "it"}
+    query_words = set(query.lower().split()) - _stops
+    if not query_words:
+        return memories[:5]
+    _kind_bonus = {"fine_memory": 1.0, "vector": 0.8, "knowledge": 0.6, "task_pattern": 0.5, "style": 0.4, "episode": 0.4}
+    scored: list[tuple[float, dict]] = []
+    for m in memories:
+        vec_score = float(m.get("score") or 0.3)
+        mem_text = str(m.get("value") or m.get("text") or "").lower()
+        matched = sum(1 for w in query_words if w in mem_text)
+        kw_score = matched / len(query_words)
+        kind = m.get("kind", "episode")
+        kind_score = _kind_bonus.get(kind, 0.3)
+        combined = vec_score * 0.5 + kw_score * 0.3 + kind_score * 0.2
+        scored.append((combined, m))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [m for _, m in scored[:5]]
+
+
 def _stage_memory(text, task, pipeline, need_mem, gid, _mark):
     """Stage 3: Context-aware memory retrieval (SQL + Qdrant).
     
@@ -369,6 +397,8 @@ def _stage_memory(text, task, pipeline, need_mem, gid, _mark):
     merged = list(mem)
     for v in vec_mem:
         merged.append({"kind": "vector", "key": v.get("key"), "value": v.get("text"), "score": v.get("score")})
+    # B-08: Re-rank by combined relevance score
+    merged = _rerank_memory(merged, text, task.get("type", "general"))
     ctx = context_pack(task, merged)
     raw_ctx = (task.get("text") or "") + "\n" + "\n".join(str(m.get("value") or m.get("text") or "") for m in merged)
     pipeline["context"] = ti.context_efficiency(raw_ctx, ctx["text"])
@@ -752,7 +782,7 @@ def run_pipeline(text: str, task: dict, from_worker: bool, *,
     resource_tracker.start_task(task["task_id"])
 
     pipeline = {
-        "task": {k: task[k] for k in ("task_id", "type", "complexity", "exec_mode", "reasoning_required", "estimated_tokens", "reasoning_budget", "privacy", "tool_requirement")},
+        "task": {k: task[k] for k in ("task_id", "type", "complexity", "exec_mode", "reasoning_required", "estimated_tokens", "reasoning_budget", "privacy", "tool_requirement", "classify_method", "classify_confidence")},
         "cache": "miss",
         "memory_hits": 0,
         "firewall": None,

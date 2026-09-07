@@ -8,15 +8,25 @@ Rules:
 - Only facts from the pipeline, never invented
 - Never blocks execution — always advisory
 - Reports: what happened, was it optimal, what could improve
+
+B-06: Auto-correction — tracks repeated findings and applies corrective actions.
 """
 from __future__ import annotations
 
 import json
+import logging
+import threading
 from typing import Any
 
 from .events import bus
 from .store import store
 from .util import now_iso
+
+_log = logging.getLogger("superai.thirdeye")
+
+# B-06: Pattern tracking for auto-correction
+_pattern_counts: dict[str, int] = {}
+_CORRECTION_THRESHOLD = 3
 
 
 def criticize(pipeline: dict, task: dict, tool_results: list[dict], scores: dict | None) -> dict:
@@ -92,6 +102,12 @@ def criticize(pipeline: dict, task: dict, tool_results: list[dict], scores: dict
     if n_issues > 0:
         bus.emit("THIRD_EYE_FINDING", "NOTICE",
                  f"task {task.get('task_id')} {n_issues} issue(s) found")
+
+    # B-06: Auto-correction — track patterns and apply corrections
+    corrections = _track_and_correct(findings, task, pipeline, scores)
+    if corrections:
+        result["auto_corrections"] = corrections
+        result["n_corrections"] = len(corrections)
 
     return result
 
@@ -527,3 +543,101 @@ def format_criticism(critique: dict) -> str:
 # ═══════════════════════════════
 # OUTCOME CRITICISM (Third Eye 2.0)
 # ═══════════════════════════════
+
+
+# ═══════════════════════════════
+# B-06: AUTO-CORRECTION ENGINE
+# ═══════════════════════════════
+
+def _track_and_correct(findings: list[dict], task: dict, pipeline: dict, scores: dict | None) -> list[dict]:
+    """B-06: Track repeated findings and apply corrective actions.
+
+    When a finding pattern repeats 3+ times, emits a corrective action.
+    All corrections are logged, non-destructive, and advisory + actionable.
+    """
+    global _pattern_counts
+    corrections: list[dict] = []
+    for f in findings:
+        if f.get("severity") not in ("WARNING", "CRITICAL"):
+            continue
+        check = f.get("check", "unknown")
+        pattern_key = f"{check}:{f.get('msg', '')[:60]}"
+        _pattern_counts[pattern_key] = _pattern_counts.get(pattern_key, 0) + 1
+        count = _pattern_counts[pattern_key]
+        if count < _CORRECTION_THRESHOLD:
+            continue
+        correction = _apply_correction(check, f, task, pipeline, scores, count)
+        if correction:
+            corrections.append(correction)
+            _pattern_counts[pattern_key] = 0
+    return corrections
+
+
+def _apply_correction(check: str, finding: dict, task: dict, pipeline: dict,
+                      scores: dict | None, count: int) -> dict | None:
+    """Apply a corrective action for a repeated finding pattern."""
+    ts = now_iso()
+    msg = finding.get("msg", "")
+
+    if check == "cache_usage" and "cache miss" in msg.lower():
+        correction = {
+            "type": "cache_warmup", "ts": ts,
+            "msg": f"Cache miss pattern detected ({count}x). Consider enabling semantic_cache.",
+            "action": "enable_semantic_cache",
+        }
+        store.mem_put("correction", f"cache_miss_{count}", correction)
+        bus.emit("AUTO_CORRECTION", "NOTICE",
+                 f"ThirdEye: cache miss repeated {count}x", god_core_state="learning")
+        return correction
+
+    if check == "latency" and ">5s" in msg:
+        correction = {
+            "type": "latency_optimization", "ts": ts,
+            "msg": f"High latency pattern detected ({count}x). Check resource mode.",
+            "action": "check_resource_mode",
+        }
+        store.mem_put("correction", f"slow_{count}", correction)
+        bus.emit("AUTO_CORRECTION", "NOTICE",
+                 f"ThirdEye: slow latency repeated {count}x", god_core_state="learning")
+        return correction
+
+    if check == "scores" and "low quality" in msg.lower():
+        correction = {
+            "type": "quality_improvement", "ts": ts,
+            "msg": f"Low quality pattern detected ({count}x). Adjust provider routing.",
+            "action": "adjust_routing",
+        }
+        store.mem_put("correction", f"quality_{count}", correction)
+        bus.emit("AUTO_CORRECTION", "NOTICE",
+                 f"ThirdEye: low quality repeated {count}x", god_core_state="learning")
+        return correction
+
+    if check == "token_efficiency" and "> 2x" in msg:
+        correction = {
+            "type": "token_optimization", "ts": ts,
+            "msg": f"Token waste pattern detected ({count}x). Optimize context.",
+            "action": "optimize_context",
+        }
+        store.mem_put("correction", f"token_waste_{count}", correction)
+        bus.emit("AUTO_CORRECTION", "NOTICE",
+                 f"ThirdEye: token waste repeated {count}x", god_core_state="learning")
+        return correction
+
+    if check == "path_optimality" and "FAST" in msg and "queue" in msg:
+        correction = {
+            "type": "routing_fix", "ts": ts,
+            "msg": f"FAST→queue routing error repeated ({count}x).",
+            "action": "fix_fast_routing",
+        }
+        store.mem_put("correction", f"fast_queue_{count}", correction)
+        bus.emit("AUTO_CORRECTION", "WARNING",
+                 f"ThirdEye: FAST→queue error repeated {count}x", god_core_state="learning")
+        return correction
+
+    return None
+
+
+def corrections_history(limit: int = 10) -> list[dict]:
+    """Return recent auto-corrections from store."""
+    rows = store.mem_search("correction", kinds=["correction"], limit=limit)
+    return [r for r in rows or []]

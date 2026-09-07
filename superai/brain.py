@@ -81,22 +81,107 @@ TYPE_RULES = [
 ]
 
 
+def _regex_confidence(low: str) -> tuple[str, float]:
+    """B-04: Multi-match regex with specificity scoring.
+
+    Returns (best_type, confidence) where confidence is 0.0-1.0.
+    Collects ALL regex matches and picks the best by specificity.
+    More specific patterns (longer regex) → higher confidence.
+    """
+    matches: list[tuple[str, float]] = []
+    for name, rx in TYPE_RULES:
+        m = re.search(rx, low, re.I)
+        if m:
+            match_len = len(m.group(0))
+            text_len = max(len(low), 1)
+            pattern_len = len(rx)
+            coverage = min(match_len / max(text_len, 1), 1.0)
+            specificity = min(pattern_len / 80.0, 1.0)
+            conf = coverage * 0.4 + specificity * 0.6
+            matches.append((name, round(conf, 3)))
+    if not matches:
+        return "general", 0.0
+    matches.sort(key=lambda x: x[1], reverse=True)
+    best_type, best_conf = matches[0]
+    # Ambiguity penalty: top-2 within 0.1
+    if len(matches) >= 2 and (matches[0][1] - matches[1][1]) < 0.1:
+        best_conf *= 0.7
+    return best_type, best_conf
+
+
+# B-10: User style detection constants
+_FORMAL_MARKERS = ("por favor", "poderia", "seria possível", "obrigado", "agradeço")
+_INFORMAL_MARKERS = ("fixe", "giro", "bora", "vamos", "ok", "ta", "ya", "fds", "lol", "haha")
+_TECH_MARKERS = ("api", "endpoint", "json", "async", "deploy", "docker", "kubernetes",
+                 "regex", "pipeline", "middleware", "callback", "database", "sql",
+                 "python", "javascript", "html", "css", "react", "vue", "node")
+_EN_WORDS = ("the", "and", "for", "with", "this", "that", "from", "can", "you", "how")
+
+
+def detect_user_style(chat_messages: list[dict] | None = None) -> str:
+    """B-10: Detect user communication style from recent chat history.
+
+    Returns a style hint string to append to the system prompt.
+    Analyzes: message length, formality, technical vocabulary, language mixing.
+    Accepts pre-filtered user messages list for testability.
+    """
+    if not chat_messages or len(chat_messages) < 3:
+        return ""
+    texts = [str(m.get("text") or "") for m in chat_messages]
+    avg_len = sum(len(t) for t in texts) / max(len(texts), 1)
+    formal_count = sum(1 for t in texts if any(m in t.lower() for m in _FORMAL_MARKERS))
+    informal_count = sum(1 for t in texts if any(m in t.lower() for m in _INFORMAL_MARKERS))
+    tech_count = sum(1 for t in texts if any(m in t.lower() for m in _TECH_MARKERS))
+    tech_ratio = tech_count / max(len(texts), 1)
+    code_count = sum(1 for t in texts if "```" in t)
+    en_count = sum(1 for t in texts if sum(1 for w in _EN_WORDS if f" {w} " in t.lower()) >= 2)
+    hints: list[str] = []
+    if avg_len < 30:
+        hints.append("O utilizador prefere respostas curtas e directas.")
+    elif avg_len > 150:
+        hints.append("O utilizador aprecia respostas detalhadas e completas.")
+    if formal_count > informal_count and formal_count >= 3:
+        hints.append("Mantém um tom formal e profissional.")
+    elif informal_count > formal_count and informal_count >= 3:
+        hints.append("Podes usar um tom mais casual e directo.")
+    if tech_ratio > 0.5 or code_count >= 2:
+        hints.append("Utilizador técnico — usa terminologia técnica sem explicar conceitos básicos.")
+    if en_count >= 3:
+        hints.append("O utilizador mistura português e inglês — podes usar termos técnicos em inglês.")
+    return " ".join(hints)
+
+
 def analyze(text: str) -> dict[str, Any]:
     t = text.strip()
     low = t.lower()
     ttype = "general"
+    classify_method = "regex"
+    classify_confidence = 0.0
 
-    # Hybrid: regex first, then embedding classifier for ambiguous cases
-    for name, rx in TYPE_RULES:
-        if re.search(rx, low, re.I):
-            ttype = name
-            break
+    # B-04: Multi-match regex with confidence scoring
+    regex_type, regex_conf = _regex_confidence(low)
+    classify_confidence = regex_conf
+
     if MATH_RE.match(low.replace("quanto é", "").replace("quanto e", "").replace("calcula", "").strip()):
         ttype = "math"
-
-    # Embedding-based intent refinement for "general" type
-    if ttype == "general" and len(t) > 5:
+        classify_method = "regex_math"
+    elif regex_conf >= 0.5:
+        ttype = regex_type
+        classify_method = "regex"
+    elif regex_conf > 0.0 and len(t) > 5:
+        embed_type = _classify_by_embedding(t)
+        if embed_type != "general" and embed_type != regex_type:
+            ttype = embed_type
+            classify_method = "embedding_override"
+        elif regex_type != "general":
+            ttype = regex_type
+            classify_method = "regex_low_conf"
+        else:
+            ttype = embed_type if embed_type != "general" else "general"
+            classify_method = "embedding"
+    elif len(t) > 5:
         ttype = _classify_by_embedding(t)
+        classify_method = "embedding"
 
     complexity = 2
     if len(t) > 80:
@@ -143,6 +228,8 @@ def analyze(text: str) -> dict[str, Any]:
         "title": t[:160],
         "type": ttype,
         "complexity": complexity,
+        "classify_method": classify_method,
+        "classify_confidence": classify_confidence,
         "reasoning_required": reasoning,
         "context_required": "low" if complexity <= 3 else "medium" if complexity <= 6 else "high",
         "latency_priority": "high" if ttype in ("math", "status") else "medium",
@@ -223,14 +310,17 @@ def cache_lookup(text: str, ns: str = "") -> dict | None:
     hit = store.cache_get(key)
     if hit:
         return hit
-    # Semantic cache: search by embedding similarity
+    # B-09: Semantic cache — lowered threshold from 0.75 to 0.65 for better recall on paraphrases
     from .feature_flags import is_enabled
     if not is_enabled("semantic_cache"):
         return None
     from .memory_vec import vectors
     if not vectors.available():
         return None
-    results = vectors.search("cache", text, k=1, min_score=0.75)
+    norm = normalize_query(text)
+    results = vectors.search("cache", norm, k=1, min_score=0.65)
+    if not results:
+        results = vectors.search("cache", text, k=1, min_score=0.65)
     if not results:
         return None
     r = results[0]

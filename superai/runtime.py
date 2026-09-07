@@ -419,7 +419,8 @@ def _dialogue(n: int = 4, current: str | None = None) -> list[str]:
 
 def _llm_prompt(text: str, merged: list[dict], dialogue: list[str] | None = None, task_type: str = "general") -> str:
     """Pedido + diálogo curto + memória. Context-aware: adapts prompt to task type.
-    
+
+    B-10: Adaptive personality — detects user style and adapts tone.
     Status/math: minimal context (no history, no memory)
     Coding: include relevant code context
     Research: include broader knowledge
@@ -429,7 +430,7 @@ def _llm_prompt(text: str, merged: list[dict], dialogue: list[str] | None = None
         "Compreende o objectivo antes de responder. Não inventes APIs, dados, ferramentas, preços, resultados nem capacidades. "
         "Se não souberes, diz. Distingue facto, estimativa, hipótese e opinião. Prefere simples e verificável. "
         "Solução primeiro; detalhes depois. Grelha Objectivo/Análise/Solução só se o pedido for complexo. "
-        "Tens acesso a: pesquisa web, GitHub, notícias, memória de longo prazo, knowledge graph. "
+        "Tens acesso a: pesquisa web (SearXNG não configurado — usas outras fontes), GitHub, notícias, memória de longo prazo, knowledge graph. "
         "Usa essas ferramentas quando precisares de informação actual ou específica. "
         "Se criares um site, emite ficheiros em fences com path: ```html index.html … ``` "
         "Só HTML/CSS/JS em data/projects — não alteras o núcleo GOD. "
@@ -437,7 +438,13 @@ def _llm_prompt(text: str, merged: list[dict], dialogue: list[str] | None = None
         "Para perguntas complexas, pensa passo a passo antes de responder. "
         "Prioridade: Verdade → Precisão → Segurança → Utilidade → Eficiência → Simplicidade."
     ]
-    
+    # B-10: Adaptive personality
+    with _lock:
+        user_msgs = [m for m in _chat if m.get("role") == "user"][-15:]
+    from .brain import detect_user_style
+    style_hint = detect_user_style(user_msgs)
+    if style_hint:
+        parts.append("ESTILO: " + style_hint)
     # Task-type specific context optimization
     _skip_dialogue = task_type in ("math", "status", "parse") and len(text) < 80
     _max_memory = 5 if task_type in ("coding", "research") else 3
