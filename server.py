@@ -765,6 +765,40 @@ def fine_memory_search(q: str = ""):
     items = fine_memory_search(q, 10) if q else []
     return {"count": len(items), "items": items}
 
+
+@app.get("/api/brain/status")
+def brain_status():
+    """What is GOD doing right now?"""
+    from superai.autonomous_learner import status as learner_status
+    from superai.idle_worker import status as idle_status
+    from superai.knowledge_auditor import status as auditor_status
+    from superai.health import diagnostics
+    
+    health = diagnostics()
+    learner = learner_status()
+    idle = idle_status()
+    auditor = auditor_status()
+    
+    return {
+        "health_pct": health.get("health_pct", 0),
+        "health_components": health.get("components", {}),
+        "learner": {
+            "running": learner.get("running", False),
+            "facts_learned": learner.get("learned_facts", 0),
+            "cycles": learner.get("cycle_count", 0),
+        },
+        "idle_worker": {
+            "running": idle.get("running", False),
+            "tasks_done": idle.get("tasks_done", 0),
+            "last_task": idle.get("last_task", {}),
+        },
+        "auditor": {
+            "running": auditor.get("running", False),
+            "audits_done": auditor.get("audit_count", 0),
+            "fine_memory": auditor.get("fine_memory_count", 0),
+        },
+    }
+
 @app.post("/api/chat/stream")
 async def chat_stream(body: ChatIn):
     """Streaming chat via SSE — runs handle() then streams result text to frontend."""

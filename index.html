@@ -3072,30 +3072,99 @@ function showChatWelcome() {
   try {
     var box = document.getElementById('chat-m');
     if (!box || box.children.length > 0) return;
+
+    // Build live dashboard
     var div = document.createElement('div');
     div.className = 'chat-welcome';
-    div.innerHTML = '<div style="font-size:32px;margin-bottom:12px">GOD</div>' +
-      '<h3>Ola! Sou a GOD</h3>' +
-      '<p>Inteligencia artificial autonoma. Pergunta-me qualquer coisa.</p>';
+    div.style.cssText = 'text-align:left;max-width:100%;padding:16px';
+
+    // Header
+    div.innerHTML = '<div style="text-align:center;margin-bottom:16px">' +
+      '<div style="font-size:28px;margin-bottom:4px">🧠</div>' +
+      '<h3 style="margin:0 0 4px">GOD está activa</h3>' +
+      '<p style="margin:0;font-size:11px;color:var(--dim)">A ganhar conhecimento em background</p></div>' +
+      '<div id="welcome-status" style="font-size:11px;color:var(--dim);margin-bottom:12px">A carregar estado...</div>';
+
+    box.appendChild(div);
+
+    // Fetch live status
+    var statusDiv = document.getElementById('welcome-status');
+    var statusParts = [];
+
+    // Health
+    fetch('/api/health').then(function(r){return r.json();}).then(function(d){
+      var pct = d.health_pct || 0;
+      var icon = pct >= 80 ? '🟢' : pct >= 50 ? '🟡' : '🔴';
+      statusParts.push(icon + ' Saude: ' + pct + '%');
+      if(statusDiv) statusDiv.innerHTML = statusParts.join('<br>');
+    }).catch(function(){});
+
+    // Learner
+    fetch('/api/learner/status').then(function(r){return r.json();}).then(function(d){
+      if(d.running){
+        statusParts.push('📚 Aprendizagem: ' + (d.learned_facts||0) + ' factos, ' + (d.cycle_count||0) + ' ciclos');
+      } else {
+        statusParts.push('📚 Aprendizagem: parada');
+      }
+      if(statusDiv) statusDiv.innerHTML = statusParts.join('<br>');
+    }).catch(function(){});
+
+    // Idle Worker
+    fetch('/api/idle-worker/status').then(function(r){return r.json();}).then(function(d){
+      if(d.running){
+        statusParts.push('⚙️ Worker ocioso: ' + (d.tasks_done||0) + ' tarefas de conhecimento');
+        if(d.last_task && d.last_task.task){
+          statusParts.push('  └ Última: ' + d.last_task.task + ' → ' + (d.last_task.result||'').substring(0,50));
+        }
+      } else {
+        statusParts.push('⚙️ Worker ocioso: parado');
+      }
+      if(statusDiv) statusDiv.innerHTML = statusParts.join('<br>');
+    }).catch(function(){});
+
+    // Auditor
+    fetch('/api/auditor/status').then(function(r){return r.json();}).then(function(d){
+      if(d.running){
+        statusParts.push('🔍 Auditor: ' + (d.fine_memory_count||0) + ' memória fina, ' + (d.audit_count||0) + ' auditorias');
+      } else {
+        statusParts.push('🔍 Auditor: parado');
+      }
+      if(statusDiv) statusDiv.innerHTML = statusParts.join('<br>');
+    }).catch(function(){});
+
+    // Memory
+    fetch('/api/metrics').then(function(r){return r.json();}).then(function(d){
+      if(d.health_pct !== undefined){
+        statusParts.push('💾 Memória fina: ' + (d.health_pct>=70 ? 'curada' : 'a curar'));
+      }
+      if(statusDiv) statusDiv.innerHTML = statusParts.join('<br>');
+    }).catch(function(){});
+
+    // Quick action buttons
     var btns = document.createElement('div');
     btns.style.cssText = 'margin-top:16px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center';
     var items = [
-      ['Noticias', 'o que esta a acontecer no mundo?'],
-      ['Estado', 'estado do sistema'],
-      ['Pesquisar', 'pesquisa na web inteligencia artificial'],
-      ['Roadmap', 'roadmap']
+      ['📰 Noticias', 'o que esta a acontecer no mundo?'],
+      ['📊 Estado', 'estado do sistema'],
+      ['🔍 Pesquisar', 'pesquisa na web inteligencia artificial'],
+      ['🗺️ Roadmap', 'roadmap'],
+      ['🧠 Memória fina', 'mostra a memoria fina curada'],
+      ['📚 Aprendido', 'o que aprendeste hoje?']
     ];
     for (var i = 0; i < items.length; i++) {
       var b = document.createElement('button');
-      b.className = 'qb';b.style.cssText='padding:6px 14px;border-radius:8px;border:1px solid var(--line);background:var(--glass);font-size:11px;color:var(--accent);cursor:pointer;font-weight:600';
+      b.className = 'qb';
+      b.style.cssText = 'padding:6px 14px;border-radius:8px;border:1px solid var(--line);background:var(--glass);font-size:11px;color:var(--accent);cursor:pointer;font-weight:600;transition:all 0.2s';
       b.textContent = items[i][0];
       b.setAttribute('data-q', items[i][1]);
+      b.onmouseenter = function(){this.style.background='var(--accent)';this.style.color='var(--bg)'};
+      b.onmouseleave = function(){this.style.background='var(--glass)';this.style.color='var(--accent)'};
       b.onclick = function() { sendChat(this.getAttribute('data-q')); };
       btns.appendChild(b);
     }
     div.appendChild(btns);
-    box.appendChild(div);
-  } catch(e) {}
+
+  } catch(e) { console.error('welcome error:', e); }
 }
 
 // Hook chat toggle safely (after DOM ready)

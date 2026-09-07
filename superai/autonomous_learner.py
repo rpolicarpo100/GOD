@@ -353,7 +353,7 @@ def _monitor_tracked_topics() -> None:
                     # Extract key terms (simple: most frequent non-stop words)
                     words = title.split()
                     for w in words:
-                        w = w.strip(".,;:!?"'")
+                        w = w.strip('.,;:!?"\' \t')
                         if len(w) > 3 and w not in ("como", "qual", "sobre", "para", "com", "that", "what", "this"):
                             user_topics[w] = user_topics.get(w, 0) + 1
         

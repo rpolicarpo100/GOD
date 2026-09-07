@@ -96,6 +96,16 @@ def _pick_task() -> dict | None:
             val = t.get("value") or {}
             if isinstance(val, dict) and val.get("topic"):
                 return {"name": "news_research", "topic": val["topic"], "type": "news"}
+    # Default: research interesting global topics
+    default_topics = [
+        "artificial intelligence breakthroughs",
+        "Portugal tecnologia",
+        "ciência espaço",
+        "economia global",
+        "programação python",
+    ]
+    import random
+    return {"name": "news_research", "topic": random.choice(default_topics), "type": "news"}
 
     # Priority 2: Explore registered sites for new content
     try:
@@ -108,14 +118,26 @@ def _pick_task() -> dict | None:
     except Exception:
         pass
 
-    # Priority 3: Research topics from recent user queries
+    # Priority 3: Research topics from recent user queries (skip garbage)
     recent = store.tasks(20)
     research_topics = []
+    _garbage = {"test", "query", "expire", "stale", "unique", "xyz", "benchmark", "debug"}
     for t in recent:
         if t.get("type") in ("research", "general", "web_search") and t.get("title"):
-            title = t["title"].lower()
-            if len(title) > 10:
+            title = t["title"].lower().strip()
+            # Skip garbage test queries
+            words = set(title.split())
+            if len(title) > 10 and not words.intersection(_garbage):
                 research_topics.append(title[:80])
+    # If no real queries, use default interesting topics
+    if not research_topics:
+        research_topics = [
+            "inteligência artificial 2026",
+            "python machine learning",
+            "tecnologia portugal",
+            "ciência descobertas",
+            "economia digital",
+        ]
     if research_topics:
         import random
         return {"name": "topic_research", "query": random.choice(research_topics), "type": "research"}
