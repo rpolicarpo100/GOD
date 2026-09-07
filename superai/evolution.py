@@ -264,8 +264,7 @@ def _compare_with_baseline(baseline: dict, bench: dict) -> dict:
         return {"status": "no_comparison", "kind": "UNKNOWN"}
     b_metrics = baseline.get("metrics", {})
     return {
-        "status": "compared",
-        "kind": "MEASURED",
+        "status": "compared", "kind": "MEASURED",
         "baseline_ts": baseline.get("ts"),
         "benchmark_run": bench.get("run_id"),
         "benchmark_passed": bench.get("n_passed", 0),
@@ -274,6 +273,47 @@ def _compare_with_baseline(baseline: dict, bench: dict) -> dict:
         "baseline_tool_calls": b_metrics.get("tool_calls_total", 0),
         "baseline_cache_hits": b_metrics.get("cache_hits", 0),
     }
+
+
+def rollback_experiment(xid: str, reason: str = "manual") -> dict:
+    """Rollback an experiment to its previous state."""
+    exp = store.get_experiment(xid)
+    if not exp:
+        return {"ok": False, "error": "experiment not found"}
+    before = exp.get("before")
+    if not before:
+        return {"ok": False, "error": "no baseline recorded — cannot rollback"}
+    exp["status"] = "rolled_back"
+    exp["rollback_reason"] = reason
+    exp["rollback_at"] = now_iso()
+    store.save_experiment(exp)
+    bus.emit("EXPERIMENT_ROLLED_BACK", "EVOLUTION", f"{xid}: {reason}")
+    try:
+        from .trace import record_system_metric
+        record_system_metric("evolution_rolled_back")
+    except Exception:
+        pass
+    return {"ok": True, "experiment": xid, "reason": reason, "baseline": before}
+
+
+def check_regression_and_rollback() -> dict:
+    """Check recent experiments for regression and auto-rollback if needed."""
+    exps = store.experiments(10)
+    rolled_back = []
+    for exp in exps:
+        if exp.get("status") != "adopted":
+            continue
+        before = exp.get("before")
+        after = exp.get("after")
+        if not before or not after:
+            continue
+        bq = (before.get("scores") or {}).get("OVERALL", 0)
+        aq = (after.get("scores") or {}).get("OVERALL", 0)
+        if bq > 0 and aq < bq * 0.8:
+            result = rollback_experiment(exp["id"], reason=f"regression: quality {bq}→{aq}")
+            if result.get("ok"):
+                rolled_back.append(exp["id"])
+    return {"checked": len(exps), "rolled_back": rolled_back}
 
 
 def _auto_apply_pending() -> None:

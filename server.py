@@ -1036,6 +1036,29 @@ def api_exp(body: ExpIn, authorization: str | None = Header(default=None)):
     return {"msg": evolution.decide(body.id, body.approve)}
 
 
+class EvolutionRollbackIn(BaseModel):
+    experiment_id: str = ""
+    reason: str = "manual"
+
+
+@app.post("/api/evolution/rollback")
+def api_rollback(body: EvolutionRollbackIn, authorization: str | None = Header(default=None)):
+    """Rollback an experiment or auto-check for regressions."""
+    _require_perm(authorization, auth.Perm.EVOLUTION_EXECUTE)
+    from superai.evolution import rollback_experiment, check_regression_and_rollback
+    if body.experiment_id == "__auto__":
+        return check_regression_and_rollback()
+    return rollback_experiment(body.experiment_id, body.reason)
+
+
+@app.get("/api/evolution/rollback/auto")
+def api_auto_rollback(authorization: str | None = Header(default=None)):
+    """Auto-check for regressions and rollback if needed."""
+    _require_perm(authorization, auth.Perm.EVOLUTION_EXECUTE)
+    from superai.evolution import check_regression_and_rollback
+    return check_regression_and_rollback()
+
+
 @app.post("/api/workers/register")
 def w_reg(body: WorkerIn, authorization: str | None = Header(default=None)):
     """Register worker. Remote workers require SUPERAI_WORKER_TOKEN."""
