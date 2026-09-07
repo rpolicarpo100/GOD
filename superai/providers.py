@@ -584,6 +584,11 @@ ADAPTERS: list[Provider] = [
     OpenAICompatAdapter("nvidia", "NVIDIA NIM", "NVIDIA_API_KEY", "https://integrate.api.nvidia.com/v1"),
     OpenAICompatAdapter("sambanova", "SambaNova", "SAMBANOVA_API_KEY", "https://api.sambanova.ai/v1"),
     OpenAICompatAdapter("mistral", "Mistral AI", "MISTRAL_API_KEY", "https://api.mistral.ai/v1"),
+    # ── New providers added ──────────────────────────────────────
+    OpenAICompatAdapter("deepseek", "DeepSeek", "DEEPSEEK_API_KEY", "https://api.deepseek.com/v1"),
+    OpenAICompatAdapter("huggingface", "Hugging Face", "HUGGINGFACE_API_KEY", "https://api-inference.huggingface.co/v1"),
+    OpenAICompatAdapter("aimlapi", "AI/ML API", "AIMLAPI_API_KEY", "https://api.aimlapi.com/v1"),
+    OpenAICompatAdapter("replicate", "Replicate", "REPLICATE_API_TOKEN", "https://api.replicate.com/v1"),
     ClaudeAdapter(),
 ]
 
