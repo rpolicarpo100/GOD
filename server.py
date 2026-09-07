@@ -230,27 +230,43 @@ def _close_httpx_clients():
 async def _lifespan(app):
     # Startup
     log.info("GOD starting up...")
-    compute.start_local_worker()
-    tq.heartbeat(compute.LOCAL_ID)
-    aios.boot()
-    auth.init()
-    _ensure_flags()
+    try:
+        compute.start_local_worker()
+    except Exception as e:
+        log.warning("Local worker start failed: %s", e)
+    try:
+        tq.heartbeat(compute.LOCAL_ID)
+    except Exception as e:
+        log.warning("Queue heartbeat failed: %s", e)
+    try:
+        aios.boot()
+    except Exception as e:
+        log.error("Boot failed: %s", e, exc_info=True)
+    try:
+        auth.init()
+    except Exception as e:
+        log.error("Auth init failed: %s", e, exc_info=True)
+    try:
+        _ensure_flags()
+    except Exception as e:
+        log.warning("Feature flags init failed: %s", e)
     port = int(os.environ.get("GOD_PORT", "8000"))
-    # Auto-detect if port is blocked (Windows firewall etc)
-    import socket
-    for fallback_port in [port, 8080, 3000, 9000, 5000]:
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.bind(("0.0.0.0", fallback_port))
-            s.close()
-            port = fallback_port
-            break
-        except OSError:
-            continue
-    os.environ["GOD_PORT"] = str(port)
     log.info("GOD ready. Port %s", port)
     print(f"\n🌐 GOD UI: http://localhost:{port}", flush=True)
     print(f"   Se nao acederes, tenta: http://127.0.0.1:{port}", flush=True)
+    # Show provider status
+    try:
+        from superai import providers
+        hs = providers.health_all()
+        avail = [h for h in hs if h.get("available")]
+        if avail:
+            names = ", ".join(h["name"] for h in avail[:3])
+            print(f"   Providers: {len(avail)}/{len(hs)} ({names})", flush=True)
+        else:
+            print(f"   ⚠️  Providers: 0/{len(hs)} — GOD em modo OFFLINE", flush=True)
+            print(f"   Configura API keys: ./god.sh config", flush=True)
+    except Exception:
+        pass
     yield
     # Shutdown — graceful cleanup
     log.info("GOD shutting down...")
@@ -618,7 +634,11 @@ def api_repair(authorization: str | None = Header(default=None)):
 
 @app.post("/api/chat")
 def chat(body: ChatIn):
-    return handle(body.text, from_worker=body.from_worker)
+    try:
+        return handle(body.text, from_worker=body.from_worker)
+    except Exception as e:
+        log.error("Chat error: %s", e, exc_info=True)
+        return {"ok": False, "error": str(e), "via": "error"}
 
 
 
@@ -1103,7 +1123,12 @@ async def stream():
 
     async def gen():
         try:
-            yield f"event: snapshot\ndata: {json.dumps(snapshot(), ensure_ascii=False)}\n\n"
+            try:
+                snap = snapshot()
+            except Exception as e:
+                log.error("SSE snapshot failed: %s", e)
+                snap = {}
+            yield f"event: snapshot\ndata: {json.dumps(snap, ensure_ascii=False)}\n\n"
             while True:
                 try:
                     kind, payload = await asyncio.wait_for(q.get(), timeout=30.0)
@@ -1640,3 +1665,28 @@ def api_set_network_policy(
     from superai import network_control
     network_control.set_network_policy(allow_outbound, allow_lan, allow_remote)
     return {"ok": True, "policy": network_control.get_controller().get_stats().get("policy")}
+
+
+# ─── Auto-start ──────────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    import uvicorn
+
+    def _find_port(preferred: int = 8000) -> int:
+        """Find an available port, trying preferred first then fallbacks."""
+        import socket
+        for port in [preferred, 8080, 3000, 9000, 5000]:
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                s.bind(("0.0.0.0", port))
+                s.close()
+                return port
+            except OSError:
+                continue
+        print("❌ All ports blocked! Free a port or set GOD_PORT=<number>")
+        sys.exit(1)
+
+    port = _find_port(int(os.environ.get("GOD_PORT", "8000")))
+    os.environ["GOD_PORT"] = str(port)
+    print(f"\n🚀 Starting GOD on port {port}...")
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")

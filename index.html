@@ -1709,8 +1709,13 @@ $('chat-f').addEventListener('submit',e=>{
     }
     return readChunk();
   }).catch(()=>{
-    fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-  }).finally(()=>{if(ti)ti.style.display='none';streamingActive=false;});
+    // Fallback to non-streaming chat
+    fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+      .then(r=>r.json()).then(d=>{
+        const text=d.error||d.text||JSON.stringify(d);
+        streamSpan.textContent=text;
+      }).catch(()=>{streamSpan.textContent='Erro de conexão. Verifica se o servidor está a correr.';});
+  }).finally(()=>{if(ti)ti.style.display='none';streamingActive=false;$('chat-m').scrollTop=$('chat-m').scrollHeight;});
 });
 const QA=[
   {l:'📊 Estado',q:'estado'},
@@ -2156,7 +2161,7 @@ function setConnected(c){
   }else{
     badge.className='h-badge warn';
     $('h-sys-t').textContent='Connecting...';
-    if(reconnectAttempts>1&&overlay){
+    if(reconnectAttempts>=1&&overlay){
       overlay.style.display='flex';
       $('loading-msg').textContent='A reconectar ao GOD...';
       $('loading-sub').textContent='Tentativa '+reconnectAttempts+' — tentando novamente em '+Math.round(Math.min(2000*Math.pow(1.5,reconnectAttempts),30000)/1000)+'s';
@@ -2202,11 +2207,18 @@ function connect(){
     fetch('/api/state').then(r=>{setConnected(true);return r.json();}).then(paint).catch(()=>{});
   };
 }
-fetch('/api/state').then(r=>r.json()).then(d=>{
+// Initial state fetch with timeout
+const initStateCtrl=new AbortController();
+const initStateTimer=setTimeout(()=>initStateCtrl.abort(),10000);
+fetch('/api/state',{signal:initStateCtrl.signal}).then(r=>{clearTimeout(initStateTimer);return r.json();}).then(d=>{
   paint(d);
   if(d.perf) perfData=d.perf;
+  connect();
 }).catch(()=>{
+  clearTimeout(initStateTimer);
   $('h-sys').className='h-badge crit';$('h-sys-t').textContent='Offline';setCore('offline','Offline');
+  // Still try to connect SSE for when server comes up
+  setTimeout(connect,2000);
 });
   // Proactive suggestions
   fetch('/api/suggestions').then(r=>r.json()).then(d=>{
@@ -2219,7 +2231,7 @@ fetch('/api/state').then(r=>r.json()).then(d=>{
       }
     }
   }).catch(()=>{});
-  try{connect();}catch(e){console.error('connect error:',e);setTimeout(connect,5000);}
+  // connect() is called after initial state fetch succeeds (see above)
 
 // Performance display with sparkline
 function updatePerfDisplay(){
