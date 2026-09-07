@@ -12,7 +12,7 @@ from pathlib import Path
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, ORJSONResponse, StreamingResponse
 
 from superai.config import DATA
 from pydantic import BaseModel
@@ -291,8 +291,10 @@ app = FastAPI(
 
 # CORS — allow local dev frontends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 
+app.add_middleware(GZipMiddleware, minimum_size=500)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Local-first: all origins (GOD runs on trusted network)

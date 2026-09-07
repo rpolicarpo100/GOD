@@ -33,6 +33,10 @@ class Store:
                 c.execute("PRAGMA journal_mode=WAL")
                 c.execute("PRAGMA busy_timeout=5000")
                 c.execute("PRAGMA synchronous=NORMAL")
+                c.execute("PRAGMA mmap_size=268435456")  # 256MB memory-mapped I/O
+                c.execute("PRAGMA cache_size=-64000")     # 64MB page cache
+                c.execute("PRAGMA temp_store=MEMORY")     # Temp tables em RAM
+                c.execute("PRAGMA wal_autocheckpoint=4000")  # Less frequent checkpoints
             except Exception as e:
                 _log.warning("store error: %s", e)
             self._tls.conn = c
