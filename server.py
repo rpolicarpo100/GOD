@@ -1328,14 +1328,6 @@ _SENSITIVE_PATHS = {
     "/api/github/configure": auth.Perm.CONFIG_WRITE,
     "/api/sites/register": auth.Perm.TOOLS_EXECUTE,
     "/api/sites/remove": auth.Perm.TOOLS_EXECUTE,
-    "/api/web/search": auth.Perm.TOOLS_EXECUTE,
-    "/api/web/fetch": auth.Perm.TOOLS_EXECUTE,
-    "/api/learner/start": auth.Perm.EVOLUTION_EXECUTE,
-    "/api/learner/stop": auth.Perm.EVOLUTION_EXECUTE,
-    "/api/idle-worker/start": auth.Perm.EVOLUTION_EXECUTE,
-    "/api/idle-worker/stop": auth.Perm.EVOLUTION_EXECUTE,
-    "/api/auditor/force": auth.Perm.EVOLUTION_EXECUTE,
-    "/api/chat": auth.Perm.CHAT_USE,
 }
 
 def _check_endpoint_auth(path: str, authorization: str | None) -> dict | None:

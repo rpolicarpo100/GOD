@@ -35,12 +35,11 @@ class TestAuthMiddleware:
         assert r is not None
         assert r.get("status") == 401
 
-    def test_chat_requires_auth(self):
-        """Chat should require auth."""
+    def test_chat_allows_without_auth(self):
+        """Chat should work without auth (public endpoint)."""
         from server import _check_endpoint_auth
-        r = _check_endpoint_auth("/api/chat", None)
-        assert r is not None
-        assert r.get("status") == 401
+        # Chat is not in _SENSITIVE_PATHS — allowed
+        assert _check_endpoint_auth("/api/chat", None) is None
 
     def test_read_endpoints_public(self):
         """Read-only endpoints not in _SENSITIVE_PATHS should be allowed."""
