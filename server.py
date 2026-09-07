@@ -1102,6 +1102,62 @@ def api_memory_strategies():
     return {"strategies": mem.get_strategies(10)}
 
 
+class ExperimentIn(BaseModel):
+    name: str = ""
+    description: str = ""
+    old_behavior: str = ""
+    new_behavior: str = ""
+    metric: str = "quality"
+
+
+@app.post("/api/sandbox/experiment")
+def api_sandbox_create(body: ExperimentIn, authorization: str | None = Header(default=None)):
+    """Create experiment in sandbox."""
+    _require_perm(authorization, auth.Perm.EVOLUTION_EXECUTE)
+    from superai.experiment_sandbox import get_sandbox
+    return get_sandbox().create_experiment(body.name, body.description,
+                                            body.old_behavior, body.new_behavior, body.metric)
+
+
+@app.get("/api/sandbox/experiments")
+def api_sandbox_list():
+    """List sandbox experiments."""
+    from superai.experiment_sandbox import get_sandbox
+    return {"experiments": get_sandbox().list_experiments()}
+
+
+@app.post("/api/sandbox/experiment/{xid}/evaluate")
+def api_sandbox_evaluate(xid: str, authorization: str | None = Header(default=None)):
+    """Evaluate experiment results."""
+    _require_perm(authorization, auth.Perm.EVOLUTION_EXECUTE)
+    from superai.experiment_sandbox import get_sandbox
+    return get_sandbox().evaluate(xid)
+
+
+@app.post("/api/sandbox/experiment/{xid}/canary")
+def api_sandbox_canary(xid: str, pct: int = 10, authorization: str | None = Header(default=None)):
+    """Set canary deployment percentage."""
+    _require_perm(authorization, auth.Perm.EVOLUTION_EXECUTE)
+    from superai.experiment_sandbox import get_sandbox
+    return get_sandbox().canary_deploy(xid, pct)
+
+
+@app.post("/api/sandbox/experiment/{xid}/adopt")
+def api_sandbox_adopt(xid: str, authorization: str | None = Header(default=None)):
+    """Fully adopt experiment."""
+    _require_perm(authorization, auth.Perm.EVOLUTION_EXECUTE)
+    from superai.experiment_sandbox import get_sandbox
+    return get_sandbox().adopt(xid)
+
+
+@app.post("/api/sandbox/experiment/{xid}/rollback")
+def api_sandbox_rollback(xid: str, authorization: str | None = Header(default=None)):
+    """Rollback experiment."""
+    _require_perm(authorization, auth.Perm.EVOLUTION_EXECUTE)
+    from superai.experiment_sandbox import get_sandbox
+    return get_sandbox().rollback(xid, "manual")
+
+
 @app.post("/api/workers/register")
 def w_reg(body: WorkerIn, authorization: str | None = Header(default=None)):
     """Register worker. Remote workers require SUPERAI_WORKER_TOKEN."""
