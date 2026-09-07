@@ -121,6 +121,12 @@ def fetch_site(url: str, path: str = "") -> dict:
         return {**cached["result"], "cached": True}
 
     try:
+        # SSRF protection
+        from .network_control import validate_url
+        v = validate_url(full_url)
+        if not v.get("ok"):
+            return {"status": "error", "error": v.get("reason", "blocked"), "url": full_url}
+
         r = _client.get(full_url)
         if r.status_code != 200:
             return {"status": "error", "error": f"HTTP {r.status_code}", "url": full_url}

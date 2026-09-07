@@ -18,6 +18,10 @@ import httpx
 
 from .util import now_iso, sha
 
+# SSRF note: base_url is hardcoded to api.github.com (trusted).
+# All requests go through this client — no user-controlled URLs.
+# If raw file access is added, validate_url() must be called first.
+
 # Shared client
 _client = httpx.Client(
     base_url="https://api.github.com",

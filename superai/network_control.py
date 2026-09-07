@@ -255,3 +255,112 @@ def set_network_policy(
     """Set network policy."""
     _controller.set_policy(allow_outbound, allow_lan, allow_remote)
 
+# ═══════════════════════════════
+# URL VALIDATION (SSRF PROTECTION)
+# ═══════════════════════════════
+
+import re as _re
+from urllib.parse import urlparse as _urlparse
+
+_BLOCKED_PORTS_SSRF = {22, 23, 25, 445, 3389, 5900, 6379, 27017}
+
+_PRIVATE_RANGES = [
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+]
+
+
+def _is_private_ip(ip_str: str) -> bool:
+    """Check if an IP address is private/link-local/metadata."""
+    try:
+        ip = ipaddress.ip_address(ip_str)
+        for net in _PRIVATE_RANGES:
+            if ip in net:
+                return True
+        return False
+    except ValueError:
+        return False
+
+
+def validate_url(url: str | None) -> dict:
+    """Validate a URL against SSRF attacks.
+
+    Returns {"ok": True, "resolved_ip": ...} or {"ok": False, "reason": ...}.
+
+    Blocks:
+    - Empty/None URLs
+    - Non-HTTP(S) schemes (file://, ftp://, etc.)
+    - Private IPs (127.x, 10.x, 172.16-31.x, 192.168.x)
+    - Link-local (169.254.x.x — cloud metadata)
+    - IPv6 loopback (::1) and private ranges
+    - Blocked ports (22, 23, 25, 445, 3389, etc.)
+    - Hex/octal encoded IPs (0x7f000001, 2130706433)
+    - DNS rebinding (resolves hostname, checks resolved IP)
+    """
+    if not url or not isinstance(url, str):
+        return {"ok": False, "reason": "Empty or invalid URL"}
+
+    url = url.strip()
+
+    # Parse URL
+    try:
+        parsed = _urlparse(url)
+    except Exception:
+        return {"ok": False, "reason": "Cannot parse URL"}
+
+    # Scheme check
+    scheme = parsed.scheme.lower()
+    if scheme not in ("http", "https"):
+        return {"ok": False, "reason": f"Blocked scheme: {scheme}"}
+
+    # Host check
+    host = parsed.hostname
+    if not host:
+        return {"ok": False, "reason": "No hostname"}
+
+    # Port check
+    port = parsed.port
+    if port is not None and port in _BLOCKED_PORTS_SSRF:
+        return {"ok": False, "reason": f"Blocked port: {port}"}
+
+    # Direct IP check
+    try:
+        ip = ipaddress.ip_address(host)
+        if _is_private_ip(str(ip)):
+            return {"ok": False, "reason": f"Private/blocked IP: {host}"}
+        return {"ok": True, "resolved_ip": str(ip)}
+    except ValueError:
+        pass  # Not a raw IP — it's a hostname
+
+    # Hex/octal encoded IP attacks
+    # 0x7f000001 = 127.0.0.1, 2130706433 = 127.0.0.1
+    try:
+        # Try interpreting as integer IP
+        if _re.match(r"^(0x[0-9a-f]+|[0-9]+)$", host, _re.IGNORECASE):
+            if host.startswith("0x"):
+                int_ip = int(host, 16)
+            else:
+                int_ip = int(host)
+            if 0 <= int_ip <= 0xFFFFFFFF:
+                ip = ipaddress.ip_address(int_ip)
+                if _is_private_ip(str(ip)):
+                    return {"ok": False, "reason": f"Encoded private IP: {host} -> {ip}"}
+    except (ValueError, OverflowError):
+        pass
+
+    # DNS resolution + IP check (prevents DNS rebinding)
+    try:
+        resolved = socket.gethostbyname(host)
+        if _is_private_ip(resolved):
+            return {"ok": False, "reason": f"DNS resolves to private IP: {host} -> {resolved}"}
+        return {"ok": True, "resolved_ip": resolved}
+    except socket.gaierror:
+        return {"ok": False, "reason": f"Cannot resolve hostname: {host}"}
+    except Exception as e:
+        return {"ok": False, "reason": f"Resolution error: {str(e)[:60]}"}

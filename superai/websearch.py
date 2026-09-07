@@ -108,6 +108,12 @@ def search(query: str, max_results: int = 5) -> dict:
 def fetch_page(url: str, max_chars: int = 5000) -> dict:
     """Fetch and extract text content from a URL. Real-time web access."""
     try:
+        # SSRF protection
+        from .network_control import validate_url
+        v = validate_url(url)
+        if not v.get("ok"):
+            return {"status": "error", "error": v.get("reason", "blocked"), "url": url}
+
         r = _client.get(url, timeout=15.0)
         if r.status_code != 200:
             return {"status": "error", "error": f"HTTP {r.status_code}", "url": url}
